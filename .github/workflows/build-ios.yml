@@ -1,0 +1,44 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [amneziawg-ios12]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: amneziawg-apple
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: amneziawg-apple/Sources/WireGuardKitGo/go.mod
+          cache-dependency-path: amneziawg-apple/Sources/WireGuardKitGo/go.sum
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild \
+            -project WireGuard.xcodeproj \
+            -target WireGuardiOS \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          APP=$(find build/Release-iphoneos -maxdepth 1 -name '*.app' | head -n 1)
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qr AmneziaWG-ios12.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AmneziaWG-ios12-ipa
+          path: amneziawg-apple/AmneziaWG-ios12.ipa
