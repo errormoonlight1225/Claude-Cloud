@@ -264,8 +264,22 @@ extension SSIDOptionEditTableViewController {
         #if targetEnvironment(simulator)
         completionHandler("Simulator Wi-Fi")
         #else
-        NEHotspotNetwork.fetchCurrent { hotspotNetwork in
-            completionHandler(hotspotNetwork?.ssid)
+        if #available(iOS 14.0, *) {
+            NEHotspotNetwork.fetchCurrent { hotspotNetwork in
+                completionHandler(hotspotNetwork?.ssid)
+            }
+        } else {
+            var ssid: String?
+            if let interfaces = CNCopySupportedInterfaces() as? [String] {
+                for interface in interfaces {
+                    if let info = CNCopyCurrentNetworkInfo(interface as CFString) as? [String: Any],
+                       let name = info[kCNNetworkInfoKeySSID as String] as? String {
+                        ssid = name
+                        break
+                    }
+                }
+            }
+            completionHandler(ssid)
         }
         #endif
     }
