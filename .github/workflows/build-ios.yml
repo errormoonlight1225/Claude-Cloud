@@ -1,0 +1,46 @@
+name: Build iOS app
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16 (still supports an iOS 12 deployment target)
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -n 1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build unsigned IPA
+        run: |
+          xcodebuild \
+            -project ClaudeClient.xcodeproj \
+            -scheme ClaudeClient \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/ClaudeClient.app Payload/
+          zip -qr ClaudeClient-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeClient-unsigned-ipa
+          path: ClaudeClient-unsigned.ipa
