@@ -1,5 +1,5 @@
-// AutoTapper - iOS 系统级自动点击插件
-// 适配 iOS 16.2,支持 Dopamine (rootless) 与 TrollStore
+// AutoTapper - iOS 自动点击辅助插件
+// Theos rootless 构建目标为 iOS 15+；私有 HID API 的可用性需在目标系统实测
 //
 // 原理:越狱环境下通过 IOKit HID 合成数字化仪(触摸)事件,
 //       实现无需 target app 配合的系统级自动点击。
@@ -18,6 +18,7 @@ typedef double IOHIDFloat;
 typedef float IOHIDFloat;
 #endif
 typedef uint32_t IOHIDDigitizerTransducerType;
+typedef uint32_t IOOptionBits;
 #define kIOHIDEventFieldDigitizerIsDisplayIntegrated 720921u
 
 extern "C" {
@@ -197,8 +198,8 @@ static void performOneTap(void) {
 
 - (void)refreshInfo {
     NSString *mode = gDamaiMode ? @"大麦辅助" : @"通用模式";
-    NSString *safety = gDamaiMode ? @" · 连续运行10秒自动停止" : @"";
-    _infoLabel.text = [NSString stringWithFormat:@"%@ 点(%.0f, %.0f)\n间隔 %.2fs%@",
+    NSString *safety = gDamaiMode ? @" · 10秒自动停" : @"";
+    _infoLabel.text = [NSString stringWithFormat:@"%@ (%.0f,%.0f)\n间隔 %.2fs%@",
                        mode, gTapPoint.x, gTapPoint.y, gInterval, safety];
     [_modeBtn setTitle:(gDamaiMode ? @"大麦模式:开" : @"大麦模式:关") forState:UIControlStateNormal];
     _modeBtn.backgroundColor = gDamaiMode ? [UIColor systemOrangeColor] : [UIColor systemPurpleColor];
@@ -286,7 +287,8 @@ static void performOneTap(void) {
 static ATControlPanel *gPanel = nil;
 
 static void showPanel(void) {
-    if (gPanel) return;
+    if (gPanel && gPanel.window) return;
+    gPanel = nil;
     UIWindow *key = nil;
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
         if ([scene isKindOfClass:[UIWindowScene class]] &&
