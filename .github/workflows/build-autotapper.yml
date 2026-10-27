@@ -1,0 +1,53 @@
+name: Build AutoTapper DEB
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths:
+      - 'AutoTapper/**'
+      - '.github/workflows/build-autotapper.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'AutoTapper/**'
+      - '.github/workflows/build-autotapper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Theos and iOS SDK
+        uses: waruhachi/theos-action@main
+        with:
+          theos-src: theos/theos
+          theos-branch: master
+          sdks-src: theos/sdks
+          sdks-branch: master
+          remotelog: false
+          libgcuniversal: false
+          altlist: false
+          comet: false
+          orion: false
+
+      - name: Build rootless package
+        run: |
+          cd AutoTapper
+          make clean package FINALPACKAGE=1
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoTapper-deb
+          path: AutoTapper/packages/*.deb
+          if-no-files-found: error
+          retention-days: 14
