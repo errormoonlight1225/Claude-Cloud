@@ -1,9 +1,9 @@
-Package: com.example.autotapper
+Package: com.errormoonlight.autotapper
 Name: AutoTapper
-Version: 1.0.0
+Version: 1.1.0
 Architecture: iphoneos-arm64
-Description: 系统级自动点击插件,支持悬浮面板选点/调节间隔。适配 iOS 16.2 Dopamine。
-Maintainer: you
-Author: you
+Description: iOS 自动点击辅助插件，含大麦辅助模式、单点、坐标选择与安全停止。
+Maintainer: errormoonlight1225
+Author: errormoonlight1225
 Section: Tweaks
-Depends: mobilesubstrate, firmware (>= 15.0)
+Depends: ellekit | mobilesubstrate, firmware (>= 15.0)
