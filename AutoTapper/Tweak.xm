@@ -83,7 +83,7 @@ static void sendDigitizerEvent(CGPoint pt, BOOL down) {
         down, down, 0);
 
     IOHIDEventRef finger = IOHIDEventCreateDigitizerFingerEvent(
-        kCFAllocatorDefault, currentTimeNs(),
+        kCFAllocatorDefault, currentMachTime(),
         1, 2, mask, nx, ny, 0, down ? 1.0 : 0.0, 0,
         down, down, 0);
 
@@ -298,7 +298,13 @@ static void showPanel(void) {
             }
         }
     }
-    if (!key) key = [UIApplication sharedApplication].windows.firstObject;
+    if (!key) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            UIWindow *candidate = ((UIWindowScene *)scene).windows.firstObject;
+            if (candidate) { key = candidate; break; }
+        }
+    }
     if (!key) return;
 
     gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 170, 156)];
