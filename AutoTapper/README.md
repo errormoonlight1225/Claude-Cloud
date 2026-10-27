@@ -1,103 +1,40 @@
-# AutoTapper — iOS 系统级自动点击插件
+# AutoTapper — iOS 自动点击辅助插件
 
-适配 **iOS 16.2**,支持 **Dopamine(rootless 越狱)** 与 **TrollStore** 两种安装方式。
-
-一个注入到应用内的悬浮控制面板:可拖动、选点、调节间隔、一键启停。
-点击通过 IOKit 合成数字化仪(触摸)HID 事件实现,无需目标 App 配合。
-
----
+基于 Theos/Logos 的 rootless tweak，主要用于支持 rootless 的越狱环境（例如兼容版本的 Dopamine）。构建目标为 iOS 15.0+；由于触摸注入使用 IOKit 与 UIKit 私有接口，**能否运行取决于设备系统版本、越狱环境和接口是否仍可用**，尚不能仅凭编译成功保证在 iOS 27 上可用。
 
 ## 功能
 
-- 悬浮面板(可拖动到屏幕任意位置)
-- **选坐标**:点进选点模式,点屏幕任意处记录为点击点
-- **间隔**:0.1 / 0.3 / 0.5 / 1.0 / 2.0 秒循环切换
-- **开始 / 停止**:定时合成 touch down + touch up
+- 可拖动的悬浮控制面板
+- **选坐标**：在当前应用屏幕上选择点击位置
+- **单点一次**：只执行一次点击，适合手动辅助操作
+- **通用模式**：间隔在 0.1 / 0.3 / 0.5 / 1.0 / 2.0 秒之间循环
+- **大麦辅助模式**：间隔在 1.0 / 1.5 / 2.0 / 3.0 秒之间循环；每次连续运行最多 10 秒，随后自动停止，需要用户再次手动启动
+- 开始 / 停止按钮始终可手动控制
 
----
+大麦模式只是坐标点击的辅助预设，不会登录账号、自动提交订单或付款，也不包含验证码识别、排队绕过或规避平台反自动化机制。请由本人完成购票确认，并遵守平台规则；不要将选点位置设为验证码、提交订单或付款按钮。
 
-## 一、构建环境
+## 构建（GitHub Actions）
 
-需要 [Theos](https://theos.dev/docs/installation) + iOS SDK。在 macOS 或 Linux 上:
+仓库包含 GitHub Actions 构建流程。向包含此 workflow 的分支推送 `AutoTapper/` 文件改动后，会尝试使用 Theos 构建 rootless `.deb`。
 
-```bash
-# 安装 theos(按官网说明)
-export THEOS=~/theos
+1. 打开 GitHub 仓库的 **Actions**。
+2. 进入 **Build AutoTapper DEB**，打开最新一次运行。
+3. 在 **Artifacts** 中下载 `AutoTapper-deb`，解压后取得 `.deb` 文件。
 
-# arm64e 需要支持 iOS 16 的 SDK,放入 $THEOS/sdks/
-# 例如 iPhoneOS16.2.sdk
-```
+如果构建失败，Actions 运行日志会给出工具链或源码错误；这不代表已有可安装包。
 
-克隆本工程后:
+## 安装范围
 
-```bash
-cd AutoTapper
-make clean
-make package FINALPACKAGE=1
-```
+- **Sileo / Zebra**：将 `.deb` 安装到与设备兼容的 rootless 越狱环境中。仅编译出包并不等于已在设备上测试。
+- **TrollStore**：TrollStore 不直接安装 `.deb`。从 tweak 中提取 dylib 再注入目标应用属于另一条独立流程，是否可用取决于该 iOS 版本、注入工具与权限；不能视为系统级安装的等价替代。
+- **未越狱的普通 iOS**：不能直接安装这个 tweak。
 
-产物在 `packages/com.example.autotapper_1.0.0_iphoneos-arm64.deb`。
+## 技术说明
 
-> Makefile 默认 `THEOS_PACKAGE_SCHEME = rootless`(Dopamine 必须)。
-> 若用的是旧版 rootful 越狱,把该行改成 `rootful` 再编译。
+触摸事件由 IOKit HID digitizer 事件构造，再尝试通过 UIKit 私有的 `_enqueueHIDEvent:` 注入。源码使用屏幕点坐标、原始 Mach 时间戳，并给父事件设置 display-integrated 标记。Apple 私有接口可能随系统更新改变，因此必须在目标设备上验证。
 
----
+## 排错
 
-## 二、安装方式 A:Dopamine(rootless 越狱)
-
-1. 把生成的 `.deb` 传到设备。
-2. 用 **Sileo / Zebra** 打开安装,或命令行:
-   ```bash
-   # 在设备上(rootless 路径)
-   su -c 'dpkg -i /var/jb/...com.example.autotapper...deb'
-   ```
-3. 安装脚本会自动 `sbreload` / 重启 SpringBoard。
-4. 打开任意 App,约 1.5 秒后左上角出现悬浮面板。
-
-Dopamine 自带 ElleKit(Substrate 兼容层),`AutoTapper.plist`
-会让 dylib 注入所有链接 UIKit 的前台 App。
-
----
-
-## 三、安装方式 B:TrollStore
-
-TrollStore 本身安装的是 **IPA**,不直接吃 `.deb` tweak。两种做法:
-
-### B-1. 用注入工具把 dylib 塞进某个 IPA(推荐)
-
-1. 从上面编译产物里取出 dylib:
-   `.theos/obj/rootless/AutoTapper.dylib`(或解包 `.deb` 里的
-   `/var/jb/Library/MobileSubstrate/DynamicLibraries/AutoTapper.dylib`)。
-2. 用 **TrollFools**(TrollStore 生态的注入器)选中目标 App,
-   注入这个 dylib —— TrollFools 会自动处理签名与依赖。
-3. 因为 TrollStore 环境没有 Substrate,dylib 里的 `%hook` 由
-   TrollFools 内置的 ElleKit/libhooker 承接,可正常工作。
-
-### B-2. 做成独立 TrollStore App
-
-若想要一个独立图标的 App,把 `Tweak.xm` 里的面板逻辑
-搬进一个普通 UIKit App 工程,`%ctor` 改为 `application:didFinishLaunching`,
-用 TrollStore 安装该 IPA。此时只能在该 App 内点击(沙盒内)。
-要系统级点击仍建议走 B-1 注入目标 App。
-
----
-
-## 四、原理说明
-
-- `IOHIDEventCreateDigitizerFingerEvent` 合成手指触摸事件;
-- 归一化坐标后用 `UIApplication` 私有 `_enqueueHIDEvent:` 注入事件队列;
-- 一次点击 = touch down → 30ms → touch up;
-- `NSTimer` 按设定间隔重复。
-
-因使用 IOKit/私有 API,仅在越狱或 TrollStore 授予相应权限的环境下有效,
-普通 App Store 环境不可用。
-
----
-
-## 五、常见问题
-
-- **点不动**:部分 App 用了手势识别而非原始触摸,尝试把间隔调大、
-  或确认选点坐标在可点区域。
-- **面板不出现**:确认 dylib 注入成功;Dopamine 下看 Sileo 是否装上;
-  TrollStore 下确认 TrollFools 注入的是当前打开的 App。
-- **arm64e 崩溃**:确认用支持 iOS 16 的 SDK 编译,且 `ARCHS` 含 `arm64e`。
+- 面板不显示：确认 tweak 已安装、注入过滤器匹配 UIKit 应用，并重启目标应用。
+- 点击位置偏移：重新选择坐标；确认屏幕旋转和目标页面未变化。
+- 无响应或崩溃：先停止使用并卸载 tweak，检查设备上的越狱/注入环境及系统版本兼容性；不要在支付或提交订单页面测试。
