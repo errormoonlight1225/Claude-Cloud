@@ -7,6 +7,7 @@
 #import <UIKit/UIKit.h>
 #import <dlfcn.h>
 #import <mach/mach_time.h>
+#import <Vision/Vision.h>
 
 // ---------------------------------------------------------------------------
 // IOKit HID 私有接口声明
@@ -119,6 +120,7 @@ static void performOneTap(void) {
 @property (nonatomic, strong) UIButton *toggleBtn;
 @property (nonatomic, strong) UILabel *infoLabel;
 @property (nonatomic, strong) UIButton *modeBtn;
+@property (nonatomic, strong) UIButton *ocrBtn;
 @property (nonatomic, assign) CGPoint lastCenter;
 @end
 
@@ -187,6 +189,16 @@ static void performOneTap(void) {
         [_modeBtn addTarget:self action:@selector(toggleDamaiMode) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:_modeBtn];
 
+        _ocrBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        _ocrBtn.frame = CGRectMake(10, 156, frame.size.width - 20, 28);
+        _ocrBtn.backgroundColor = [UIColor colorWithRed:0.12 green:0.48 blue:0.38 alpha:1.0];
+        _ocrBtn.layer.cornerRadius = 7;
+        [_ocrBtn setTitle:@"识别文字并定位" forState:UIControlStateNormal];
+        [_ocrBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        _ocrBtn.titleLabel.font = [UIFont systemFontOfSize:12];
+        [_ocrBtn addTarget:self action:@selector(recognizeTargetText) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:_ocrBtn];
+
         UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
             initWithTarget:self action:@selector(onPan:)];
         [self addGestureRecognizer:pan];
@@ -243,6 +255,76 @@ static void performOneTap(void) {
     gDamaiMode = !gDamaiMode;
     gInterval = gDamaiMode ? 1.0 : 0.5;
     [self refreshInfo];
+}
+
+- (void)recognizeTargetText {
+    if (gRunning) [self stopTap];
+    UIWindow *win = self.window;
+    if (!win) return;
+
+    UIAlertController *ask = [UIAlertController alertControllerWithTitle:@"文字识别定位"
+        message:@"输入页面上可见的目标文字（例如“选择场次”）。识别后只定位坐标，不会自动点击；请确认位置后手动点“单点一次”。"
+        preferredStyle:UIAlertControllerStyleAlert];
+    [ask addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.placeholder = @"输入要查找的文字";
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    }];
+    __weak typeof(self) weakSelf = self;
+    [ask addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [ask addAction:[UIAlertAction actionWithTitle:@"识别" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSString *target = ask.textFields.firstObject.text ?: @"";
+        if (target.length == 0) return;
+        UIWindow *currentWindow = weakSelf.window;
+        if (!currentWindow) return;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithBounds:currentWindow.bounds];
+        UIImage *snapshot = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+            [currentWindow drawViewHierarchyInRect:currentWindow.bounds afterScreenUpdates:NO];
+        }];
+        if (!snapshot.CGImage) return;
+
+        VNRecognizeTextRequest *request = [[VNRecognizeTextRequest alloc] init];
+        request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
+        request.usesLanguageCorrection = YES;
+        request.recognitionLanguages = @[@"zh-Hans", @"en-US"];
+        VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCGImage:snapshot.CGImage options:@{}];
+        NSError *error = nil;
+        if (![handler performRequests:@[request] error:&error]) {
+            UIAlertController *failed = [UIAlertController alertControllerWithTitle:@"识别失败"
+                message:error.localizedDescription ?: @"请稍后重试。" preferredStyle:UIAlertControllerStyleAlert];
+            [failed addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [currentWindow.rootViewController presentViewController:failed animated:YES completion:nil];
+            return;
+        }
+        NSString *needle = [target stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        VNRecognizedTextObservation *match = nil;
+        for (VNRecognizedTextObservation *observation in request.results) {
+            NSString *candidate = observation.topCandidates(1).firstObject.string;
+            if (candidate.length && [candidate localizedCaseInsensitiveContainsString:needle]) {
+                match = observation;
+                break;
+            }
+        }
+        if (!match) {
+            UIAlertController *notFound = [UIAlertController alertControllerWithTitle:@"未找到文字"
+                message:@"请确认目标文字当前显示在屏幕上，尝试输入更短的关键词。" preferredStyle:UIAlertControllerStyleAlert];
+            [notFound addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [currentWindow.rootViewController presentViewController:notFound animated:YES completion:nil];
+            return;
+        }
+        CGRect box = match.boundingBox;
+        CGFloat px = CGRectGetMidX(box) * currentWindow.bounds.size.width;
+        CGFloat py = (1.0 - CGRectGetMidY(box)) * currentWindow.bounds.size.height;
+        gTapPoint = CGPointMake(px, py);
+        [weakSelf refreshInfo];
+        UIAlertController *found = [UIAlertController alertControllerWithTitle:@"已定位目标文字"
+            message:[NSString stringWithFormat:@"“%@”\n坐标：(%.0f, %.0f)\n不会自动点击，请检查是否定位正确。", needle, px, py]
+            preferredStyle:UIAlertControllerStyleAlert];
+        [found addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
+        [currentWindow.rootViewController presentViewController:found animated:YES completion:nil];
+    }]];
+    UIViewController *presenter = win.rootViewController;
+    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+    [presenter presentViewController:ask animated:YES completion:nil];
 }
 
 - (void)pickPoint {
@@ -307,7 +389,7 @@ static void showPanel(void) {
     }
     if (!key) return;
 
-    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 170, 156)];
+    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 170, 190)];
     [key addSubview:gPanel];
 }
 
