@@ -14,7 +14,7 @@ TWEAK_NAME = AutoTapper
 
 AutoTapper_FILES = Tweak.xm
 AutoTapper_CFLAGS = -fobjc-arc
-AutoTapper_FRAMEWORKS = UIKit CoreGraphics
+AutoTapper_FRAMEWORKS = UIKit CoreGraphics Vision
 AutoTapper_PRIVATE_FRAMEWORKS = IOKit
 AutoTapper_LIBRARIES =
 
