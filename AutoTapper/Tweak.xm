@@ -298,7 +298,7 @@ static void performOneTap(void) {
         NSString *needle = [target stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         VNRecognizedTextObservation *match = nil;
         for (VNRecognizedTextObservation *observation in request.results) {
-            NSString *candidate = observation.topCandidates(1).firstObject.string;
+            NSString *candidate = [observation.topCandidates:1].firstObject.string;
             if (candidate.length && [candidate localizedCaseInsensitiveContainsString:needle]) {
                 match = observation;
                 break;
