@@ -319,7 +319,11 @@ static void performOneTap(void) {
         UIAlertController *found = [UIAlertController alertControllerWithTitle:@"已定位目标文字"
             message:[NSString stringWithFormat:@"“%@”\n坐标：(%.0f, %.0f)\n不会自动点击，请检查是否定位正确。", needle, px, py]
             preferredStyle:UIAlertControllerStyleAlert];
-        [found addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
+        [found addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+        [found addAction:[UIAlertAction actionWithTitle:@"确认单击一次" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            // One user-confirmed tap only; never loop or auto-submit a purchase.
+            performOneTap();
+        }]];
         [currentWindow.rootViewController presentViewController:found animated:YES completion:nil];
     }]];
     UIViewController *presenter = win.rootViewController;
