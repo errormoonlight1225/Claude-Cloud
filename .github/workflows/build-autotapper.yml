@@ -44,10 +44,35 @@ jobs:
           cd AutoTapper
           make clean package FINALPACKAGE=1
 
+      - name: Prepare standalone injection dylib
+        run: |
+          mkdir -p injection
+          DYLIB="$(find AutoTapper/.theos .theos -type f -name 'AutoTapper.dylib' -print -quit 2>/dev/null || true)"
+          if [ -z "$DYLIB" ]; then
+            DYLIB="$(find AutoTapper -type f -name 'AutoTapper.dylib' -print -quit)"
+          fi
+          test -n "$DYLIB"
+          cp "$DYLIB" injection/AutoTapper.dylib
+          cat > injection/README.txt <<'EOF'
+          AutoTapper standalone tweak dylib
+          This is an injection component, not a signed IPA.
+          Only inject into apps/devices you own or are authorized to test.
+          Requires a compatible jailbreak/injection environment and matching arm64/arm64e runtime.
+          OCR finds text and sets a coordinate only; it does not auto-submit orders or bypass queues/captchas.
+          EOF
+
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: AutoTapper-deb
           path: AutoTapper/packages/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload injection dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoTapper-injection-dylib
+          path: injection/*
           if-no-files-found: error
           retention-days: 14
