@@ -12,7 +12,13 @@
 // IOKit HID 私有接口声明
 // ---------------------------------------------------------------------------
 typedef struct __IOHIDEvent *IOHIDEventRef;
+#if defined(__LP64__)
+typedef double IOHIDFloat;
+#else
+typedef float IOHIDFloat;
+#endif
 typedef uint32_t IOHIDDigitizerTransducerType;
+#define kIOHIDEventFieldDigitizerIsDisplayIntegrated 720921u
 
 extern "C" {
 IOHIDEventRef IOHIDEventCreateDigitizerEvent(
@@ -31,6 +37,7 @@ IOHIDEventRef IOHIDEventCreateDigitizerFingerEvent(
     Boolean range, Boolean touch, IOOptionBits options);
 
 void IOHIDEventAppendEvent(IOHIDEventRef parent, IOHIDEventRef child, IOOptionBits options);
+void IOHIDEventSetIntegerValue(IOHIDEventRef event, uint32_t field, int64_t value);
 }
 
 // BackBoardServices 事件分发接口
@@ -48,30 +55,29 @@ static CGPoint gTapPoint = CGPointMake(200, 400);
 static NSTimeInterval gInterval = 0.5;      // 两次点击间隔(秒)
 static BOOL gRunning = NO;
 static NSTimer *gTimer = nil;
+static NSTimer *gDamaiSafetyTimer = nil;
+static BOOL gDamaiMode = NO;
 
 // ---------------------------------------------------------------------------
 // 事件合成与分发
 // ---------------------------------------------------------------------------
-static uint64_t currentTimeNs(void) {
-    static mach_timebase_info_data_t tb;
-    if (tb.denom == 0) mach_timebase_info(&tb);
-    return mach_absolute_time() * tb.numer / tb.denom;
+static uint64_t currentMachTime(void) {
+    // IOHIDEvent constructors expect raw mach_absolute_time() ticks, not nanoseconds.
+    return mach_absolute_time();
 }
 
 // 通过 UIApplication 私有接口将合成事件注入事件队列
 static void sendDigitizerEvent(CGPoint pt, BOOL down) {
-    // 归一化坐标 (0..1)
-    CGSize screen = [UIScreen mainScreen].bounds.size;
-    CGFloat scale = [UIScreen mainScreen].scale;
-    IOHIDFloat nx = pt.x / screen.width;
-    IOHIDFloat ny = pt.y / screen.height;
+    // _enqueueHIDEvent: expects display-space points for the digitizer coordinates.
+    IOHIDFloat nx = (IOHIDFloat)pt.x;
+    IOHIDFloat ny = (IOHIDFloat)pt.y;
 
     uint32_t mask = kIOHIDDigitizerEventTouch | kIOHIDDigitizerEventPosition;
     if (down) mask |= kIOHIDDigitizerEventRange;
 
     IOHIDEventRef parent = IOHIDEventCreateDigitizerEvent(
-        kCFAllocatorDefault, currentTimeNs(),
-        2 /* kIOHIDDigitizerTransducerTypeHand */, 0, 0,
+        kCFAllocatorDefault, currentMachTime(),
+        3 /* kIOHIDDigitizerTransducerTypeHand */, 0, 0,
         mask, 0, nx, ny, 0, down ? 1.0 : 0.0, 0,
         down, down, 0);
 
@@ -81,6 +87,7 @@ static void sendDigitizerEvent(CGPoint pt, BOOL down) {
         down, down, 0);
 
     if (parent && finger) {
+        IOHIDEventSetIntegerValue(parent, kIOHIDEventFieldDigitizerIsDisplayIntegrated, 1);
         IOHIDEventAppendEvent(parent, finger, 0);
         // 经由 UIApplication 的私有 _enqueueHIDEvent: 注入
         UIApplication *app = [UIApplication sharedApplication];
@@ -94,7 +101,6 @@ static void sendDigitizerEvent(CGPoint pt, BOOL down) {
     }
     if (finger) CFRelease(finger);
     if (parent) CFRelease(parent);
-    (void)scale;
 }
 
 static void performOneTap(void) {
@@ -111,6 +117,7 @@ static void performOneTap(void) {
 @interface ATControlPanel : UIView
 @property (nonatomic, strong) UIButton *toggleBtn;
 @property (nonatomic, strong) UILabel *infoLabel;
+@property (nonatomic, strong) UIButton *modeBtn;
 @property (nonatomic, assign) CGPoint lastCenter;
 @end
 
@@ -159,6 +166,26 @@ static void performOneTap(void) {
         [spdBtn addTarget:self action:@selector(changeInterval) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:spdBtn];
 
+        UIButton *singleBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        singleBtn.frame = CGRectMake(10, 122, (frame.size.width - 26) / 2, 28);
+        singleBtn.backgroundColor = [UIColor colorWithWhite:0.28 alpha:1.0];
+        singleBtn.layer.cornerRadius = 7;
+        [singleBtn setTitle:@"单点一次" forState:UIControlStateNormal];
+        [singleBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        singleBtn.titleLabel.font = [UIFont systemFontOfSize:12];
+        [singleBtn addTarget:self action:@selector(singleTap) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:singleBtn];
+
+        _modeBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        _modeBtn.frame = CGRectMake(16 + (frame.size.width - 26) / 2, 122, (frame.size.width - 26) / 2, 28);
+        _modeBtn.backgroundColor = [UIColor systemPurpleColor];
+        _modeBtn.layer.cornerRadius = 7;
+        [_modeBtn setTitle:@"大麦模式:关" forState:UIControlStateNormal];
+        [_modeBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        _modeBtn.titleLabel.font = [UIFont systemFontOfSize:12];
+        [_modeBtn addTarget:self action:@selector(toggleDamaiMode) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:_modeBtn];
+
         UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
             initWithTarget:self action:@selector(onPan:)];
         [self addGestureRecognizer:pan];
@@ -169,24 +196,52 @@ static void performOneTap(void) {
 }
 
 - (void)refreshInfo {
-    _infoLabel.text = [NSString stringWithFormat:@"点 (%.0f, %.0f)\n间隔 %.2fs",
-                       gTapPoint.x, gTapPoint.y, gInterval];
+    NSString *mode = gDamaiMode ? @"大麦辅助" : @"通用模式";
+    NSString *safety = gDamaiMode ? @" · 连续运行10秒自动停止" : @"";
+    _infoLabel.text = [NSString stringWithFormat:@"%@ 点(%.0f, %.0f)\n间隔 %.2fs%@",
+                       mode, gTapPoint.x, gTapPoint.y, gInterval, safety];
+    [_modeBtn setTitle:(gDamaiMode ? @"大麦模式:开" : @"大麦模式:关") forState:UIControlStateNormal];
+    _modeBtn.backgroundColor = gDamaiMode ? [UIColor systemOrangeColor] : [UIColor systemPurpleColor];
+}
+
+- (void)stopTap {
+    gRunning = NO;
+    [gTimer invalidate];
+    gTimer = nil;
+    [gDamaiSafetyTimer invalidate];
+    gDamaiSafetyTimer = nil;
+    [_toggleBtn setTitle:@"开始" forState:UIControlStateNormal];
+    _toggleBtn.backgroundColor = [UIColor systemGreenColor];
 }
 
 - (void)toggleTap {
-    gRunning = !gRunning;
     if (gRunning) {
-        [_toggleBtn setTitle:@"停止" forState:UIControlStateNormal];
-        _toggleBtn.backgroundColor = [UIColor systemRedColor];
-        gTimer = [NSTimer scheduledTimerWithTimeInterval:gInterval
-                                                  repeats:YES
-                                                    block:^(NSTimer *t){ performOneTap(); }];
-    } else {
-        [_toggleBtn setTitle:@"开始" forState:UIControlStateNormal];
-        _toggleBtn.backgroundColor = [UIColor systemGreenColor];
-        [gTimer invalidate];
-        gTimer = nil;
+        [self stopTap];
+        return;
     }
+    gRunning = YES;
+    [_toggleBtn setTitle:@"停止" forState:UIControlStateNormal];
+    _toggleBtn.backgroundColor = [UIColor systemRedColor];
+    gTimer = [NSTimer scheduledTimerWithTimeInterval:gInterval
+                                              repeats:YES
+                                                block:^(NSTimer *t){ performOneTap(); }];
+    if (gDamaiMode) {
+        __weak typeof(self) weakSelf = self;
+        gDamaiSafetyTimer = [NSTimer scheduledTimerWithTimeInterval:10.0
+                                                              repeats:NO
+                                                                block:^(NSTimer *t){ [weakSelf stopTap]; }];
+    }
+}
+
+- (void)singleTap {
+    if (!gRunning) performOneTap();
+}
+
+- (void)toggleDamaiMode {
+    if (gRunning) [self stopTap];
+    gDamaiMode = !gDamaiMode;
+    gInterval = gDamaiMode ? 1.0 : 0.5;
+    [self refreshInfo];
 }
 
 - (void)pickPoint {
@@ -209,7 +264,7 @@ static void performOneTap(void) {
 
 - (void)changeInterval {
     // 在 0.1 / 0.3 / 0.5 / 1.0 / 2.0 之间循环
-    NSArray *steps = @[@0.1, @0.3, @0.5, @1.0, @2.0];
+    NSArray *steps = gDamaiMode ? @[@1.0, @1.5, @2.0, @3.0] : @[@0.1, @0.3, @0.5, @1.0, @2.0];
     NSUInteger idx = [steps indexOfObject:@(gInterval)];
     idx = (idx == NSNotFound) ? 0 : (idx + 1) % steps.count;
     gInterval = [steps[idx] doubleValue];
@@ -244,7 +299,7 @@ static void showPanel(void) {
     if (!key) key = [UIApplication sharedApplication].windows.firstObject;
     if (!key) return;
 
-    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 150, 128)];
+    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 170, 156)];
     [key addSubview:gPanel];
 }
 
@@ -264,4 +319,6 @@ static void showPanel(void) {
         // 跳过明显的系统守护进程
         if ([bundleID hasPrefix:@"com.apple.springboard"]) return;
     }
+    // Activate the Logos UIApplication hook after process checks.
+    %init;
 }
