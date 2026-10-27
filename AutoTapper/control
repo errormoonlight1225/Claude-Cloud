@@ -1,0 +1,9 @@
+Package: com.example.autotapper
+Name: AutoTapper
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 系统级自动点击插件,支持悬浮面板选点/调节间隔。适配 iOS 16.2 Dopamine。
+Maintainer: you
+Author: you
+Section: Tweaks
+Depends: mobilesubstrate, firmware (>= 15.0)

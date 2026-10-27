@@ -1,0 +1,267 @@
+// AutoTapper - iOS 系统级自动点击插件
+// 适配 iOS 16.2,支持 Dopamine (rootless) 与 TrollStore
+//
+// 原理:越狱环境下通过 IOKit HID 合成数字化仪(触摸)事件,
+//       实现无需 target app 配合的系统级自动点击。
+
+#import <UIKit/UIKit.h>
+#import <dlfcn.h>
+#import <mach/mach_time.h>
+
+// ---------------------------------------------------------------------------
+// IOKit HID 私有接口声明
+// ---------------------------------------------------------------------------
+typedef struct __IOHIDEvent *IOHIDEventRef;
+typedef uint32_t IOHIDDigitizerTransducerType;
+
+extern "C" {
+IOHIDEventRef IOHIDEventCreateDigitizerEvent(
+    CFAllocatorRef allocator, uint64_t timeStamp,
+    IOHIDDigitizerTransducerType type, uint32_t index, uint32_t identity,
+    uint32_t eventMask, uint32_t buttonMask,
+    IOHIDFloat x, IOHIDFloat y, IOHIDFloat z,
+    IOHIDFloat tipPressure, IOHIDFloat twist,
+    Boolean range, Boolean touch, IOOptionBits options);
+
+IOHIDEventRef IOHIDEventCreateDigitizerFingerEvent(
+    CFAllocatorRef allocator, uint64_t timeStamp,
+    uint32_t index, uint32_t identity, uint32_t eventMask,
+    IOHIDFloat x, IOHIDFloat y, IOHIDFloat z,
+    IOHIDFloat tipPressure, IOHIDFloat twist,
+    Boolean range, Boolean touch, IOOptionBits options);
+
+void IOHIDEventAppendEvent(IOHIDEventRef parent, IOHIDEventRef child, IOOptionBits options);
+}
+
+// BackBoardServices 事件分发接口
+typedef struct __BKSHIDEventDeliveryManager *BKSHIDEventDeliveryManagerRef;
+
+// 触摸事件掩码
+#define kIOHIDDigitizerEventRange   0x00000001
+#define kIOHIDDigitizerEventTouch   0x00000002
+#define kIOHIDDigitizerEventPosition 0x00000004
+
+// ---------------------------------------------------------------------------
+// 全局状态
+// ---------------------------------------------------------------------------
+static CGPoint gTapPoint = CGPointMake(200, 400);
+static NSTimeInterval gInterval = 0.5;      // 两次点击间隔(秒)
+static BOOL gRunning = NO;
+static NSTimer *gTimer = nil;
+
+// ---------------------------------------------------------------------------
+// 事件合成与分发
+// ---------------------------------------------------------------------------
+static uint64_t currentTimeNs(void) {
+    static mach_timebase_info_data_t tb;
+    if (tb.denom == 0) mach_timebase_info(&tb);
+    return mach_absolute_time() * tb.numer / tb.denom;
+}
+
+// 通过 UIApplication 私有接口将合成事件注入事件队列
+static void sendDigitizerEvent(CGPoint pt, BOOL down) {
+    // 归一化坐标 (0..1)
+    CGSize screen = [UIScreen mainScreen].bounds.size;
+    CGFloat scale = [UIScreen mainScreen].scale;
+    IOHIDFloat nx = pt.x / screen.width;
+    IOHIDFloat ny = pt.y / screen.height;
+
+    uint32_t mask = kIOHIDDigitizerEventTouch | kIOHIDDigitizerEventPosition;
+    if (down) mask |= kIOHIDDigitizerEventRange;
+
+    IOHIDEventRef parent = IOHIDEventCreateDigitizerEvent(
+        kCFAllocatorDefault, currentTimeNs(),
+        2 /* kIOHIDDigitizerTransducerTypeHand */, 0, 0,
+        mask, 0, nx, ny, 0, down ? 1.0 : 0.0, 0,
+        down, down, 0);
+
+    IOHIDEventRef finger = IOHIDEventCreateDigitizerFingerEvent(
+        kCFAllocatorDefault, currentTimeNs(),
+        1, 2, mask, nx, ny, 0, down ? 1.0 : 0.0, 0,
+        down, down, 0);
+
+    if (parent && finger) {
+        IOHIDEventAppendEvent(parent, finger, 0);
+        // 经由 UIApplication 的私有 _enqueueHIDEvent: 注入
+        UIApplication *app = [UIApplication sharedApplication];
+        SEL sel = NSSelectorFromString(@"_enqueueHIDEvent:");
+        if ([app respondsToSelector:sel]) {
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            [app performSelector:sel withObject:(__bridge id)parent];
+            #pragma clang diagnostic pop
+        }
+    }
+    if (finger) CFRelease(finger);
+    if (parent) CFRelease(parent);
+    (void)scale;
+}
+
+static void performOneTap(void) {
+    sendDigitizerEvent(gTapPoint, YES);   // touch down
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.03 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        sendDigitizerEvent(gTapPoint, NO); // touch up
+    });
+}
+
+// ---------------------------------------------------------------------------
+// 悬浮控制面板
+// ---------------------------------------------------------------------------
+@interface ATControlPanel : UIView
+@property (nonatomic, strong) UIButton *toggleBtn;
+@property (nonatomic, strong) UILabel *infoLabel;
+@property (nonatomic, assign) CGPoint lastCenter;
+@end
+
+@implementation ATControlPanel
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame])) {
+        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.78];
+        self.layer.cornerRadius = 14;
+        self.layer.borderWidth = 1;
+        self.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
+
+        _infoLabel = [[UILabel alloc] initWithFrame:CGRectMake(10, 8, frame.size.width - 20, 34)];
+        _infoLabel.textColor = [UIColor whiteColor];
+        _infoLabel.font = [UIFont systemFontOfSize:11];
+        _infoLabel.numberOfLines = 2;
+        _infoLabel.textAlignment = NSTextAlignmentCenter;
+        [self addSubview:_infoLabel];
+
+        _toggleBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        _toggleBtn.frame = CGRectMake(10, 46, frame.size.width - 20, 36);
+        _toggleBtn.backgroundColor = [UIColor systemGreenColor];
+        _toggleBtn.layer.cornerRadius = 8;
+        [_toggleBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        _toggleBtn.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+        [_toggleBtn addTarget:self action:@selector(toggleTap) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:_toggleBtn];
+
+        UIButton *pickBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        pickBtn.frame = CGRectMake(10, 88, (frame.size.width - 26) / 2, 30);
+        pickBtn.backgroundColor = [UIColor systemBlueColor];
+        pickBtn.layer.cornerRadius = 7;
+        [pickBtn setTitle:@"选坐标" forState:UIControlStateNormal];
+        [pickBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        pickBtn.titleLabel.font = [UIFont systemFontOfSize:13];
+        [pickBtn addTarget:self action:@selector(pickPoint) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:pickBtn];
+
+        UIButton *spdBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        spdBtn.frame = CGRectMake(16 + (frame.size.width - 26) / 2, 88, (frame.size.width - 26) / 2, 30);
+        spdBtn.backgroundColor = [UIColor systemOrangeColor];
+        spdBtn.layer.cornerRadius = 7;
+        [spdBtn setTitle:@"间隔" forState:UIControlStateNormal];
+        [spdBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        spdBtn.titleLabel.font = [UIFont systemFontOfSize:13];
+        [spdBtn addTarget:self action:@selector(changeInterval) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:spdBtn];
+
+        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
+            initWithTarget:self action:@selector(onPan:)];
+        [self addGestureRecognizer:pan];
+
+        [self refreshInfo];
+    }
+    return self;
+}
+
+- (void)refreshInfo {
+    _infoLabel.text = [NSString stringWithFormat:@"点 (%.0f, %.0f)\n间隔 %.2fs",
+                       gTapPoint.x, gTapPoint.y, gInterval];
+}
+
+- (void)toggleTap {
+    gRunning = !gRunning;
+    if (gRunning) {
+        [_toggleBtn setTitle:@"停止" forState:UIControlStateNormal];
+        _toggleBtn.backgroundColor = [UIColor systemRedColor];
+        gTimer = [NSTimer scheduledTimerWithTimeInterval:gInterval
+                                                  repeats:YES
+                                                    block:^(NSTimer *t){ performOneTap(); }];
+    } else {
+        [_toggleBtn setTitle:@"开始" forState:UIControlStateNormal];
+        _toggleBtn.backgroundColor = [UIColor systemGreenColor];
+        [gTimer invalidate];
+        gTimer = nil;
+    }
+}
+
+- (void)pickPoint {
+    // 进入选点模式:全屏覆盖层,点哪记哪
+    UIWindow *win = self.window;
+    UIView *overlay = [[UIView alloc] initWithFrame:win.bounds];
+    overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.2];
+    overlay.tag = 9911;
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(onPickTap:)];
+    [overlay addGestureRecognizer:tap];
+    [win addSubview:overlay];
+}
+
+- (void)onPickTap:(UITapGestureRecognizer *)g {
+    gTapPoint = [g locationInView:g.view.window];
+    [[g.view.window viewWithTag:9911] removeFromSuperview];
+    [self refreshInfo];
+}
+
+- (void)changeInterval {
+    // 在 0.1 / 0.3 / 0.5 / 1.0 / 2.0 之间循环
+    NSArray *steps = @[@0.1, @0.3, @0.5, @1.0, @2.0];
+    NSUInteger idx = [steps indexOfObject:@(gInterval)];
+    idx = (idx == NSNotFound) ? 0 : (idx + 1) % steps.count;
+    gInterval = [steps[idx] doubleValue];
+    [self refreshInfo];
+    if (gRunning) { [self toggleTap]; [self toggleTap]; } // 重启定时器
+}
+
+- (void)onPan:(UIPanGestureRecognizer *)g {
+    CGPoint t = [g translationInView:self.superview];
+    if (g.state == UIGestureRecognizerStateBegan) _lastCenter = self.center;
+    self.center = CGPointMake(_lastCenter.x + t.x, _lastCenter.y + t.y);
+}
+
+@end
+
+// ---------------------------------------------------------------------------
+// 注入:在每个 app 启动后挂一个悬浮面板
+// ---------------------------------------------------------------------------
+static ATControlPanel *gPanel = nil;
+
+static void showPanel(void) {
+    if (gPanel) return;
+    UIWindow *key = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if ([scene isKindOfClass:[UIWindowScene class]] &&
+            scene.activationState == UISceneActivationStateForegroundActive) {
+            for (UIWindow *w in ((UIWindowScene *)scene).windows) {
+                if (w.isKeyWindow) { key = w; break; }
+            }
+        }
+    }
+    if (!key) key = [UIApplication sharedApplication].windows.firstObject;
+    if (!key) return;
+
+    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 150, 128)];
+    [key addSubview:gPanel];
+}
+
+%hook UIApplication
+- (void)_runWithMainScene:(id)scene transitionContext:(id)ctx completion:(id)completion {
+    %orig;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ showPanel(); });
+}
+%end
+
+%ctor {
+    // 仅在有 UI 的前台进程中注入
+    @autoreleasepool {
+        NSString *bundleID = [NSBundle mainBundle].bundleIdentifier;
+        if (bundleID.length == 0) return;
+        // 跳过明显的系统守护进程
+        if ([bundleID hasPrefix:@"com.apple.springboard"]) return;
+    }
+}
