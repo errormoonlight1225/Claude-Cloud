@@ -59,6 +59,51 @@ static BOOL gRunning = NO;
 static NSTimer *gTimer = nil;
 static NSTimer *gDamaiSafetyTimer = nil;
 static BOOL gDamaiMode = NO;
+static NSInteger gPlanIndex = 0;
+
+static NSString * const kATTapXKey = @"AutoTapper.tapX";
+static NSString * const kATTapYKey = @"AutoTapper.tapY";
+static NSString * const kATIntervalKey = @"AutoTapper.interval";
+static NSString * const kATDamaiModeKey = @"AutoTapper.damaiMode";
+static NSString * const kATPlanIndexKey = @"AutoTapper.planIndex";
+
+static NSArray<NSString *> *ATAssistSteps(void) {
+    // These are manual checkpoints, not actions to replay automatically.
+    return @[
+        @"打开目标活动页面",
+        @"人工选择场次与票档",
+        @"核对数量、价格和购票规则",
+        @"人工核对订单信息",
+        @"由本人完成官方页面上的后续操作"
+    ];
+}
+
+static void ATLoadSavedSettings(void) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if ([defaults objectForKey:kATTapXKey] && [defaults objectForKey:kATTapYKey]) {
+        gTapPoint = CGPointMake([defaults doubleForKey:kATTapXKey],
+                                [defaults doubleForKey:kATTapYKey]);
+    }
+    if ([defaults objectForKey:kATIntervalKey]) {
+        double storedInterval = [defaults doubleForKey:kATIntervalKey];
+        if (storedInterval >= 0.1 && storedInterval <= 3.0) gInterval = storedInterval;
+    }
+    if ([defaults objectForKey:kATDamaiModeKey]) {
+        gDamaiMode = [defaults boolForKey:kATDamaiModeKey];
+    }
+    NSInteger savedIndex = [defaults integerForKey:kATPlanIndexKey];
+    NSInteger count = (NSInteger)ATAssistSteps().count;
+    gPlanIndex = MAX(0, MIN(savedIndex, count));
+}
+
+static void ATSaveSavedSettings(void) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setDouble:gTapPoint.x forKey:kATTapXKey];
+    [defaults setDouble:gTapPoint.y forKey:kATTapYKey];
+    [defaults setDouble:gInterval forKey:kATIntervalKey];
+    [defaults setBool:gDamaiMode forKey:kATDamaiModeKey];
+    [defaults setInteger:gPlanIndex forKey:kATPlanIndexKey];
+}
 
 // ---------------------------------------------------------------------------
 // 事件合成与分发
@@ -121,6 +166,7 @@ static void performOneTap(void) {
 @property (nonatomic, strong) UILabel *infoLabel;
 @property (nonatomic, strong) UIButton *modeBtn;
 @property (nonatomic, strong) UIButton *ocrBtn;
+@property (nonatomic, strong) UIButton *planBtn;
 @property (nonatomic, assign) CGPoint lastCenter;
 @end
 
@@ -199,6 +245,15 @@ static void performOneTap(void) {
         [_ocrBtn addTarget:self action:@selector(recognizeTargetText) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:_ocrBtn];
 
+        _planBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        _planBtn.frame = CGRectMake(10, 188, frame.size.width - 20, 26);
+        _planBtn.backgroundColor = [UIColor colorWithWhite:0.24 alpha:1.0];
+        _planBtn.layer.cornerRadius = 7;
+        [_planBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        _planBtn.titleLabel.font = [UIFont systemFontOfSize:12];
+        [_planBtn addTarget:self action:@selector(configurePlan) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:_planBtn];
+
         UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
             initWithTarget:self action:@selector(onPan:)];
         [self addGestureRecognizer:pan];
@@ -213,6 +268,11 @@ static void performOneTap(void) {
     NSString *safety = gDamaiMode ? @" · 10秒自动停" : @"";
     _infoLabel.text = [NSString stringWithFormat:@"%@ (%.0f,%.0f)\n间隔 %.2fs%@",
                        mode, gTapPoint.x, gTapPoint.y, gInterval, safety];
+    NSArray<NSString *> *steps = ATAssistSteps();
+    NSString *planStatus = (gPlanIndex >= (NSInteger)steps.count)
+        ? @"步骤计划:完成" : [NSString stringWithFormat:@"步骤计划 %ld/%lu",
+                              (long)(gPlanIndex + 1), (unsigned long)steps.count];
+    [_planBtn setTitle:planStatus forState:UIControlStateNormal];
     [_modeBtn setTitle:(gDamaiMode ? @"大麦模式:开" : @"大麦模式:关") forState:UIControlStateNormal];
     _modeBtn.backgroundColor = gDamaiMode ? [UIColor systemOrangeColor] : [UIColor systemPurpleColor];
 }
@@ -254,7 +314,42 @@ static void performOneTap(void) {
     if (gRunning) [self stopTap];
     gDamaiMode = !gDamaiMode;
     gInterval = gDamaiMode ? 1.0 : 0.5;
+    ATSaveSavedSettings();
     [self refreshInfo];
+}
+
+- (void)configurePlan {
+    NSArray<NSString *> *steps = ATAssistSteps();
+    BOOL complete = gPlanIndex >= (NSInteger)steps.count;
+    NSString *message = complete
+        ? @"所有辅助检查点均已标记完成。计划只记录人工进度，不会自动点击、提交订单或付款。"
+        : [NSString stringWithFormat:@"当前步骤 %ld/%lu：\n%@\n\n完成后由你手动标记。计划只提供提示，不会自动跳转或执行购票操作。",
+            (long)(gPlanIndex + 1), (unsigned long)steps.count, steps[(NSUInteger)gPlanIndex]];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"大麦辅助计划"
+        message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"关闭" style:UIAlertActionStyleCancel handler:nil]];
+    __weak typeof(self) weakSelf = self;
+    if (!complete) {
+        [alert addAction:[UIAlertAction actionWithTitle:@"标记当前步骤完成" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            gPlanIndex = MIN(gPlanIndex + 1, (NSInteger)ATAssistSteps().count);
+            ATSaveSavedSettings();
+            [weakSelf refreshInfo];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"重置计划" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+            gPlanIndex = 0;
+            ATSaveSavedSettings();
+            [weakSelf refreshInfo];
+        }]];
+    } else {
+        [alert addAction:[UIAlertAction actionWithTitle:@"重新开始计划" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            gPlanIndex = 0;
+            ATSaveSavedSettings();
+            [weakSelf refreshInfo];
+        }]];
+    }
+    UIViewController *presenter = self.window.rootViewController;
+    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+    [presenter presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)recognizeTargetText {
@@ -315,6 +410,7 @@ static void performOneTap(void) {
         CGFloat px = CGRectGetMidX(box) * currentWindow.bounds.size.width;
         CGFloat py = (1.0 - CGRectGetMidY(box)) * currentWindow.bounds.size.height;
         gTapPoint = CGPointMake(px, py);
+        ATSaveSavedSettings();
         [weakSelf refreshInfo];
         UIAlertController *found = [UIAlertController alertControllerWithTitle:@"已定位目标文字"
             message:[NSString stringWithFormat:@"“%@”\n坐标：(%.0f, %.0f)\n不会自动点击，请检查是否定位正确。", needle, px, py]
@@ -346,6 +442,7 @@ static void performOneTap(void) {
 - (void)onPickTap:(UITapGestureRecognizer *)g {
     gTapPoint = [g locationInView:g.view.window];
     [[g.view.window viewWithTag:9911] removeFromSuperview];
+    ATSaveSavedSettings();
     [self refreshInfo];
 }
 
@@ -355,6 +452,7 @@ static void performOneTap(void) {
     NSUInteger idx = [steps indexOfObject:@(gInterval)];
     idx = (idx == NSNotFound) ? 0 : (idx + 1) % steps.count;
     gInterval = [steps[idx] doubleValue];
+    ATSaveSavedSettings();
     [self refreshInfo];
     // Restart only the repeating click timer. Keep the existing Damai safety timer alive,
     // so changing the interval cannot extend the current 10-second run window.
@@ -381,6 +479,7 @@ static ATControlPanel *gPanel = nil;
 
 static void showPanel(void) {
     if (gPanel && gPanel.window) return;
+    ATLoadSavedSettings();
     gPanel = nil;
     UIWindow *key = nil;
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -400,7 +499,7 @@ static void showPanel(void) {
     }
     if (!key) return;
 
-    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 170, 190)];
+    gPanel = [[ATControlPanel alloc] initWithFrame:CGRectMake(20, 120, 170, 224)];
     [key addSubview:gPanel];
 }
 
