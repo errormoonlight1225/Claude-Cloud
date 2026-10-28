@@ -46,13 +46,25 @@ jobs:
 
       - name: Prepare standalone injection dylib
         run: |
+          set -euo pipefail
           mkdir -p injection
-          DYLIB="$(find AutoTapper/.theos .theos -type f -name 'AutoTapper.dylib' -print -quit 2>/dev/null || true)"
+
+          # Prefer the staged dylib that the package actually installs. Do not
+          # accidentally pick the similarly named DWARF file inside a dSYM bundle.
+          DYLIB="$(find AutoTapper/.theos/_ -type f -path '*/DynamicLibraries/AutoTapper.dylib' -not -path '*.dSYM/*' -print -quit 2>/dev/null || true)"
           if [ -z "$DYLIB" ]; then
-            DYLIB="$(find AutoTapper -type f -name 'AutoTapper.dylib' -print -quit)"
+            DYLIB="$(find AutoTapper/.theos .theos -type f -name 'AutoTapper.dylib' -not -path '*.dSYM/*' -print -quit 2>/dev/null || true)"
           fi
           test -n "$DYLIB"
           cp "$DYLIB" injection/AutoTapper.dylib
+
+          file injection/AutoTapper.dylib
+          file injection/AutoTapper.dylib | grep -q 'dynamically linked shared library'
+          ARCHS="$(xcrun lipo -archs injection/AutoTapper.dylib)"
+          echo "Standalone dylib architectures: $ARCHS"
+          echo "$ARCHS" | grep -qw arm64
+          echo "$ARCHS" | grep -qw arm64e
+
           cat > injection/README.txt <<'EOF'
           AutoTapper standalone tweak dylib
           This is an injection component, not a signed IPA.
