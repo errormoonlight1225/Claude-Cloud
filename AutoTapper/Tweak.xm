@@ -298,7 +298,7 @@ static void performOneTap(void) {
         NSString *needle = [target stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         VNRecognizedTextObservation *match = nil;
         for (VNRecognizedTextObservation *observation in request.results) {
-            NSString *candidate = [observation.topCandidates:1].firstObject.string;
+            NSString *candidate = [observation topCandidates:1].firstObject.string;
             if (candidate.length && [candidate localizedCaseInsensitiveContainsString:needle]) {
                 match = observation;
                 break;
@@ -356,7 +356,14 @@ static void performOneTap(void) {
     idx = (idx == NSNotFound) ? 0 : (idx + 1) % steps.count;
     gInterval = [steps[idx] doubleValue];
     [self refreshInfo];
-    if (gRunning) { [self toggleTap]; [self toggleTap]; } // 重启定时器
+    // Restart only the repeating click timer. Keep the existing Damai safety timer alive,
+    // so changing the interval cannot extend the current 10-second run window.
+    if (gRunning) {
+        [gTimer invalidate];
+        gTimer = [NSTimer scheduledTimerWithTimeInterval:gInterval
+                                                   repeats:YES
+                                                     block:^(NSTimer *t){ performOneTap(); }];
+    }
 }
 
 - (void)onPan:(UIPanGestureRecognizer *)g {
