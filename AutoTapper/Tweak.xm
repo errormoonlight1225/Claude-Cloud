@@ -66,9 +66,9 @@ static NSString * const kATTapYKey = @"AutoTapper.tapY";
 static NSString * const kATIntervalKey = @"AutoTapper.interval";
 static NSString * const kATDamaiModeKey = @"AutoTapper.damaiMode";
 static NSString * const kATPlanIndexKey = @"AutoTapper.planIndex";
+static NSString * const kATPlanStepsKey = @"AutoTapper.planSteps";
 
-static NSArray<NSString *> *ATAssistSteps(void) {
-    // These are manual checkpoints, not actions to replay automatically.
+static NSArray<NSString *> *ATDefaultAssistSteps(void) {
     return @[
         @"打开目标活动页面",
         @"人工选择场次与票档",
@@ -76,6 +76,23 @@ static NSArray<NSString *> *ATAssistSteps(void) {
         @"人工核对订单信息",
         @"由本人完成官方页面上的后续操作"
     ];
+}
+
+static NSArray<NSString *> *ATAssistSteps(void) {
+    // User-editable saved checklist only; it is never interpreted as executable actions.
+    NSArray *saved = [[NSUserDefaults standardUserDefaults] arrayForKey:kATPlanStepsKey];
+    if (saved.count == ATDefaultAssistSteps().count) {
+        BOOL valid = YES;
+        for (id item in saved) {
+            if (![item isKindOfClass:[NSString class]] ||
+                [((NSString *)item) stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].length == 0) {
+                valid = NO;
+                break;
+            }
+        }
+        if (valid) return (NSArray<NSString *> *)saved;
+    }
+    return ATDefaultAssistSteps();
 }
 
 static void ATLoadSavedSettings(void) {
@@ -335,6 +352,9 @@ static void performOneTap(void) {
             ATSaveSavedSettings();
             [weakSelf refreshInfo];
         }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"编辑步骤" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf editPlan]; });
+        }]];
         [alert addAction:[UIAlertAction actionWithTitle:@"重置计划" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
             gPlanIndex = 0;
             ATSaveSavedSettings();
@@ -346,10 +366,43 @@ static void performOneTap(void) {
             ATSaveSavedSettings();
             [weakSelf refreshInfo];
         }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"编辑步骤" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf editPlan]; });
+        }]];
     }
     UIViewController *presenter = self.window.rootViewController;
     while (presenter.presentedViewController) presenter = presenter.presentedViewController;
     [presenter presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)editPlan {
+    NSArray<NSString *> *steps = ATAssistSteps();
+    UIAlertController *editor = [UIAlertController alertControllerWithTitle:@"编辑辅助计划"
+        message:@"每项只作为人工步骤提醒，不会执行自动点击或订单操作。" preferredStyle:UIAlertControllerStyleAlert];
+    for (NSUInteger i = 0; i < steps.count; i++) {
+        [editor addTextFieldWithConfigurationHandler:^(UITextField *field) {
+            field.text = steps[i];
+            field.placeholder = [NSString stringWithFormat:@"步骤 %lu", (unsigned long)(i + 1)];
+            field.clearButtonMode = UITextFieldViewModeWhileEditing;
+        }];
+    }
+    [editor addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    __weak typeof(self) weakSelf = self;
+    [editor addAction:[UIAlertAction actionWithTitle:@"保存步骤" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSMutableArray<NSString *> *updated = [NSMutableArray arrayWithCapacity:steps.count];
+        NSArray<NSString *> *defaults = ATDefaultAssistSteps();
+        [editor.textFields enumerateObjectsUsingBlock:^(UITextField *field, NSUInteger idx, BOOL *stop) {
+            NSString *value = [field.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            [updated addObject:(value.length > 0 ? value : defaults[idx])];
+        }];
+        [[NSUserDefaults standardUserDefaults] setObject:updated forKey:kATPlanStepsKey];
+        gPlanIndex = 0; // Editing a plan starts its checklist from the beginning.
+        ATSaveSavedSettings();
+        [weakSelf refreshInfo];
+    }]];
+    UIViewController *presenter = self.window.rootViewController;
+    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+    [presenter presentViewController:editor animated:YES completion:nil];
 }
 
 - (void)recognizeTargetText {
