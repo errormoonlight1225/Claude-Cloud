@@ -1,0 +1,90 @@
+name: Build AutoTapper DEB
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths:
+      - 'AutoTapper/**'
+      - '.github/workflows/build-autotapper.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'AutoTapper/**'
+      - '.github/workflows/build-autotapper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Theos and iOS SDK
+        uses: waruhachi/theos-action@main
+        with:
+          theos-src: theos/theos
+          theos-branch: master
+          sdks-src: theos/sdks
+          sdks-branch: master
+          remotelog: false
+          libgcuniversal: false
+          altlist: false
+          comet: false
+          orion: false
+
+      - name: Build rootless package
+        run: |
+          cd AutoTapper
+          make clean package FINALPACKAGE=1
+
+      - name: Prepare standalone injection dylib
+        run: |
+          set -euo pipefail
+          mkdir -p injection
+
+          # Prefer the staged dylib that the package actually installs. Do not
+          # accidentally pick the similarly named DWARF file inside a dSYM bundle.
+          DYLIB="$(find AutoTapper/.theos/_ -type f -path '*/DynamicLibraries/AutoTapper.dylib' -not -path '*.dSYM/*' -print -quit 2>/dev/null || true)"
+          if [ -z "$DYLIB" ]; then
+            DYLIB="$(find AutoTapper/.theos .theos -type f -name 'AutoTapper.dylib' -not -path '*.dSYM/*' -print -quit 2>/dev/null || true)"
+          fi
+          test -n "$DYLIB"
+          cp "$DYLIB" injection/AutoTapper.dylib
+
+          file injection/AutoTapper.dylib
+          file injection/AutoTapper.dylib | grep -q 'dynamically linked shared library'
+          ARCHS="$(xcrun lipo -archs injection/AutoTapper.dylib)"
+          echo "Standalone dylib architectures: $ARCHS"
+          echo "$ARCHS" | grep -qw arm64
+          echo "$ARCHS" | grep -qw arm64e
+
+          cat > injection/README.txt <<'EOF'
+          AutoTapper standalone tweak dylib
+          This is an injection component, not a signed IPA.
+          Only inject into apps/devices you own or are authorized to test.
+          Requires a compatible jailbreak/injection environment and matching arm64/arm64e runtime.
+          OCR finds text and sets a coordinate only; it does not auto-submit orders or bypass queues/captchas.
+          EOF
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoTapper-deb
+          path: AutoTapper/packages/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload injection dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoTapper-injection-dylib
+          path: injection/*
+          if-no-files-found: error
+          retention-days: 14

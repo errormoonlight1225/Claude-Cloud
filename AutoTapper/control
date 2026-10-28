@@ -1,0 +1,9 @@
+Package: com.errormoonlight.autotapper
+Name: AutoTapper
+Version: 1.1.0
+Architecture: iphoneos-arm64
+Description: iOS 自动点击辅助插件，含大麦辅助模式、单点、坐标选择与安全停止。
+Maintainer: errormoonlight1225
+Author: errormoonlight1225
+Section: Tweaks
+Depends: ellekit | mobilesubstrate, firmware (>= 15.0)
