@@ -1,0 +1,75 @@
+name: build-efi
+
+# Builds an OpenCore EFI (own serials) + NootedGreen/HookCase kexts from
+# JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe on a macOS runner.
+# NOTE: this is a starting point for YOUR machine, not a finished EFI: ACPI, USB map and
+# input kexts of the Xiaomi laptop still have to be adapted by hand.
+# Use a PRIVATE repo: the artifact contains your SMBIOS serials.
+
+on:
+  workflow_dispatch:
+    inputs:
+      eu80:
+        description: "80 EU CPU (i5-1135G7 / 1240P / 12500H / 1340P ...) -> add ngreen-eu=80 ngreen-l3=6"
+        type: boolean
+        default: true
+      extra_bootargs:
+        description: "Extra boot-args, e.g. -v keepsyms=1 debug=0x100"
+        type: string
+        default: "-v keepsyms=1 debug=0x100"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Fetch upstream project
+        run: git clone --depth 1 https://github.com/JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe.git upstream
+
+      - name: Generate EFI with own serials
+        working-directory: upstream
+        run: zsh make-efi.sh
+
+      - name: Patch boot-args
+        working-directory: upstream
+        run: |
+          ARGS="${{ inputs.extra_bootargs }}"
+          if [ "${{ inputs.eu80 }}" = "true" ]; then ARGS="$ARGS ngreen-eu=80 ngreen-l3=6"; fi
+          KEY=":NVRAM:Add:7C436110-AB2A-4BBB-A880-FE41995C9F82:boot-args"
+          for c in dist/EFI/OC/config.plist dist/EFI/OC/config-install.plist; do
+            CUR=$(/usr/libexec/PlistBuddy -c "Print $KEY" "$c")
+            /usr/libexec/PlistBuddy -c "Set $KEY '$CUR $ARGS'" "$c"
+            plutil -lint "$c"
+          done
+
+      - name: Build kexts
+        working-directory: upstream
+        run: |
+          xcode-select -p
+          zsh build-hookcase.sh
+          zsh build-nootedgreen.sh
+          cp -R build/NootedGreen.kext dist/EFI/OC/Kexts/
+
+      - name: Validate with ocvalidate
+        working-directory: upstream
+        run: |
+          OC=build/deps/OpenCore-1.0.8
+          curl -fL -o oc-full.zip https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip
+          unzip -q oc-full.zip -d oc-full
+          chmod +x oc-full/Utilities/ocvalidate/ocvalidate
+          oc-full/Utilities/ocvalidate/ocvalidate dist/EFI/OC/config.plist || true
+
+      - name: Package
+        working-directory: upstream
+        run: |
+          ditto -c -k --keepParent dist/EFI EFI-custom.zip
+          ditto -c -k --keepParent build/NootedGreen.kext NootedGreen.kext.zip
+          ditto -c -k --keepParent build/HookCase.kext HookCase.kext.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: efi-and-kexts
+          path: |
+            upstream/EFI-custom.zip
+            upstream/NootedGreen.kext.zip
+            upstream/HookCase.kext.zip
+          retention-days: 3
