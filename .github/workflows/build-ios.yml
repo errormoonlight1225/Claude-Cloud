@@ -31,6 +31,45 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
+      - name: Package DEB (rootful + rootless)
+        run: |
+          brew install ldid dpkg
+          APP=$(find build/Release-iphoneos -maxdepth 1 -name '*.app' | head -n 1)
+          VERSION=$(sed -n 's/^VERSION_NAME *= *//p' Sources/WireGuardApp/Config/Version.xcconfig)
+          sub() { sed 's/\$(APP_ID_IOS)/org.amnezia.awg/g' "$1" > "$2"; }
+          sub Sources/WireGuardApp/UI/iOS/WireGuard.entitlements app.ent
+          sub Sources/WireGuardNetworkExtension/WireGuardNetworkExtension_iOS.entitlements ext.ent
+
+          mkdir -p stage && rm -rf stage/*
+          cp -R "$APP" stage/AmneziaWG.app
+          for appex in stage/AmneziaWG.app/PlugIns/*.appex; do
+            ldid -Sext.ent "$appex"
+          done
+          ldid -Sapp.ent stage/AmneziaWG.app
+
+          build_deb() {  # arch prefix
+            ROOT=deb-$1
+            rm -rf "$ROOT"
+            mkdir -p "$ROOT$2/Applications" "$ROOT/DEBIAN"
+            cp -R stage/AmneziaWG.app "$ROOT$2/Applications/"
+            cat > "$ROOT/DEBIAN/control" <<CTL
+          Package: org.amnezia.awg
+          Name: AmneziaWG
+          Version: $VERSION
+          Architecture: $1
+          Section: Networking
+          Depends: firmware (>= 12.0)
+          Maintainer: AmneziaWG
+          Description: AmneziaWG VPN client (ported to iOS 12)
+          CTL
+            sed -i '' 's/^          //' "$ROOT/DEBIAN/control"
+            printf '#!/bin/sh\nuicache -p %s/Applications/AmneziaWG.app 2>/dev/null || uicache\nexit 0\n' "$2" > "$ROOT/DEBIAN/postinst"
+            chmod 755 "$ROOT/DEBIAN/postinst"
+            dpkg-deb -Zgzip --root-owner-group -b "$ROOT" "org.amnezia.awg_${VERSION}_$1.deb"
+          }
+          build_deb iphoneos-arm ""
+          build_deb iphoneos-arm64 /var/jb
+
       - name: Package IPA
         run: |
           APP=$(find build/Release-iphoneos -maxdepth 1 -name '*.app' | head -n 1)
@@ -42,3 +81,8 @@ jobs:
         with:
           name: AmneziaWG-ios12-ipa
           path: amneziawg-apple/AmneziaWG-ios12.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AmneziaWG-ios12-deb
+          path: amneziawg-apple/*.deb
