@@ -393,6 +393,12 @@ public class WireGuardAdapter {
         }
 
         self.logHandler(.verbose, "Starting WireGuard backend (config bytes: \(wgConfig.utf8.count), fd: \(tunnelFileDescriptor))")
+        #if os(iOS)
+        if #unavailable(iOS 15.0) {
+            // The system does not reliably exempt the provider's own sockets from the tunnel routes here.
+            wgSetBindToPhysicalInterface(1)
+        }
+        #endif
         let handle = wgTurnOn(wgConfig, tunnelFileDescriptor)
         if handle < 0 {
             throw WireGuardAdapterError.startWireGuardBackend(handle)

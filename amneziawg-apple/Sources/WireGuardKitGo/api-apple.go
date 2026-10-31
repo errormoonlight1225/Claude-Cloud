@@ -16,6 +16,7 @@ import "C"
 import (
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"os/signal"
 	"runtime"
@@ -85,6 +86,74 @@ func wgSetLogger(context, loggerFn uintptr) {
 	loggerFunc = unsafe.Pointer(loggerFn)
 }
 
+/* On older iOS versions (and fake-signed jailbreak installs) the tunnel provider's own
+ * sockets are not always exempted from the tunnel's routes, so UDP sends to the
+ * endpoint fail with "no route to host". When enabled, pin the UDP sockets to the
+ * physical interface with IP_BOUND_IF every time the Bind is (re)opened.
+ */
+var bindToPhysicalInterface bool
+
+//export wgSetBindToPhysicalInterface
+func wgSetBindToPhysicalInterface(enabled int32) {
+	bindToPhysicalInterface = enabled != 0
+}
+
+func physicalInterface() *net.Interface {
+	for _, name := range []string{"en0", "pdp_ip0"} {
+		ifi, err := net.InterfaceByName(name)
+		if err != nil || ifi.Flags&net.FlagUp == 0 {
+			continue
+		}
+		addrs, err := ifi.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if ok && !ipNet.IP.IsLinkLocalUnicast() && !ipNet.IP.IsLoopback() {
+				return ifi
+			}
+		}
+	}
+	return nil
+}
+
+type physicalBind struct {
+	conn.Bind
+	logger *device.Logger
+}
+
+func (b *physicalBind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
+	fns, actualPort, err := b.Bind.Open(port)
+	if err != nil {
+		return fns, actualPort, err
+	}
+	peeker, ok := b.Bind.(conn.PeekLookAtSocketFd)
+	if !ok {
+		return fns, actualPort, nil
+	}
+	ifi := physicalInterface()
+	if ifi == nil {
+		b.logger.Verbosef("Bind: no physical interface found, leaving sockets unbound")
+		return fns, actualPort, nil
+	}
+	if fd, err := peeker.PeekLookAtSocketFd4(); err == nil {
+		if err := unix.SetsockoptInt(fd, unix.IPPROTO_IP, unix.IP_BOUND_IF, ifi.Index); err != nil {
+			b.logger.Errorf("Bind: unable to bind IPv4 socket to %s: %v", ifi.Name, err)
+		} else {
+			b.logger.Verbosef("Bind: IPv4 socket bound to %s (index %d)", ifi.Name, ifi.Index)
+		}
+	}
+	if fd, err := peeker.PeekLookAtSocketFd6(); err == nil {
+		if err := unix.SetsockoptInt(fd, unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, ifi.Index); err != nil {
+			b.logger.Errorf("Bind: unable to bind IPv6 socket to %s: %v", ifi.Name, err)
+		} else {
+			b.logger.Verbosef("Bind: IPv6 socket bound to %s (index %d)", ifi.Name, ifi.Index)
+		}
+	}
+	return fns, actualPort, nil
+}
+
 //export wgTurnOn
 func wgTurnOn(settings *C.char, tunFd int32) int32 {
 	logger := &device.Logger{
@@ -110,7 +179,11 @@ func wgTurnOn(settings *C.char, tunFd int32) int32 {
 		return -1
 	}
 	logger.Verbosef("Attaching to interface")
-	dev := device.NewDevice(tun, conn.NewStdNetBind(), logger)
+	var bind conn.Bind = conn.NewStdNetBind()
+	if bindToPhysicalInterface {
+		bind = &physicalBind{Bind: bind, logger: logger}
+	}
+	dev := device.NewDevice(tun, bind, logger)
 
 	err = dev.IpcSet(C.GoString(settings))
 	if err != nil {
