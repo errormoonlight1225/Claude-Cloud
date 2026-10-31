@@ -1,0 +1,84 @@
+name: Build AmneziaWG root DEB
+
+on:
+  push:
+    branches: [amneziawg-ios12]
+    paths:
+      - 'awg-root/**'
+      - '.github/workflows/build-root.yml'
+      - 'amneziawg-apple/Sources/WireGuardKitGo/goruntime-*.diff'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: awg-root/go.mod
+          cache-dependency-path: awg-root/go.sum
+
+      - name: Prepare patched Go root
+        run: |
+          # Go's arm64 procyield reads CNTVCT_EL0, which raises SIGILL on A8 devices under iOS.
+          PATCHED="$RUNNER_TEMP/goroot"
+          rsync -a --delete "$(go env GOROOT)/" "$PATCHED/"
+          patch -p1 -d "$PATCHED" < amneziawg-apple/Sources/WireGuardKitGo/goruntime-procyield-no-cntvct.diff
+          echo "GOROOT=$PATCHED" >> "$GITHUB_ENV"
+
+      - name: Test and build
+        working-directory: awg-root
+        run: |
+          go version
+          go test ./...
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          FLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=12.0"
+          CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
+            CC="$(xcrun --sdk iphoneos --find clang)" CGO_CFLAGS="$FLAGS" CGO_LDFLAGS="$FLAGS" \
+            go build -trimpath -ldflags="-s -w" -o awg-root .
+          file awg-root
+          otool -l awg-root | grep -A4 -E "LC_VERSION_MIN_IPHONEOS|LC_BUILD_VERSION" || true
+
+      - name: Check for counter-timer reads
+        working-directory: awg-root
+        run: |
+          n=$(xcrun otool -tv awg-root | grep -ciE 'mrs.*(cntvct|cntpct|S3_3_C14_C0_[012])' || true)
+          echo "mrs counter-timer reads: $n"
+          test "$n" = 0
+
+      - name: Package DEB
+        working-directory: awg-root
+        run: |
+          brew install ldid dpkg
+          ldid -S awg-root
+          VERSION=0.1.0
+          ROOT=deb
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT/usr/bin" "$ROOT/etc/amneziawg" "$ROOT/DEBIAN"
+          install -m 755 awg-root "$ROOT/usr/bin/awg-root"
+          for cmd in up down status; do
+            printf '#!/bin/sh\nexec /usr/bin/awg-root %s "$@"\n' "$cmd" > "$ROOT/usr/bin/awg-$cmd"
+            chmod 755 "$ROOT/usr/bin/awg-$cmd"
+          done
+          chmod 700 "$ROOT/etc/amneziawg"
+          cat > "$ROOT/DEBIAN/control" <<CTL
+          Package: org.amnezia.awg-root
+          Name: AmneziaWG (root)
+          Version: $VERSION
+          Architecture: iphoneos-arm
+          Section: Networking
+          Depends: network-cmds
+          Maintainer: AmneziaWG
+          Description: AmneziaWG VPN as a root daemon, without Network Extension. Put configs in /etc/amneziawg and run awg-up <name>.
+          CTL
+          sed -i '' 's/^          //' "$ROOT/DEBIAN/control"
+          dpkg-deb -Zgzip --root-owner-group -b "$ROOT" "org.amnezia.awg-root_${VERSION}_iphoneos-arm.deb"
+          dpkg-deb -I "org.amnezia.awg-root_${VERSION}_iphoneos-arm.deb"
+          dpkg-deb -c "org.amnezia.awg-root_${VERSION}_iphoneos-arm.deb"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AmneziaWG-root-deb
+          path: awg-root/*.deb

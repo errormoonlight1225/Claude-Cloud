@@ -3,6 +3,8 @@ name: Build iOS IPA
 on:
   push:
     branches: [amneziawg-ios12]
+    paths:
+      - 'amneziawg-apple/**'
   workflow_dispatch:
 
 jobs:
