@@ -31,6 +31,14 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
+      - name: Check extension has no counter-timer reads
+        run: |
+          EXT=$(find build/Release-iphoneos -path '*PlugIns/*.appex/WireGuardNetworkExtension' | head -n 1)
+          echo "Inspecting $EXT"
+          xcrun otool -arch arm64 -tv "$EXT" > ext.disasm || true
+          echo "mrs counter-timer reads: $(grep -ciE 'mrs.*(cntvct|cntpct|S3_3_C14_C0_[012])' ext.disasm || true)"
+          grep -iE 'mrs.*(cntvct|cntpct|S3_3_C14_C0_[012])' ext.disasm | head -20 || true
+
       - name: Package DEB (rootful + rootless)
         run: |
           brew install ldid dpkg
