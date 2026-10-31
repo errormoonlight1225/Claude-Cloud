@@ -39,7 +39,7 @@ jobs:
           echo "mrs counter-timer reads: $(grep -ciE 'mrs.*(cntvct|cntpct|S3_3_C14_C0_[012])' ext.disasm || true)"
           grep -iE 'mrs.*(cntvct|cntpct|S3_3_C14_C0_[012])' ext.disasm | head -20 || true
 
-      - name: Package DEB (rootful + rootless)
+      - name: Package DEB (rootful)
         run: |
           brew install ldid dpkg
           APP=$(find build/Release-iphoneos -maxdepth 1 -name '*.app' | head -n 1)
@@ -75,7 +75,6 @@ jobs:
             dpkg-deb -Zgzip --root-owner-group -b "$ROOT" "org.amnezia.awg_${VERSION}_$1.deb"
           }
           build_deb iphoneos-arm ""
-          build_deb iphoneos-arm64 /var/jb
 
       - name: Package IPA
         run: |
