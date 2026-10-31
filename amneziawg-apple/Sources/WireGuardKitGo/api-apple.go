@@ -59,6 +59,9 @@ type tunnelHandle struct {
 var tunnelHandles = make(map[int32]tunnelHandle)
 
 func init() {
+	/* Network extensions are limited to ~15 MB before iOS 15, so keep the heap tight. */
+	debug.SetGCPercent(10)
+
 	signals := make(chan os.Signal)
 	signal.Notify(signals, unix.SIGUSR2)
 	go func() {
