@@ -24,6 +24,12 @@ func runHelper(_ args: [String], input: Data? = nil) -> CommandResult {
         return CommandResult(status: -1, output: "pipe() 失败")
     }
 
+    // The helper may start a long-running daemon; mark our pipe ends close-on-exec so only the dup2'd
+    // copies (fds 0-2) reach the child. Otherwise the daemon inherits the write end and we never see EOF.
+    for fd in inPipe + outPipe {
+        _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
+    }
+
     var actions: posix_spawn_file_actions_t?
     posix_spawn_file_actions_init(&actions)
     defer { posix_spawn_file_actions_destroy(&actions) }

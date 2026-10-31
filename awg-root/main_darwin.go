@@ -53,6 +53,11 @@ func main() {
 	if len(os.Args) < 2 {
 		usage()
 	}
+	// Don't pass descriptors inherited from whoever launched us (e.g. the app's output pipe) on to the
+	// long-running daemon, or the launcher would wait for EOF forever.
+	for fd := 3; fd < 256; fd++ {
+		syscall.CloseOnExec(fd)
+	}
 	if os.Geteuid() != 0 {
 		fail("must be run as root (try: su, or sudo)")
 	}
