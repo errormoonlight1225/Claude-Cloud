@@ -264,3 +264,16 @@ func (c *Config) UAPI(resolved []string) (string, error) {
 	}
 	return b.String(), nil
 }
+
+// validName reports whether name is safe to use as a stored config name (it becomes a file name).
+func validName(name string) bool {
+	if name == "" || len(name) > 32 || name[0] == '.' {
+		return false
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.') {
+			return false
+		}
+	}
+	return true
+}

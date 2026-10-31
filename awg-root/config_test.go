@@ -71,3 +71,16 @@ func TestRejectsBadInput(t *testing.T) {
 		}
 	}
 }
+
+func TestValidName(t *testing.T) {
+	for _, ok := range []string{"US", "my-vpn_2", "a.b"} {
+		if !validName(ok) {
+			t.Errorf("%q should be valid", ok)
+		}
+	}
+	for _, bad := range []string{"", ".hidden", "../etc/passwd", "a/b", "with space", "日本", strings.Repeat("x", 33)} {
+		if validName(bad) {
+			t.Errorf("%q should be invalid", bad)
+		}
+	}
+}

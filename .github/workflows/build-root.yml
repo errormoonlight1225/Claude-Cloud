@@ -48,21 +48,44 @@ jobs:
           echo "mrs counter-timer reads: $n"
           test "$n" = 0
 
+      - name: Build GUI app
+        working-directory: awg-root/app
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun --sdk iphoneos swiftc -target arm64-apple-ios12.0 -sdk "$SDK" -module-name AWGRoot -O -o AWGRoot main.swift
+          rm -rf AWGRoot.app && mkdir AWGRoot.app
+          cp AWGRoot AWGRoot.app/AWGRoot
+          cp Info.plist AWGRoot.app/Info.plist
+          plutil -convert binary1 AWGRoot.app/Info.plist
+          xcrun ibtool --compile AWGRoot.app/LaunchScreen.storyboardc LaunchScreen.storyboard \
+            --minimum-deployment-target 12.0 --target-device iphone --target-device ipad
+          file AWGRoot.app/AWGRoot
+          otool -l AWGRoot.app/AWGRoot | grep -A4 -E "LC_VERSION_MIN_IPHONEOS|LC_BUILD_VERSION" || true
+          ls -la AWGRoot.app
+
       - name: Package DEB
         working-directory: awg-root
         run: |
           brew install ldid dpkg
           ldid -S awg-root
-          VERSION=0.1.0
+          ldid -Sapp/entitlements.plist app/AWGRoot.app/AWGRoot
+          ldid -e app/AWGRoot.app/AWGRoot
+          VERSION=0.2.0
           ROOT=deb
           rm -rf "$ROOT"
-          mkdir -p "$ROOT/usr/bin" "$ROOT/etc/amneziawg" "$ROOT/DEBIAN"
-          install -m 755 awg-root "$ROOT/usr/bin/awg-root"
+          mkdir -p "$ROOT/usr/bin" "$ROOT/etc/amneziawg" "$ROOT/Applications" "$ROOT/DEBIAN"
+          # setuid root so the GUI (running as mobile) can drive it; it only accepts stored config names from non-root callers.
+          install -m 4755 awg-root "$ROOT/usr/bin/awg-root"
+          cp -R app/AWGRoot.app "$ROOT/Applications/AWGRoot.app"
           for cmd in up down status; do
             printf '#!/bin/sh\nexec /usr/bin/awg-root %s "$@"\n' "$cmd" > "$ROOT/usr/bin/awg-$cmd"
             chmod 755 "$ROOT/usr/bin/awg-$cmd"
           done
           chmod 700 "$ROOT/etc/amneziawg"
+          printf '#!/bin/sh\nchown root:wheel /usr/bin/awg-root\nchmod 4755 /usr/bin/awg-root\nuicache -p /Applications/AWGRoot.app 2>/dev/null || uicache\nexit 0\n' > "$ROOT/DEBIAN/postinst"
+          printf '#!/bin/sh\nif [ "$1" = remove ] || [ "$1" = purge ]; then /usr/bin/awg-root down >/dev/null 2>&1; fi\nexit 0\n' > "$ROOT/DEBIAN/prerm"
+          printf '#!/bin/sh\nuicache 2>/dev/null\nexit 0\n' > "$ROOT/DEBIAN/postrm"
+          chmod 755 "$ROOT/DEBIAN/postinst" "$ROOT/DEBIAN/prerm" "$ROOT/DEBIAN/postrm"
           cat > "$ROOT/DEBIAN/control" <<CTL
           Package: org.amnezia.awg-root
           Name: AmneziaWG (root)
@@ -71,7 +94,7 @@ jobs:
           Section: Networking
           Depends: network-cmds
           Maintainer: AmneziaWG
-          Description: AmneziaWG VPN as a root daemon, without Network Extension. Put configs in /etc/amneziawg and run awg-up <name>.
+          Description: AmneziaWG VPN as a root daemon, without Network Extension. Includes the AWG Root app; awg-up/awg-down/awg-status work from the shell too.
           CTL
           sed -i '' 's/^          //' "$ROOT/DEBIAN/control"
           dpkg-deb -Zgzip --root-owner-group -b "$ROOT" "org.amnezia.awg-root_${VERSION}_iphoneos-arm.deb"
