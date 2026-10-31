@@ -194,6 +194,9 @@ func wgTurnOn(settings *C.char, tunFd int32) int32 {
 
 	dev.Up()
 	logger.Verbosef("Device started")
+	if bindToPhysicalInterface {
+		startDiagnostics(logger, C.GoString(settings))
+	}
 
 	var i int32
 	for i = 0; i < math.MaxInt32; i++ {

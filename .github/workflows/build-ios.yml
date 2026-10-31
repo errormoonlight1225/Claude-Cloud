@@ -54,6 +54,8 @@ jobs:
             ldid -Sext.ent "$appex"
           done
           ldid -Sapp.ent stage/AmneziaWG.app
+          echo "== extension entitlements"; ldid -e stage/AmneziaWG.app/PlugIns/WireGuardNetworkExtension.appex/WireGuardNetworkExtension || true
+          echo "== app entitlements"; ldid -e stage/AmneziaWG.app/AmneziaWG || true
 
           build_deb() {  # arch prefix
             ROOT=deb-$1
