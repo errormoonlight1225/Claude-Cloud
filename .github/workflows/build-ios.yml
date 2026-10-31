@@ -47,6 +47,14 @@ jobs:
           sub() { sed 's/\$(APP_ID_IOS)/org.amnezia.awg/g' "$1" > "$2"; }
           sub Sources/WireGuardApp/UI/iOS/WireGuard.entitlements app.ent
           sub Sources/WireGuardNetworkExtension/WireGuardNetworkExtension_iOS.entitlements ext.ent
+          # A genuinely signed build always carries these; the system keys several policies off them.
+          TEAM=$(sed -n 's/^DEVELOPMENT_TEAM *= *//p' Sources/WireGuardApp/Config/Developer.xcconfig | tr -d '[:space:]')
+          add_ents() {  # file app-id
+            /usr/libexec/PlistBuddy -c "Add :application-identifier string $TEAM.$2" "$1"
+            /usr/libexec/PlistBuddy -c "Add :com.apple.developer.team-identifier string $TEAM" "$1"
+          }
+          add_ents app.ent org.amnezia.awg
+          add_ents ext.ent org.amnezia.awg.network-extension
 
           mkdir -p stage && rm -rf stage/*
           cp -R "$APP" stage/AmneziaWG.app
