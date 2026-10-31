@@ -24,7 +24,7 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
-      - name: Build unsigned IPA
+      - name: Build ad-hoc signed IPA
         run: |
           xcodebuild \
             -project ClaudeClient.xcodeproj \
@@ -38,9 +38,13 @@ jobs:
             build
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/ClaudeClient.app Payload/
-          zip -qr ClaudeClient-unsigned.ipa Payload
+          # An app with no signature at all is rejected ("No code signature found").
+          # An ad-hoc signature installs with AppSync and can be re-signed by sideloading tools.
+          codesign --force --deep --sign - --timestamp=none Payload/ClaudeClient.app
+          codesign --verify --verbose Payload/ClaudeClient.app
+          zip -qr ClaudeClient.ipa Payload
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ClaudeClient-unsigned-ipa
-          path: ClaudeClient-unsigned.ipa
+          name: ClaudeClient-ipa
+          path: ClaudeClient.ipa

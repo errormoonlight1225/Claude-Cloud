@@ -36,15 +36,19 @@ open ClaudeClient.xcodeproj
 
 需要使用 **Xcode 15 或 16**（这两个版本仍支持把部署目标设为 iOS 12）。在 Xcode 中选择你的开发者团队后，即可直接安装到设备。
 
-也可以不用 Mac：每次推送后，GitHub Actions（`.github/workflows/build-ios.yml`）会构建一个**未签名**的 `ClaudeClient-unsigned.ipa`，在 Actions 运行页面的 Artifacts 中下载。
+也可以不用 Mac：每次推送后，GitHub Actions（`.github/workflows/build-ios.yml`）会构建一个 ad-hoc 签名（伪签名）的 `ClaudeClient.ipa`，在 Actions 运行页面的 Artifacts 中下载。
 
 ### 安装到 iOS 12 设备
 
-未签名的 IPA 需要自行签名后侧载，例如：
+该 IPA 只带 ad-hoc 签名，没有 Apple 证书，所以：
 
-- **Sideloadly**（Windows / macOS，免费 Apple ID 即可，7 天有效）
-- **AltStore**（要求 iOS 12.2 及以上，12.5.8 满足）
-- 已越狱设备可用 AppSync Unified 直接安装
+- **已越狱 + 已装 AppSync Unified**：可以直接安装（例如用 Filza 打开 ipa 安装）
+- **未越狱**：必须先用自己的证书或 Apple ID 重新签名，例如：
+  - **Sideloadly**（Windows / macOS，免费 Apple ID 即可，7 天有效）
+  - **AltStore**（要求 iOS 12.2 及以上，12.5.8 满足）
+  - 手机上的签名工具（如轻松签）：先导入证书，用“签名”功能签名后，再安装签好的 ipa
+
+直接安装未经重新签名的包时，系统会提示 `0xe800801c (No code signature found)` 或签名验证失败。
 
 ### 使用
 
