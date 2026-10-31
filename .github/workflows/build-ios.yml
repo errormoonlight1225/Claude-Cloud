@@ -58,7 +58,6 @@ jobs:
           Version: $VERSION
           Architecture: $1
           Section: Networking
-          Depends: firmware (>= 12.0)
           Maintainer: AmneziaWG
           Description: AmneziaWG VPN client (ported to iOS 12)
           CTL
