@@ -257,7 +257,17 @@ class PacketTunnelSettingsGenerator {
     private func excludedRoutes() -> ([NEIPv4Route], [NEIPv6Route]) {
         var ipv4ExcludedRoutes = [NEIPv4Route]()
         var ipv6ExcludedRoutes = [NEIPv6Route]()
-        for endpoint in resolvedEndpoints {
+        /* Excluding the endpoint from the tunnel breaks routing on older iOS versions
+         * (UDP sends to the endpoint fail with "no route to host"). The packet tunnel
+         * provider's own sockets bypass the tunnel anyway, so only do this on iOS 15+.
+         */
+        var shouldExcludeEndpoints = true
+        #if os(iOS)
+        if #unavailable(iOS 15.0) {
+            shouldExcludeEndpoints = false
+        }
+        #endif
+        for endpoint in resolvedEndpoints where shouldExcludeEndpoints {
             guard let endpoint = endpoint else { continue }
             switch endpoint.host {
             case .ipv4(let address):
