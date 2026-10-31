@@ -154,6 +154,16 @@ func (b *physicalBind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
 	return fns, actualPort, nil
 }
 
+//export wgProbeNetwork
+func wgProbeNetwork(label *C.char) {
+	logger := &device.Logger{
+		Verbosef: CLogger(0).Printf,
+		Errorf:   CLogger(1).Printf,
+	}
+	logger.Verbosef("Diag: probe stage '%s'", C.GoString(label))
+	probeUDP(logger, "8.8.8.8:53", dnsProbeQuery, 0, true)
+}
+
 //export wgTurnOn
 func wgTurnOn(settings *C.char, tunFd int32) int32 {
 	logger := &device.Logger{

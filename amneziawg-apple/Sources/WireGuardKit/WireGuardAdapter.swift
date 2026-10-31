@@ -197,11 +197,13 @@ public class WireGuardAdapter {
 
             do {
                 self.logHandler(.verbose, "Adapter start requested")
+                self.runNetworkProbes(stage: "before network settings")
                 let settingsGenerator = try self.makeSettingsGenerator(with: tunnelConfiguration)
                 let networkSettings = settingsGenerator.generateNetworkSettings()
                 self.logResolvedEndpoints(settingsGenerator.resolvedEndpoints, context: "start")
                 self.logNetworkSettingsSummary(networkSettings, context: "start")
                 try self.setNetworkSettings(networkSettings)
+                self.runNetworkProbes(stage: "after network settings")
 
                 let (wgConfig, resolutionResults) = settingsGenerator.uapiConfiguration()
                 self.logEndpointResolutionResults(resolutionResults)
@@ -299,6 +301,34 @@ public class WireGuardAdapter {
                 fatalError()
             }
         }
+    }
+
+    // MARK: - Diagnostics
+
+    /// One-shot connectivity probes for older iOS versions, written to the tunnel log.
+    private func runNetworkProbes(stage: String) {
+        #if os(iOS)
+        if #unavailable(iOS 15.0) {
+            stage.withCString { wgProbeNetwork($0) }
+
+            guard let provider = packetTunnelProvider else { return }
+            let session = provider.createUDPSession(to: NWHostEndpoint(hostname: "8.8.8.8", port: "53"), from: nil)
+            let query: [UInt8] = [0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                  7, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 3, 0x63, 0x6f, 0x6d, 0, 0x00, 0x01, 0x00, 0x01]
+            let semaphore = DispatchSemaphore(value: 0)
+            session.setReadHandler({ [weak self] datagrams, error in
+                self?.logHandler(.verbose, "Diag: createUDPSession (\(stage)) read: datagrams=\(datagrams?.count ?? 0) error=\(String(describing: error))")
+                semaphore.signal()
+            }, maxDatagrams: 1)
+            session.writeDatagram(Data(query)) { [weak self] error in
+                self?.logHandler(.verbose, "Diag: createUDPSession (\(stage)) write: error=\(String(describing: error))")
+            }
+            if semaphore.wait(timeout: .now() + 2) == .timedOut {
+                logHandler(.verbose, "Diag: createUDPSession (\(stage)): no reply within 2s (state=\(session.state.rawValue))")
+            }
+            session.cancel()
+        }
+        #endif
     }
 
     // MARK: - Private methods

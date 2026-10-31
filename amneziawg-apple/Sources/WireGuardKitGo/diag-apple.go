@@ -13,6 +13,10 @@ import (
 
 /* One-shot network diagnostics for older iOS versions, written to the tunnel log. */
 
+// A well-formed DNS query for example.com (A), to see whether any traffic from this process gets answered.
+var dnsProbeQuery = []byte{0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0, 0x00, 0x01, 0x00, 0x01}
+
 func startDiagnostics(logger *device.Logger, settings string) {
 	go func() {
 		time.Sleep(1500 * time.Millisecond)
@@ -23,11 +27,8 @@ func startDiagnostics(logger *device.Logger, settings string) {
 		if ifi != nil {
 			index = ifi.Index
 		}
-		// A well-formed DNS query for example.com (A), to see whether any traffic from this process gets answered.
-		dnsQuery := []byte{0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0, 0x00, 0x01, 0x00, 0x01}
 		for _, bound := range []int{0, index} {
-			probeUDP(logger, "8.8.8.8:53", dnsQuery, bound, true)
+			probeUDP(logger, "8.8.8.8:53", dnsProbeQuery, bound, true)
 		}
 		for _, line := range strings.Split(settings, "\n") {
 			if strings.HasPrefix(line, "endpoint=") {
