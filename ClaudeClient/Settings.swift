@@ -57,8 +57,16 @@ enum Settings {
     }
 
     static var apiKey: String {
-        get { Keychain.read("apiKey") ?? "" }
-        set { Keychain.write("apiKey", value: newValue) }
+        get { Keychain.read("apiKey") ?? defaults.string(forKey: "apiKeyFallback") ?? "" }
+        set {
+            // Fake-signed builds (jailbreak + AppSync) have no keychain entitlement, so
+            // SecItemAdd fails there; keep the key in UserDefaults in that case.
+            if Keychain.write("apiKey", value: newValue) {
+                defaults.removeObject(forKey: "apiKeyFallback")
+            } else {
+                defaults.set(newValue, forKey: "apiKeyFallback")
+            }
+        }
     }
 }
 
@@ -79,17 +87,21 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func write(_ account: String, value: String) {
+    /// Returns false when the keychain is unavailable (e.g. missing entitlement).
+    @discardableResult
+    static func write(_ account: String, value: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(query as CFDictionary)
-        guard !value.isEmpty else { return }
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        guard !value.isEmpty else {
+            return deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound
+        }
         var attributes = query
         attributes[kSecValueData as String] = Data(value.utf8)
         attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(attributes as CFDictionary, nil)
+        return SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess
     }
 }
