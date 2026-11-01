@@ -29,7 +29,7 @@ echo ">> fetching OpenCore + OVMF from OSX-KVM"
 git clone --depth 1 https://github.com/kholia/OSX-KVM.git "$WORK/osx-kvm"
 mkdir -p "$MNT/OpenCore" "$MNT/OVMF"
 cp "$WORK/osx-kvm/OpenCore/OpenCore.qcow2" "$MNT/OpenCore/"
-cp "$WORK/osx-kvm/OVMF_CODE.fd"            "$MNT/OVMF/OVMF_CODE.fd"
+cp "$WORK/osx-kvm/OVMF_CODE_4M.fd"         "$MNT/OVMF/OVMF_CODE_4M.fd"
 cp "$WORK/osx-kvm/OVMF_VARS-1920x1080.fd"  "$MNT/OVMF/OVMF_VARS.fd"
 
 echo ">> downloading macOS recovery ($MACOS) from Apple"

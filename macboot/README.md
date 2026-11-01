@@ -53,7 +53,7 @@ sudo macboot/scripts/prepare-data.sh macboot/output/images/macboot.img 160 sonom
 - tty2（Alt+F2）是救援 shell；GRUB 里选 "debug shell" 可跳过自动启动。
 - `macboot-mem`：显示宿主开销与来宾内存的分离统计。
 - `/dev/kvm` 不存在 → 固件里开 VT-x。
-- macOS 卡在苹果标志 → 先试 `CPU_MODEL=Cascadelake-Server`/`Skylake-Client`，并确认 `ignore_msrs=1`。
+- macOS 卡在苹果标志 → 先试 `CPU_MODEL` 为 `Cascadelake-Server` 或 `Haswell-noTSX`，并确认 `ignore_msrs=1`。
 
 ## 版权与合规
 

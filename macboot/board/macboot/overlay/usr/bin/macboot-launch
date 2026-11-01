@@ -54,7 +54,7 @@ exec qemu-system-x86_64 \
     $INSTALL \
     -drive id=MacHDD,if=none,file="$D/$SYSTEM_DISK",format=qcow2,cache=writeback,discard=unmap \
     -device ide-hd,bus=sata.4,drive=MacHDD \
-    -netdev user,id=net0 -device vmxnet3,netdev=net0,id=net0 \
+    -netdev user,id=net0 -device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27 \
     -device qemu-xhci,id=xhci -device usb-kbd,bus=xhci.0 -device usb-tablet,bus=xhci.0 \
     -device "$GUEST_GPU" \
     -display sdl,gl=off -full-screen \
