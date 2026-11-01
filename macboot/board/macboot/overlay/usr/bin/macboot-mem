@@ -1,0 +1,17 @@
+#!/bin/sh
+# Report host-side memory use, separately from the macOS guest.
+# "host overhead" = kernel + userspace + QEMU process overhead, i.e. everything except guest RAM.
+kb() { awk -v k="$1" '$1==k":"{print $2}' /proc/meminfo; }
+total=$(kb MemTotal); free=$(kb MemFree); cache=$(kb Cached); buf=$(kb Buffers); srec=$(kb SReclaimable)
+hp=$(kb HugePages_Total); hps=$(kb Hugepagesize); hp=${hp:-0}
+used=$(( total - free - cache - buf - srec ))
+guest=0
+for p in $(pidof qemu-system-x86_64); do
+    a=$(awk '/^RssAnon:/{print $2}' /proc/$p/status); guest=$((guest + a))
+done
+hpkb=$(( hp * ${hps:-0} ))
+guest_total=$(( guest + hpkb ))
+echo "MemTotal            : $((total/1024)) MB"
+echo "Used (excl. cache)  : $((used/1024)) MB"
+echo "Guest RAM (QEMU RSS): $((guest_total/1024)) MB"
+echo "Host overhead       : $(( (used - guest_total)/1024 )) MB   <- the number the 256/512 MB target refers to"

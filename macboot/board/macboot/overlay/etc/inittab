@@ -1,0 +1,14 @@
+# BusyBox init for MacBoot
+::sysinit:/bin/mount -t proc proc /proc
+::sysinit:/bin/mkdir -p /dev/pts /dev/shm /dev/hugepages
+::sysinit:/bin/mount -a
+::sysinit:/bin/hostname -F /etc/hostname
+::sysinit:/etc/init.d/rcS
+
+# Console 1 runs the macOS supervisor; console 2 is a rescue shell.
+tty1::respawn:/usr/bin/macboot-supervisor
+tty2::respawn:/bin/sh -c 'exec /bin/sh -l </dev/tty2 >/dev/tty2 2>&1'
+
+::ctrlaltdel:/sbin/reboot
+::shutdown:/etc/init.d/rcK
+::shutdown:/bin/umount -a -r

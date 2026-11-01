@@ -1,0 +1,27 @@
+#!/bin/sh
+# Locate the MACDATA partition (GPT partlabel "macdata", or any fs labeled MACDATA),
+# format it on first boot, and mount it at /data.
+case "$1" in
+  start)
+    dev=""
+    for u in /sys/class/block/*/uevent; do
+        if grep -qx 'PARTNAME=macdata' "$u" 2>/dev/null; then
+            dev=/dev/$(basename "$(dirname "$u")"); break
+        fi
+    done
+    [ -z "$dev" ] && dev=$(findfs LABEL=MACDATA 2>/dev/null)
+    if [ -z "$dev" ]; then echo "macboot: no MACDATA partition found"; exit 0; fi
+
+    if ! blkid "$dev" 2>/dev/null | grep -q 'TYPE='; then
+        echo "macboot: first boot, growing and formatting $dev"
+        disk=$(readlink -f "/sys/class/block/$(basename "$dev")/..") ; disk=/dev/$(basename "$disk")
+        pn=$(cat "/sys/class/block/$(basename "$dev")/partition" 2>/dev/null)
+        if command -v sfdisk >/dev/null && [ -n "$pn" ]; then
+            echo ", +" | sfdisk --no-reread -N "$pn" "$disk" >/dev/null 2>&1 && partx -u "$disk" 2>/dev/null
+        fi
+        mkfs.ext4 -q -L MACDATA -m 0 -O ^has_journal "$dev"
+    fi
+    mount -o noatime "$dev" /data && echo "macboot: /data mounted from $dev"
+    ;;
+  stop) umount /data 2>/dev/null ;;
+esac

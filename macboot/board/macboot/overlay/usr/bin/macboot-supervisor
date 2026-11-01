@@ -1,0 +1,16 @@
+#!/bin/sh
+# Runs on tty1. Launches the macOS guest; powers off when the guest shuts down.
+exec </dev/tty1 >/dev/tty1 2>&1
+
+if grep -q 'macboot.shell=1' /proc/cmdline; then
+    echo "MacBoot debug shell (macboot.shell=1)"; exec /bin/sh -l
+fi
+
+/usr/bin/macboot-launch
+rc=$?
+if [ "$rc" -eq 0 ]; then
+    echo "Guest exited cleanly, powering off."
+    sync; poweroff -f
+fi
+echo "macboot-launch failed (exit $rc). Drop to shell; type 'macboot-launch' to retry."
+exec /bin/sh -l

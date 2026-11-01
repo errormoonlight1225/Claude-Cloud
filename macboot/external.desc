@@ -1,0 +1,2 @@
+name: MACBOOT
+desc: Minimal Linux host that boots straight into a macOS KVM guest
