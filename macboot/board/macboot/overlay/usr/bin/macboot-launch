@@ -6,7 +6,8 @@ D=/data
 
 die() { echo "macboot-launch: $*" >&2; exit 1; }
 mountpoint -q "$D" || die "/data is not mounted (no MACDATA partition?)"
-[ -c /dev/kvm ] || die "/dev/kvm missing: enable VT-x/AMD-V (and VT-d off if unstable) in firmware"
+grep -qE '\b(vmx|svm)\b' /proc/cpuinfo || die "CPU virtualization (VT-x / AMD-V) is not enabled: turn it on in the UEFI/BIOS setup"
+[ -c /dev/kvm ] || die "/dev/kvm missing: the kernel could not initialise KVM"
 [ -f "$D/$OPENCORE_IMG" ] || die "missing $D/$OPENCORE_IMG (run scripts/prepare-data.sh on the build machine)"
 [ -f "$D/$OVMF_CODE" ]    || die "missing $D/$OVMF_CODE"
 
