@@ -10,9 +10,13 @@ CONFIG_NET_9P=n
 
 # Graphics for the *host* console (used by SDL2 KMSDRM to show the guest)
 CONFIG_DRM=y
-CONFIG_DRM_I915=y
-CONFIG_DRM_XE=y
-CONFIG_DRM_AMDGPU=y
+# i915/xe are modules: their firmware lives on the rootfs, which is not mounted when built-in
+# drivers probe (xe refuses to probe without GuC firmware). S15macboot-gpu loads them.
+CONFIG_MODULES=y
+CONFIG_DRM_I915=m
+CONFIG_DRM_XE=m
+# EFI GOP framebuffer as fallback display until/unless the GPU driver binds
+CONFIG_SYSFB_SIMPLEFB=y
 CONFIG_DRM_SIMPLEDRM=y
 # A text console on the host display is required so launcher errors are visible.
 CONFIG_DRM_FBDEV_EMULATION=y
