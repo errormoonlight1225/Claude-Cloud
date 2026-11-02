@@ -37,6 +37,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee xcodebuild.log | grep -E "error:|warning: .*Kiln/|BUILD (SUCCEEDED|FAILED)" || true
           test -d build/Build/Products/Release-iphoneos/Kiln.app
+      - name: Inspect app bundle
+        run: |
+          APP=build/Build/Products/Release-iphoneos/Kiln.app
+          ls -la "$APP" "$APP/Frameworks" 2>/dev/null || true
+          otool -L "$APP/Kiln"
+          # OpenSSL must be linked either statically or as an embedded framework.
+          if otool -L "$APP/Kiln" | grep -q "OpenSSL.framework"; then test -d "$APP/Frameworks/OpenSSL.framework"; fi
       - name: Package IPA
         run: |
           mkdir -p out/Payload

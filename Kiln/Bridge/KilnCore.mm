@@ -31,6 +31,7 @@ static BOOL Fail(NSError **error, const std::string &message) {
 @property (nonatomic, readwrite, copy) NSData *certificateDER;
 @property (nonatomic, readwrite, copy) NSArray<NSData *> *chainDER;
 @property (nonatomic, readwrite, copy) NSString *privateKeyPEM;
++ (instancetype)fromCore:(const kiln::Identity &)identity;
 @end
 @implementation KCIdentity
 + (instancetype)fromCore:(const kiln::Identity &)identity {

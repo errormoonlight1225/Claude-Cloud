@@ -237,7 +237,8 @@ struct ServerSettingsView: View {
             target = nil
             guard case let .success(url) = result else { return }
             do {
-                let picked = (url.lastPathComponent, try readPicked(url))
+                let data = try readPicked(url)
+                let picked = (name: url.lastPathComponent, data: data)
                 switch which {
                 case .bundle: bundle = picked
                 case .certificate: certificate = picked

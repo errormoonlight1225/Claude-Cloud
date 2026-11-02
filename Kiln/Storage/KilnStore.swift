@@ -220,7 +220,7 @@ final class KilnStore: ObservableObject {
     /// registering the App ID and (re)creating the profile when needed.
     func ensureProfile(for identityID: UUID, bundleID: String, appName: String,
                        log: @escaping (String) -> Void) async throws -> ProfileRecord {
-        guard let identity = identity(identityID), case let .appStoreConnect(certID, certType) = identity.source else {
+        guard let identity = self.identity(identityID), case let .appStoreConnect(certID, certType) = identity.source else {
             throw KilnError("只有通过 App Store Connect 申请的证书才能自动生成描述文件")
         }
         let client = try ascClient()
@@ -349,7 +349,7 @@ final class KilnStore: ObservableObject {
 
     func sign(_ app: ImportedApp, configuration c: SignConfiguration,
               log: @escaping (String) -> Void) async throws -> SignedApp {
-        guard let identity = identity(c.identityID) else { throw KilnError("请选择签名证书") }
+        guard let identity = self.identity(c.identityID) else { throw KilnError("请选择签名证书") }
         guard !identity.isExpired else { throw KilnError("证书已过期") }
         let bundleID = c.bundleID.trimmed
         guard Self.isValidBundleID(bundleID) else { throw KilnError("Bundle ID 格式无效：\(bundleID)") }
@@ -391,6 +391,7 @@ final class KilnStore: ObservableObject {
             }
         }
         let profilePaths = profiles.map { profileURL($0).path }
+        let entitlements = entitlementsOverride
 
         let ipa = Paths.apps.appendingPathComponent(app.ipaFileName)
         let outName = "\(app.name.fileSafe)_\(c.version.fileSafe)_\(Int(Date().timeIntervalSince1970)).ipa"
@@ -415,9 +416,9 @@ final class KilnStore: ObservableObject {
             options.certificatePath = certURL.path
             options.privateKeyPath = keyURL.path
             options.profilePaths = profilePaths
-            if let entitlementsOverride {
+            if let entitlements {
                 let url = secrets.appendingPathComponent("entitlements.plist")
-                try entitlementsOverride.write(to: url)
+                try entitlements.write(to: url)
                 options.entitlementsPath = url.path
             }
             options.bundleID = bundleID

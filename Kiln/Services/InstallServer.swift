@@ -59,15 +59,14 @@ final class InstallServer {
         listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            var resumed = false
+            let once = ResumeOnce()
             listener.stateUpdateHandler = { state in
-                guard !resumed else { return }
                 switch state {
                 case .ready:
-                    resumed = true
+                    guard once.claim() else { return }
                     continuation.resume()
                 case let .failed(error):
-                    resumed = true
+                    guard once.claim() else { return }
                     continuation.resume(throwing: KilnError("安装服务器启动失败：\(error.localizedDescription)"))
                 default:
                     break
@@ -204,5 +203,17 @@ final class InstallServer {
         sendHead(connection, status: status, type: type, length: length ?? payload?.count ?? 0, extra: extra)
         connection.send(content: payload, contentContext: .finalMessage, isComplete: true,
                         completion: .contentProcessed { _ in connection.cancel() })
+    }
+}
+
+/// Guards a continuation against being resumed twice from a state handler.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        if done { return false }
+        done = true
+        return true
     }
 }
