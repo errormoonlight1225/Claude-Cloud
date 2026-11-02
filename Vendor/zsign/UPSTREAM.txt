@@ -1,0 +1,1 @@
+Upstream: https://github.com/zhlynn/zsign (via khcrysalis/zsign-package) commit 28a64217aa52d44a87a47dbc5e3bd59344c14a5d
