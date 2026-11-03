@@ -1,0 +1,68 @@
+name: Build ExitKey (Nyxian KEXT)
+
+on:
+  push:
+    paths:
+      - "nyxian-exit-key/**"
+      - ".github/workflows/build-exitkey.yml"
+  pull_request:
+    paths:
+      - "nyxian-exit-key/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: nyxian-exit-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain info
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Compile (arm64, iOS 18+)
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcrun --sdk iphoneos clang \
+            -arch arm64 \
+            -mios-version-min=18.0 \
+            -fobjc-arc -fmodules -O2 \
+            -Wall -Wextra -Wno-unused-parameter -Werror=implicit-function-declaration \
+            -framework Foundation -framework UIKit \
+            -bundle -Wl,-undefined,dynamic_lookup \
+            -o build/ExitKey \
+            Main.m
+
+      - name: Verify binary
+        run: |
+          set -euo pipefail
+          file build/ExitKey
+          xcrun otool -hv build/ExitKey
+          # KEXT 描述结构必须存在，否则 Nyxian 的 KXLD 找不到模块
+          xcrun otool -l build/ExitKey | grep -A2 '__ksurfacemod'
+          xcrun nm -m build/ExitKey | grep -E 'ksurface_kext_info|EKController'
+
+      - name: Package .kext bundle
+        run: |
+          set -euo pipefail
+          KEXT="build/Payload/com.exitkey.nyxian.kext"
+          mkdir -p "$KEXT"
+          cp build/ExitKey "$KEXT/ExitKey"
+          cp Info.plist "$KEXT/Info.plist"
+          codesign --force --sign - "$KEXT/ExitKey"
+          codesign -dv "$KEXT/ExitKey" 2>&1 | head -5
+          (cd build && zip -qry ExitKey.zip Payload)
+          ls -la build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ExitKey
+          path: |
+            nyxian-exit-key/build/ExitKey.zip
+            nyxian-exit-key/Main.m
+          if-no-files-found: error

@@ -16,10 +16,60 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#include <LindChain/ProcEnvironment/Surface/libkern/kxld/image.h>
-#include <LindChain/ProcEnvironment/Surface/libkern/klog.h>
+#include <mach/mach.h>
 
-#define KEXT_IDENTITY "$(NXBundleIdentifier)"
+#if __has_include(<LindChain/ProcEnvironment/Surface/libkern/kxld/image.h>)
+/* 在 Nyxian 里编译：用官方头文件 */
+#include <LindChain/ProcEnvironment/Surface/libkern/kxld/image.h>
+#else
+/*
+ * 在 Nyxian 外编译（例如 GitHub Actions）：
+ * 以下定义与 Nyxian 0.11.6 的 kxld/image.h 中 KEXT ABI v1 保持一致。
+ */
+#define KSURFACE_KMOD_MAGIC 0x4B4D4F44
+#define KSURFACE_KMOD_ABI_VERSION 1
+#define KMOD_MAX_NAME 64
+#define KMOD_VERSION(major, minor, patch) \
+    ((((uint32_t)(major) & 0xFF) << 16) | \
+     (((uint32_t)(minor) & 0xFF) << 8)  | \
+      ((uint32_t)(patch) & 0xFF))
+#define EXPORT_KSURFACE_MODULE(...) \
+    __attribute__((used, section("__DATA,__ksurfacemod"))) \
+    const kinfo_mod_t ksurface_kext_info = __VA_ARGS__;
+typedef enum {
+    KMOD_FLAG_NONE              = 0,
+    KMOD_FLAG_PERSISTENT        = (1 << 0),
+    KMOD_FLAG_BACKGROUND_ONLY   = (1 << 1),
+    KMOD_FLAG_OVERRIDE_CORE     = (1 << 2),
+    KMOD_FLAG_ALLOW_UNRESOLVED  = (1 << 3),
+} kmod_flags_t;
+typedef struct {
+    char identifier[KMOD_MAX_NAME];
+    uint32_t min_version;
+    uint32_t max_version;
+} kmod_dependency_t;
+typedef struct kinfo_mod {
+    uint32_t magic;
+    uint32_t abi_version;
+    const char identifier[KMOD_MAX_NAME];
+    uint32_t version;
+    uint64_t flags;
+    uint32_t dependency_count;
+    kern_return_t (*init)(void);
+    kern_return_t (*deinit)(void);
+    kern_return_t (*start)(void);
+    kern_return_t (*stop)(void);
+    kmod_dependency_t dependencies[];
+} kinfo_mod_t;
+#endif
+
+/*
+ * KEXT 标识符，必须和 Nyxian 项目的 Bundle Identifier 一致。
+ * 在 Nyxian 里粘贴时，把这一行换成项目自动生成的 Main.c 里那一行。
+ */
+#ifndef KEXT_IDENTITY
+#define KEXT_IDENTITY "com.exitkey.nyxian"
+#endif
 
 static NSString *const kEKPositionKey = @"ExitKey.ButtonCenter";
 static const CGFloat kEKButtonSize = 46.0;
@@ -425,7 +475,6 @@ static void EKCloseWindow(id<EKWindowServer> ws, id window)
 
 kern_return_t kinit(void)
 {
-    klog_log(KEXT_IDENTITY, "ExitKey loaded");
     /* init 是同步执行的，不能在这里等 UI，丢到主线程异步安装 */
     dispatch_async(dispatch_get_main_queue(), ^{
         [[EKController shared] installWhenReady];
