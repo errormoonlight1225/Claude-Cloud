@@ -145,6 +145,8 @@ static BOOL EKShouldRun(void)
     }
     config.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
     config.contentInsets = NSDirectionalEdgeInsetsZero;
+    config.title = nil;
+    config.attributedTitle = nil;
     config.baseForegroundColor = UIColor.labelColor;
     config.image = [UIImage systemImageNamed:@"xmark"
                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightSemibold]];
@@ -155,11 +157,14 @@ static BOOL EKShouldRun(void)
 {
     UIButtonConfiguration *config = [self buttonConfiguration];
 
-    UIAction *quit = [UIAction actionWithTitle:@"退出 App" image:nil identifier:nil handler:^(__unused UIAction *a) {
+    UIAction *quit = [UIAction actionWithTitle:@"" image:nil identifier:nil handler:^(__unused UIAction *a) {
         [EKController quitApp];
     }];
 
     UIButton *button = [UIButton buttonWithConfiguration:config primaryAction:quit];
+    /* primaryAction 的标题会被 UIButton 当成按钮文字显示，这里只要图标 */
+    [button setTitle:nil forState:UIControlStateNormal];
+    button.titleLabel.hidden = YES;
     button.frame = CGRectMake(0, 0, kEKButtonSize, kEKButtonSize);
     button.layer.shadowColor = UIColor.blackColor.CGColor;
     button.layer.shadowOpacity = 0.15;
