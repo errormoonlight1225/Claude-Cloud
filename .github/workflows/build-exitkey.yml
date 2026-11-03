@@ -70,8 +70,39 @@ jobs:
           path: |
             nyxian-exit-key/build/ExitKey.ipa
             nyxian-exit-key/build/ExitKey.nipa
+            nyxian-exit-key/build/*.deb
             nyxian-exit-key/Main.m
           if-no-files-found: error
+
+      - name: Build tweak .deb (rootless + rootful)
+        working-directory: nyxian-exit-key/deb
+        run: |
+          set -euo pipefail
+          brew install dpkg >/dev/null
+          mkdir -p out
+          xcrun --sdk iphoneos clang \
+            -arch arm64 -arch arm64e \
+            -mios-version-min=15.0 \
+            -fobjc-arc -fmodules -O2 \
+            -Wall -Wextra -Wno-unused-parameter \
+            -framework Foundation -framework UIKit \
+            -dynamiclib -install_name @rpath/ExitKey.dylib \
+            -o out/ExitKey.dylib Tweak.m
+          codesign --force --sign - out/ExitKey.dylib
+          lipo -info out/ExitKey.dylib
+
+          build_deb() { # $1=arch $2=prefix $3=output name
+            local root="out/pkg-$1"
+            local dir="$root$2/Library/MobileSubstrate/DynamicLibraries"
+            mkdir -p "$dir" "$root/DEBIAN"
+            cp out/ExitKey.dylib ExitKey.plist "$dir/"
+            sed "s/@ARCH@/$1/" control.in > "$root/DEBIAN/control"
+            dpkg-deb -Zgzip --root-owner-group -b "$root" "out/$3" >/dev/null
+            dpkg-deb -c "out/$3"
+          }
+          build_deb iphoneos-arm64 /var/jb ExitKey_rootless.deb
+          build_deb iphoneos-arm   ""      ExitKey_rootful.deb
+          cp out/*.deb ../build/
 
       - name: Publish release (exitkey-latest)
         if: github.event_name != 'pull_request'
@@ -81,8 +112,8 @@ jobs:
           set -euo pipefail
           gh release delete exitkey-latest --yes --cleanup-tag || true
           gh release create exitkey-latest \
-            build/ExitKey.ipa build/ExitKey.nipa \
+            build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "ExitKey (latest build)" \
-            --notes "Nyxian 悬浮退出键 KEXT，自动编译自 ${{ github.sha }}。用手机下载 ExitKey.ipa，分享到 Nyxian 导入。"
+            --notes "悬浮退出键，自动编译自 ${{ github.sha }}。一般装 ExitKey_rootless.deb（Sileo 或 Nyxian 桌面 + → Install IPA/DEB）；不行再试 ExitKey_rootful.deb。"
