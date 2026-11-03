@@ -1,0 +1,24 @@
+#!/bin/sh
+# Switzach 环境诊断：只读取信息并打印，不修改任何文件
+p() { printf '%s\n' "$*"; }
+p "==== SWITZACH DIAG ===="
+p "arch: $(dpkg --print-architecture 2>&1)"
+p "id: $(id 2>&1)"
+p "JBROOT=$JBROOT  DPKG_ROOT=$DPKG_ROOT  HOME=$HOME"
+p "env: $(env 2>/dev/null | grep -iE 'jb|root|nyx|nx_|switz|dpkg' | tr '\n' ' ')"
+p "/: $(ls -a / 2>&1 | tr '\n' ' ')"
+p "/var/jb: $(ls -la /var/jb 2>&1 | head -2 | tr '\n' ' ')"
+p "/rootfs: $(ls -d /rootfs 2>&1)"
+for f in /usr/lib/libroot.dylib /usr/lib/libroothide.dylib /var/jb/usr/lib/libroot.dylib /usr/lib/libvrootapi.dylib; do
+  [ -e "$f" ] && p "has: $f"
+done
+p "usr/lib root*: $(ls /usr/lib 2>/dev/null | grep -iE 'root|libjb|nyx' | tr '\n' ' ')"
+p "dpkg admindir: $(ls -d /var/lib/dpkg /Library/dpkg /var/jb/var/lib/dpkg 2>/dev/null | tr '\n' ' ')"
+p "sileo: $(dpkg -L org.coolstar.sileo 2>&1 | grep -m3 -E '\.app$|libroot|dylib$' | tr '\n' ' ')"
+for app in $(dpkg -L org.coolstar.sileo wiki.qaq.irisin 2>/dev/null | grep -E '\.app$'); do
+  p "app $app: $(ls -la "$app" 2>&1 | grep -E 'jbroot|total' | tr '\n' ' ')"
+  p "  real: $(cd "$app" 2>/dev/null && pwd -P)"
+done
+p "sileo ver: $(dpkg-query -W -f='${Version}' org.coolstar.sileo 2>&1)"
+p "==== END ===="
+exit 0

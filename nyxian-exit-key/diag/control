@@ -1,0 +1,7 @@
+Package: com.exitkey.switzachdiag
+Name: Switzach Diagnostics
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Description: 只读诊断：安装时打印 Switzach 环境的根目录和架构信息，不安装任何文件。看完可卸载。
+Maintainer: errormoonlight1225
+Section: Utilities
