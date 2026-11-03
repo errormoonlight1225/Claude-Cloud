@@ -10,6 +10,9 @@ on:
       - "nyxian-exit-key/**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -56,13 +59,30 @@ jobs:
           cp Info.plist "$KEXT/Info.plist"
           codesign --force --sign - "$KEXT/ExitKey"
           codesign -dv "$KEXT/ExitKey" 2>&1 | head -5
-          (cd build && zip -qry ExitKey.zip Payload)
+          # Nyxian 能导入 .ipa / .nipa，安装时在 Payload/ 里找 .kext
+          (cd build && zip -qry ExitKey.ipa Payload && cp ExitKey.ipa ExitKey.nipa)
+          unzip -l build/ExitKey.ipa
           ls -la build
 
       - uses: actions/upload-artifact@v4
         with:
           name: ExitKey
           path: |
-            nyxian-exit-key/build/ExitKey.zip
+            nyxian-exit-key/build/ExitKey.ipa
+            nyxian-exit-key/build/ExitKey.nipa
             nyxian-exit-key/Main.m
           if-no-files-found: error
+
+      - name: Publish release (exitkey-latest)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete exitkey-latest --yes --cleanup-tag || true
+          gh release create exitkey-latest \
+            build/ExitKey.ipa build/ExitKey.nipa \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "ExitKey (latest build)" \
+            --notes "Nyxian 悬浮退出键 KEXT，自动编译自 ${{ github.sha }}。用手机下载 ExitKey.ipa，分享到 Nyxian 导入。"
