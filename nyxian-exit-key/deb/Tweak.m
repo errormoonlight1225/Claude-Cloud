@@ -15,7 +15,10 @@
 #include <stdlib.h>
 
 static NSString *const kEKPositionKey = @"ExitKey.ButtonCenter";
-static const CGFloat kEKButtonSize = 44.0;
+static const CGFloat kEKButtonSize = 36.0;
+static const NSTimeInterval kEKIdleDelay = 2.5;   /* 多久不碰就变淡 */
+static const CGFloat kEKIdleAlpha = 0.35;         /* 变淡后的透明度 */
+static const CGFloat kEKTuck = 0.45;              /* 变淡时缩进屏幕边缘的比例 */
 
 #pragma mark - 是否应该在当前进程显示
 
@@ -73,6 +76,8 @@ static BOOL EKShouldRun(void)
 @interface EKController : NSObject
 @property (nonatomic, strong) EKOverlayWindow *window;
 @property (nonatomic, strong) UIButton *button;
+@property (nonatomic) CGPoint restCenter;   /* 吸边后的正常位置 */
+@property (nonatomic) NSUInteger idleToken;
 + (instancetype)shared;
 - (void)tryInstall;
 @end
@@ -124,14 +129,31 @@ static BOOL EKShouldRun(void)
     [self restorePosition];
 }
 
+- (UIButtonConfiguration *)buttonConfiguration
+{
+    UIButtonConfiguration *config = nil;
+    /* iOS 26 有原生 Liquid Glass 按钮样式，优先用它 */
+    SEL glass = NSSelectorFromString(@"glassButtonConfiguration");
+    if ([UIButtonConfiguration respondsToSelector:glass]) {
+        config = ((UIButtonConfiguration *(*)(id, SEL))[UIButtonConfiguration methodForSelector:glass])(UIButtonConfiguration.class, glass);
+    }
+    if (config == nil) {
+        config = [UIButtonConfiguration plainButtonConfiguration];
+        config.background.visualEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
+        config.background.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.25];
+        config.background.strokeWidth = 0.5;
+    }
+    config.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+    config.contentInsets = NSDirectionalEdgeInsetsZero;
+    config.baseForegroundColor = UIColor.labelColor;
+    config.image = [UIImage systemImageNamed:@"xmark"
+                           withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightSemibold]];
+    return config;
+}
+
 - (UIButton *)makeButton
 {
-    UIButtonConfiguration *config = [UIButtonConfiguration filledButtonConfiguration];
-    config.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    config.baseBackgroundColor = [UIColor colorWithRed:0.90 green:0.22 blue:0.21 alpha:0.9];
-    config.baseForegroundColor = UIColor.whiteColor;
-    config.image = [UIImage systemImageNamed:@"xmark"
-                           withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:16 weight:UIImageSymbolWeightBold]];
+    UIButtonConfiguration *config = [self buttonConfiguration];
 
     UIAction *quit = [UIAction actionWithTitle:@"退出 App" image:nil identifier:nil handler:^(__unused UIAction *a) {
         [EKController quitApp];
@@ -139,11 +161,10 @@ static BOOL EKShouldRun(void)
 
     UIButton *button = [UIButton buttonWithConfiguration:config primaryAction:quit];
     button.frame = CGRectMake(0, 0, kEKButtonSize, kEKButtonSize);
-    button.alpha = 0.85;
     button.layer.shadowColor = UIColor.blackColor.CGColor;
-    button.layer.shadowOpacity = 0.3;
-    button.layer.shadowRadius = 6;
-    button.layer.shadowOffset = CGSizeMake(0, 2);
+    button.layer.shadowOpacity = 0.15;
+    button.layer.shadowRadius = 4;
+    button.layer.shadowOffset = CGSizeMake(0, 1);
     button.accessibilityLabel = @"退出 App";
 
     __weak typeof(self) weakSelf = self;
@@ -158,6 +179,10 @@ static BOOL EKShouldRun(void)
                                        handler:^(__unused UIAction *a) { weakSelf.window.hidden = YES; }];
     button.menu = [UIMenu menuWithTitle:@"ExitKey" children:@[menuQuit, hide]];
     button.showsMenuAsPrimaryAction = NO; /* 单击 = 退出，长按 = 菜单 */
+
+    /* 一碰就醒过来 */
+    [button addAction:[UIAction actionWithHandler:^(__unused UIAction *a) { [weakSelf wake]; }]
+     forControlEvents:UIControlEventTouchDown];
 
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     [button addGestureRecognizer:pan];
@@ -181,6 +206,7 @@ static BOOL EKShouldRun(void)
     UIView *button = pan.view;
     UIView *container = button.superview;
     if (container == nil) return;
+    if (pan.state == UIGestureRecognizerStateBegan) [self wake];
 
     CGPoint t = [pan translationInView:container];
     button.center = CGPointMake(button.center.x + t.x, button.center.y + t.y);
@@ -188,9 +214,11 @@ static BOOL EKShouldRun(void)
 
     if (pan.state == UIGestureRecognizerStateEnded || pan.state == UIGestureRecognizerStateCancelled) {
         CGPoint target = [self snappedCenter:button.center];
+        self.restCenter = target;
         [UIView animateWithDuration:0.25 delay:0 usingSpringWithDamping:0.8 initialSpringVelocity:0.5 options:0 animations:^{
             button.center = target;
         } completion:nil];
+        [self scheduleIdle];
         [NSUserDefaults.standardUserDefaults setObject:NSStringFromCGPoint(target) forKey:kEKPositionKey];
     }
 }
@@ -220,7 +248,40 @@ static BOOL EKShouldRun(void)
     CGPoint p = CGPointMake(CGRectGetMaxX(container.bounds), CGRectGetHeight(container.bounds) * 0.35);
     NSString *saved = [NSUserDefaults.standardUserDefaults stringForKey:kEKPositionKey];
     if (saved.length) p = CGPointFromString(saved);
-    self.button.center = [self snappedCenter:p];
+    self.restCenter = [self snappedCenter:p];
+    self.button.center = self.restCenter;
+    [self scheduleIdle];
+}
+
+#pragma mark 闲置变淡 + 缩进边缘
+
+- (void)wake
+{
+    self.idleToken++;
+    [UIView animateWithDuration:0.18 delay:0 options:UIViewAnimationOptionBeginFromCurrentState animations:^{
+        self.button.alpha = 1.0;
+        self.button.center = self.restCenter;
+    } completion:nil];
+    [self scheduleIdle];
+}
+
+- (void)scheduleIdle
+{
+    NSUInteger token = ++self.idleToken;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kEKIdleDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        typeof(self) self_ = weakSelf;
+        if (self_ == nil || self_.idleToken != token) return;
+        if (self_.button.isTracking) { [self_ scheduleIdle]; return; }
+        UIView *container = self_.button.superview;
+        CGFloat shift = kEKButtonSize * kEKTuck;
+        BOOL left = self_.restCenter.x < CGRectGetMidX(container.bounds);
+        CGPoint tucked = CGPointMake(self_.restCenter.x + (left ? -shift : shift), self_.restCenter.y);
+        [UIView animateWithDuration:0.35 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{
+            self_.button.alpha = kEKIdleAlpha;
+            self_.button.center = tucked;
+        } completion:nil];
+    });
 }
 
 @end
