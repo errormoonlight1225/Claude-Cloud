@@ -102,6 +102,7 @@ jobs:
           }
           build_deb iphoneos-arm64 /var/jb ExitKey_rootless.deb
           build_deb iphoneos-arm   ""      ExitKey_rootful.deb
+          build_deb iphoneos-arm64e ""     ExitKey_arm64e.deb
           cp out/*.deb ../build/
 
       - name: Publish release (exitkey-latest)
@@ -112,8 +113,8 @@ jobs:
           set -euo pipefail
           gh release delete exitkey-latest --yes --cleanup-tag || true
           gh release create exitkey-latest \
-            build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa \
+            build/ExitKey_arm64e.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "ExitKey (latest build)" \
-            --notes "悬浮退出键，自动编译自 ${{ github.sha }}。一般装 ExitKey_rootless.deb（Sileo 或 Nyxian 桌面 + → Install IPA/DEB）；不行再试 ExitKey_rootful.deb。"
+            --notes "悬浮退出键，自动编译自 ${{ github.sha }}。Nyxian（iphoneos-arm64e）装 ExitKey_arm64e.deb；普通 rootless 越狱装 ExitKey_rootless.deb；rootful 装 ExitKey_rootful.deb。"
