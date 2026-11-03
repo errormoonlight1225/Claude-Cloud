@@ -1,0 +1,7 @@
+Package: com.exitkey.irisinswitzachfix
+Name: Irisin Fix for Switzach
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Description: 让 Irisin 在 Switzach（Nyxian）里正确识别为 roothide：给 Irisin.app 补上 .jbroot 链接，Irisin 重装/更新后自动重新补。
+Maintainer: errormoonlight1225
+Section: Utilities

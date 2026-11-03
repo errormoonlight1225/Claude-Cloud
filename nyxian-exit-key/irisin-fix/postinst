@@ -1,0 +1,51 @@
+#!/bin/sh
+# Irisin Fix for Switzach
+# 给 Irisin.app 补上 roothide 的 .jbroot 链接，让 Irisin 认出 Switzach 是 roothide。
+# 只创建/更新这一个符号链接，其它文件一律不动。
+p() { printf '%s\n' "$*"; }
+
+p "==== Irisin Fix for Switzach ===="
+p "arch: $(dpkg --print-architecture 2>&1)"
+
+# 1. 找 libroothide.dylib 所在的根目录
+ROOT=""
+for lib in /usr/lib/libroothide.dylib /binpack/usr/lib/libroothide.dylib /.jbroot/usr/lib/libroothide.dylib; do
+  if [ -e "$lib" ]; then ROOT="${lib%/usr/lib/libroothide.dylib}"; break; fi
+done
+if [ -z "$ROOT" ] && [ ! -e /usr/lib/libroothide.dylib ]; then
+  found=$(find / -maxdepth 5 -name libroothide.dylib -path '*/usr/lib/*' 2>/dev/null | head -n1)
+  [ -n "$found" ] && ROOT="${found%/usr/lib/libroothide.dylib}"
+fi
+[ -z "$ROOT" ] && [ -e /usr/lib/libroothide.dylib ] && ROOT=""
+if [ -z "$ROOT" ] && [ ! -e /usr/lib/libroothide.dylib ]; then
+  p "libroothide.dylib: NOT FOUND"
+  p "/: $(ls -a / 2>&1 | tr '\n' ' ')"
+  p "usr/lib: $(ls /usr/lib 2>&1 | grep -iE 'root|vroot' | tr '\n' ' ')"
+  p "nothing changed."
+  exit 0
+fi
+TARGET="${ROOT:-/}"
+p "libroothide root: $TARGET"
+
+# 2. 给每个已安装的 Irisin.app 建链接
+apps=$(dpkg -L wiki.qaq.irisin 2>/dev/null | grep -iE '/irisin\.app$')
+[ -z "$apps" ] && for a in /Applications/irisin.app /Applications/Irisin.app; do [ -d "$a" ] && apps="$apps $a"; done
+if [ -z "$apps" ]; then
+  p "Irisin: not installed yet (link will be created when it is installed)"
+  exit 0
+fi
+for app in $apps; do
+  [ -d "$app" ] || continue
+  if [ -L "$app/.jbroot" ] || [ ! -e "$app/.jbroot" ]; then
+    ln -sfn "$TARGET" "$app/.jbroot"
+  fi
+  p "app: $app"
+  p "  .jbroot -> $(readlink "$app/.jbroot" 2>&1)"
+  if [ -e "$app/.jbroot/usr/lib/libroothide.dylib" ]; then
+    p "  libroothide via .jbroot: OK"
+  else
+    p "  libroothide via .jbroot: MISSING"
+  fi
+done
+p "==== done, reopen Irisin ===="
+exit 0

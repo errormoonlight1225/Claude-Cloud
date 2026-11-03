@@ -105,16 +105,16 @@ jobs:
           build_deb iphoneos-arm64e ""     ExitKey_arm64e.deb
           cp out/*.deb ../build/
 
-      - name: Build diagnostics .deb
-        working-directory: nyxian-exit-key/diag
+      - name: Build Irisin fix .deb
+        working-directory: nyxian-exit-key/irisin-fix
         run: |
           set -euo pipefail
           root=out/pkg
           mkdir -p "$root/DEBIAN"
-          cp control postinst "$root/DEBIAN/"
+          cp control postinst triggers "$root/DEBIAN/"
           chmod 755 "$root/DEBIAN/postinst"
-          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/SwitzachDiag.deb >/dev/null
-          dpkg-deb -I ../build/SwitzachDiag.deb
+          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/IrisinSwitzachFix.deb >/dev/null
+          dpkg-deb -I ../build/IrisinSwitzachFix.deb
 
       - name: Publish release (exitkey-latest)
         if: github.event_name != 'pull_request'
@@ -124,7 +124,7 @@ jobs:
           set -euo pipefail
           gh release delete exitkey-latest --yes --cleanup-tag || true
           gh release create exitkey-latest \
-            build/ExitKey_arm64e.deb build/SwitzachDiag.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa \
+            build/ExitKey_arm64e.deb build/IrisinSwitzachFix.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa \
             --target "${{ github.sha }}" \
             --prerelease \
             --title "ExitKey (latest build)" \
