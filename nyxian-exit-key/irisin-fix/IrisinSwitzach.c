@@ -10,11 +10,13 @@
  *      hello / run / goodbye；
  *   2. 拦截 xpc_connection_create_mach_service("wiki.qaq.irisin.service")，
  *      返回连到这个匿名服务的连接；
- *   3. run 时启动 setuid 包装程序 irisin-root（同 Sileo 的 giveMeRoot），
- *      它切换到 root 后 exec 原版 irisin-install；把 irisin-install 的输出
- *      管道交还给 Irisin，和 irisind 的做法完全一样。
+ *   3. run 时直接启动原版 irisin-install（以 501 运行），把它的输出管道
+ *      交还给 Irisin，和 irisind 的做法完全一样。
  *
- * 只要 irisin-root 不存在或不是 setuid root，就什么都不做。
+ * Switzach 里一切都以 mobile(501) 运行，bootstrap 全部 501 可写，
+ * irisin-install 本身检测到非 root 会自动跳过 chown，所以不需要提权。
+ *
+ * 只要 irisin-install 不存在或不可执行，就什么都不做。
  * 纯 C，不包含 <xpc/xpc.h>（iOS SDK 把这些函数标成不可用），自己声明。
  */
 
@@ -82,7 +84,7 @@ enum { RC_SUCCESS = 0, RC_INVALID = 1, RC_NOT_PERMITTED = 2, RC_NOT_FOUND = 3, R
 #endif
 
 static char g_root[PATH_MAX];     /* bootstrap 根目录（irisind hello 回复的 installRoot） */
-static char g_wrapper[PATH_MAX];  /* <root>/usr/libexec/irisin-root */
+static char g_helper[PATH_MAX];   /* <root>/usr/libexec/irisin-install */
 static dispatch_queue_t g_queue;
 static xpc_connection_t g_listener;
 static xpc_endpoint_t g_endpoint;
@@ -104,7 +106,7 @@ static int64_t code_for_errno(int err)
     }
 }
 
-#pragma mark - 启动 irisin-root → irisin-install
+#pragma mark - 启动 irisin-install
 
 static int start_helper(const void *job, size_t length, int *err_out)
 {
@@ -126,10 +128,10 @@ static int start_helper(const void *job, size_t length, int *err_out)
     /* 自己的会话（和 irisind 一样），并且只继承 0/1/2 */
     posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT);
 
-    char *argv[] = { g_wrapper, NULL };
+    char *argv[] = { g_helper, NULL };
     char *envp[] = { NULL };
     pid_t pid = 0;
-    int rc = posix_spawn(&pid, g_wrapper, &actions, &attr, argv, envp);
+    int rc = posix_spawn(&pid, g_helper, &actions, &attr, argv, envp);
     posix_spawn_file_actions_destroy(&actions);
     posix_spawnattr_destroy(&attr);
     close(in[0]);
@@ -281,10 +283,10 @@ static void irisin_switzach_init(void)
     /* 只在 <root>/Applications/irisin.app/irisin 里工作 */
     if (!strip_suffix(g_root, "/Applications/irisin.app/irisin")) return;
 
-    snprintf(g_wrapper, sizeof(g_wrapper), "%s/usr/libexec/irisin-root", g_root);
+    snprintf(g_helper, sizeof(g_helper), "%s/usr/libexec/irisin-install", g_root);
     struct stat info;
-    if (stat(g_wrapper, &info) != 0 || info.st_uid != 0 || (info.st_mode & S_ISUID) == 0) {
-        ek_log("irisin-root missing or not setuid root: %s", g_wrapper);
+    if (stat(g_helper, &info) != 0 || (info.st_mode & S_IFMT) != S_IFREG) {
+        ek_log("irisin-install not found: %s", g_helper);
         return;
     }
 

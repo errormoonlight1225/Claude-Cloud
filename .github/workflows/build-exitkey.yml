@@ -109,27 +109,20 @@ jobs:
         working-directory: nyxian-exit-key/irisin-fix
         run: |
           set -euo pipefail
-          command -v ldid >/dev/null || brew install ldid >/dev/null
           mkdir -p out
           CC="xcrun --sdk iphoneos clang"
           FLAGS="-mios-version-min=15.0 -O2 -Wall -Wextra -Wno-unused-parameter -fblocks"
-          # 注入 Irisin 的 dylib（arm64 + arm64e，和 Irisin 本体一致即可）
+          # 注入 Irisin 的 dylib（arm64 + arm64e）
           $CC -arch arm64 -arch arm64e $FLAGS -dynamiclib \
             -install_name @rpath/IrisinSwitzach.dylib \
             -Wl,-undefined,dynamic_lookup \
             -o out/IrisinSwitzach.dylib IrisinSwitzach.c
-          # setuid 包装程序（同 Sileo 的 giveMeRoot：arm64 + 同样的 entitlements）
-          $CC -arch arm64 $FLAGS -o out/irisin-root irisin-root.c
-          ldid -Sirisin-root.entitlements out/irisin-root
           codesign --force --sign - out/IrisinSwitzach.dylib
-          ldid -e out/irisin-root
           xcrun nm -u out/IrisinSwitzach.dylib | grep -E 'xpc|MSHook' || true
 
           root=out/pkg
-          mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries" "$root/usr/libexec"
+          mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries"
           cp out/IrisinSwitzach.dylib IrisinSwitzach.plist "$root/Library/MobileSubstrate/DynamicLibraries/"
-          cp out/irisin-root "$root/usr/libexec/irisin-root"
-          chmod 4755 "$root/usr/libexec/irisin-root"
           cp control postinst triggers "$root/DEBIAN/"
           chmod 755 "$root/DEBIAN/postinst"
           dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/IrisinSwitzachFix.deb >/dev/null

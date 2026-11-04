@@ -46,12 +46,7 @@ for app in $apps; do
     p "  libroothide via .jbroot: MISSING"
   fi
 done
-# 3. setuid 包装程序：只有 root 拥有、4755
-W=/usr/libexec/irisin-root
-if [ -f "$W" ]; then
-  chown 0:0 "$W" && chmod 4755 "$W"
-  p "irisin-root: $(ls -l "$W" 2>&1 | cut -c1-10) $(stat -c '%u' "$W" 2>/dev/null || stat -f '%u' "$W" 2>/dev/null)"
-fi
+p "helper: $(ls /opt/procursus/usr/libexec/irisin-install /usr/libexec/irisin-install 2>/dev/null | head -1)"
 p "tweak: $(ls /Library/MobileSubstrate/DynamicLibraries/IrisinSwitzach.dylib 2>&1)"
 p "==== done, reopen Irisin ===="
 exit 0
