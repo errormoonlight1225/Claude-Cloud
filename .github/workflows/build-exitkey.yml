@@ -113,10 +113,11 @@ jobs:
           CC="xcrun --sdk iphoneos clang"
           FLAGS="-mios-version-min=15.0 -O2 -Wall -Wextra -Wno-unused-parameter -fblocks"
           # 注入 Irisin 的 dylib（arm64 + arm64e）
-          $CC -arch arm64 -arch arm64e $FLAGS -dynamiclib \
+          $CC -arch arm64 -arch arm64e $FLAGS -fobjc-arc -dynamiclib \
+            -framework Foundation -framework UIKit \
             -install_name @rpath/IrisinSwitzach.dylib \
             -Wl,-undefined,dynamic_lookup \
-            -o out/IrisinSwitzach.dylib IrisinSwitzach.c
+            -o out/IrisinSwitzach.dylib IrisinSwitzach.m
           codesign --force --sign - out/IrisinSwitzach.dylib
           xcrun nm -u out/IrisinSwitzach.dylib | grep -E 'xpc|MSHook' || true
 

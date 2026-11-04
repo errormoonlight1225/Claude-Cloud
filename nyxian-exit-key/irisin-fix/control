@@ -1,6 +1,6 @@
 Package: com.exitkey.irisinswitzachfix
 Name: Irisin Fix for Switzach
-Version: 2.3.0
+Version: 2.4.0
 Architecture: iphoneos-arm64e
 Depends: wiki.qaq.irisin
 Description: 让 Irisin 在 Switzach（Nyxian）里能打开并安装软件包：补 .jbroot 链接让它识别 roothide；用进程内服务代替 launchd 启动不了的 irisind；此版带诊断日志，写入 Irisin 的 App Log 便于排查。

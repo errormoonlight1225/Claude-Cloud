@@ -20,6 +20,8 @@
  * 纯 C，不包含 <xpc/xpc.h>（iOS SDK 把这些函数标成不可用），自己声明。
  */
 
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #include <dirent.h>
 #include <dispatch/dispatch.h>
 #include <dlfcn.h>
@@ -139,6 +141,20 @@ static void ek_flush_to_dog(void)
     const char *suffix = "/Documents/wiki.qaq.irisin/Journal";
     char journal[PATH_MAX];
     const char *home;
+
+    /* Nyxian 把整个 Switzach 根目录放在 <容器>/Library/Data 下，
+       bootstrap 在 .../opt/procursus，Documents 在 .../var/mobile/Documents */
+    if (g_root[0] != '\0') {
+        char base[PATH_MAX];
+        strncpy(base, g_root, sizeof(base) - 1);
+        base[sizeof(base) - 1] = '\0';
+        size_t bl = strlen(base);
+        const char *proc = "/opt/procursus";
+        size_t pl = strlen(proc);
+        if (bl >= pl && strcmp(base + bl - pl, proc) == 0) base[bl - pl] = '\0';
+        snprintf(journal, sizeof(journal), "%s/var/mobile%s", base, suffix);
+        if (ek_flush_dir(journal)) return;
+    }
 
     if ((home = getenv("CFFIXED_USER_HOME")) != NULL) {
         snprintf(journal, sizeof(journal), "%s%s", home, suffix);
@@ -312,8 +328,14 @@ static bool start_server(void)
 
 static xpc_connection_t (*orig_create_mach_service)(const char *, dispatch_queue_t, uint64_t);
 
+static int g_hook_hits;
+
 static xpc_connection_t hook_create_mach_service(const char *name, dispatch_queue_t queue, uint64_t flags)
 {
+    if (name != NULL && strcmp(name, IW_SERVICE) == 0 && g_hook_hits < 3) {
+        g_hook_hits++;
+        ek_log("hook hit: lookup %s", name);
+    }
     if (name != NULL && flags == 0 && g_endpoint != NULL && strcmp(name, IW_SERVICE) == 0) {
         xpc_connection_t connection = ek_xpc_connection_create_from_endpoint(g_endpoint);
         if (connection != NULL) {
@@ -366,9 +388,38 @@ static void schedule_delayed_flush(void)
     }
 }
 
+/* 启动 6 秒后在 Irisin 里弹窗显示诊断，不依赖任何文件路径 */
+static void ek_show_alert(void)
+{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        NSString *text = nil;
+        pthread_mutex_lock(&g_loglock);
+        text = [[NSString alloc] initWithBytes:g_logbuf length:g_logused encoding:NSUTF8StringEncoding];
+        pthread_mutex_unlock(&g_loglock);
+        if (text.length == 0) text = @"(no log)";
+
+        UIViewController *vc = nil;
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            for (UIWindow *w in ((UIWindowScene *)scene).windows) {
+                if (w.isKeyWindow || vc == nil) vc = w.rootViewController;
+            }
+        }
+        while (vc.presentedViewController) vc = vc.presentedViewController;
+        if (vc == nil) return;
+
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"IrisinSwitzach 2.4"
+                                                                       message:text
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [vc presentViewController:alert animated:YES completion:nil];
+    });
+}
+
 __attribute__((constructor))
 static void irisin_switzach_init(void)
 {
+    ek_show_alert();
     schedule_delayed_flush();
     ek_log("constructor entered%s", NULL);
 
