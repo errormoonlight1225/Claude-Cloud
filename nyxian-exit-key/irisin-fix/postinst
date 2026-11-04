@@ -32,7 +32,6 @@ apps=$(dpkg -L wiki.qaq.irisin 2>/dev/null | grep -iE '/irisin\.app$')
 [ -z "$apps" ] && for a in /Applications/irisin.app /Applications/Irisin.app; do [ -d "$a" ] && apps="$apps $a"; done
 if [ -z "$apps" ]; then
   p "Irisin: not installed yet (link will be created when it is installed)"
-  exit 0
 fi
 for app in $apps; do
   [ -d "$app" ] || continue
@@ -47,5 +46,12 @@ for app in $apps; do
     p "  libroothide via .jbroot: MISSING"
   fi
 done
+# 3. setuid 包装程序：只有 root 拥有、4755
+W=/usr/libexec/irisin-root
+if [ -f "$W" ]; then
+  chown 0:0 "$W" && chmod 4755 "$W"
+  p "irisin-root: $(ls -l "$W" 2>&1 | cut -c1-10) $(stat -c '%u' "$W" 2>/dev/null || stat -f '%u' "$W" 2>/dev/null)"
+fi
+p "tweak: $(ls /Library/MobileSubstrate/DynamicLibraries/IrisinSwitzach.dylib 2>&1)"
 p "==== done, reopen Irisin ===="
 exit 0
