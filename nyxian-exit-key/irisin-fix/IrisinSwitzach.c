@@ -20,11 +20,14 @@
  * 纯 C，不包含 <xpc/xpc.h>（iOS SDK 把这些函数标成不可用），自己声明。
  */
 
+#include <dirent.h>
 #include <dispatch/dispatch.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
+#include <time.h>
 #include <mach-o/dyld.h>
 #include <signal.h>
 #include <spawn.h>
@@ -90,11 +93,58 @@ static xpc_connection_t g_listener;
 static xpc_endpoint_t g_endpoint;
 static uint64_t g_next_job = 1;
 
+/*
+ * 诊断日志：缓存在内存里，并写进 Irisin 当前的 Dog 日志
+ * (<Documents>/wiki.qaq.irisin/Journal/Dog_*.log)，这样用户用
+ * "Export App Log" 就能把这些行一起导出。构造函数跑得比 Dog 早，
+ * 所以启动后再延迟把缓存刷进当前日志。
+ */
+#define EK_LOGDIR "/var/mobile/Documents/wiki.qaq.irisin/Journal"
+static char g_logbuf[8192];
+static size_t g_logused;
+static pthread_mutex_t g_loglock = PTHREAD_MUTEX_INITIALIZER;
+
+static void ek_flush_to_dog(void)
+{
+    DIR *d = opendir(EK_LOGDIR);
+    if (d == NULL) return;
+    char newest[PATH_MAX] = {0};
+    time_t newest_mtime = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (strncmp(e->d_name, "Dog_", 4) != 0) continue;
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", EK_LOGDIR, e->d_name);
+        struct stat st;
+        if (stat(path, &st) == 0 && st.st_mtime >= newest_mtime) {
+            newest_mtime = st.st_mtime;
+            strncpy(newest, path, sizeof(newest) - 1);
+        }
+    }
+    closedir(d);
+    if (newest[0] == '\0') return;
+    int fd = open(newest, O_WRONLY | O_APPEND);
+    if (fd < 0) return;
+    (void)write(fd, g_logbuf, g_logused);
+    close(fd);
+}
+
 static void ek_log(const char *fmt, const char *arg)
 {
-    fprintf(stderr, "[IrisinSwitzach] ");
-    fprintf(stderr, fmt, arg ? arg : "");
-    fprintf(stderr, "\n");
+    char line[512];
+    int n = snprintf(line, sizeof(line), "[IrisinSwitzach] ");
+    n += snprintf(line + n, sizeof(line) - n, fmt, arg ? arg : "");
+    n += snprintf(line + n, sizeof(line) - n, "\n");
+    if (n < 0) return;
+
+    fputs(line, stderr);
+    pthread_mutex_lock(&g_loglock);
+    if (g_logused + (size_t)n < sizeof(g_logbuf)) {
+        memcpy(g_logbuf + g_logused, line, (size_t)n);
+        g_logused += (size_t)n;
+    }
+    ek_flush_to_dog();
+    pthread_mutex_unlock(&g_loglock);
 }
 
 static int64_t code_for_errno(int err)
@@ -178,20 +228,28 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message)
     int err = 0;
     uint64_t op = ek_xpc_dictionary_get_uint64(message, "op");
 
+    char opbuf[32]; snprintf(opbuf, sizeof(opbuf), "%llu", (unsigned long long)op);
+    ek_log("message received, op=%s", opbuf);
+
     if (ek_xpc_dictionary_get_uint64(message, "v") != IW_VERSION) {
         code = RC_INVALID;
     } else if (op == OP_HELLO) {
         ek_xpc_dictionary_set_string(reply, "root", g_root);
+        ek_log("hello -> root=%s", g_root[0] ? g_root : "/");
     } else if (op == OP_RUN) {
         size_t length = 0;
         const void *job = ek_xpc_dictionary_get_data(message, "job", &length);
         if (job == NULL || length == 0 || length > IW_MAX_JOB) {
             code = RC_INVALID;
+            ek_log("run: invalid job data%s", NULL);
         } else {
             int fd = start_helper(job, length, &err);
             if (fd < 0) {
                 code = code_for_errno(err);
+                char eb[32]; snprintf(eb, sizeof(eb), "%d", err);
+                ek_log("run: start_helper failed errno=%s", eb);
             } else {
+                ek_log("run: helper started ok%s", NULL);
                 ek_xpc_dictionary_set_fd(reply, "fd", fd);
                 close(fd);
                 ek_xpc_dictionary_set_uint64(reply, "jobid", g_next_job++);
@@ -273,34 +331,67 @@ static bool strip_suffix(char *path, const char *suffix)
     return true;
 }
 
+/* 启动后把诊断缓存再刷一次：构造函数早于 Dog 建日志，这里补上 */
+static void schedule_delayed_flush(void)
+{
+    for (int delay = 4; delay <= 12; delay += 4) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)delay * NSEC_PER_SEC),
+                       dispatch_get_main_queue(), ^{
+            pthread_mutex_lock(&g_loglock);
+            ek_flush_to_dog();
+            pthread_mutex_unlock(&g_loglock);
+        });
+    }
+}
+
 __attribute__((constructor))
 static void irisin_switzach_init(void)
 {
+    schedule_delayed_flush();
+    ek_log("constructor entered%s", NULL);
+
     char exe[PATH_MAX];
     uint32_t size = sizeof(exe);
-    if (_NSGetExecutablePath(exe, &size) != 0) return;
-    if (realpath(exe, g_root) == NULL) return;
+    if (_NSGetExecutablePath(exe, &size) != 0) { ek_log("NSGetExecutablePath failed%s", NULL); return; }
+    ek_log("exe=%s", exe);
+    if (realpath(exe, g_root) == NULL) {
+        /* realpath 失败（符号链接解析不了）就用原始路径兜底 */
+        strncpy(g_root, exe, sizeof(g_root) - 1);
+        ek_log("realpath failed, using raw path%s", NULL);
+    }
+    ek_log("realpath=%s", g_root);
     /* 只在 <root>/Applications/irisin.app/irisin 里工作 */
-    if (!strip_suffix(g_root, "/Applications/irisin.app/irisin")) return;
+    if (!strip_suffix(g_root, "/Applications/irisin.app/irisin")) {
+        ek_log("suffix mismatch, not Irisin main binary%s", NULL);
+        return;
+    }
+    ek_log("root=%s", g_root[0] ? g_root : "(empty=/)");
 
     snprintf(g_helper, sizeof(g_helper), "%s/usr/libexec/irisin-install", g_root);
     struct stat info;
     if (stat(g_helper, &info) != 0 || (info.st_mode & S_IFMT) != S_IFREG) {
         ek_log("irisin-install not found: %s", g_helper);
-        return;
+        /* 不直接返回：改用 PATH 兜底再记录，仍然安装 hook，便于诊断 */
+    } else {
+        ek_log("irisin-install ok: %s", g_helper);
     }
 
     MSHookFunction_t hook = find_hooker();
     if (hook == NULL) {
-        ek_log("MSHookFunction not found%s", NULL);
+        ek_log("MSHookFunction NOT found%s", NULL);
         return;
     }
+    ek_log("MSHookFunction found%s", NULL);
     if (!start_server()) {
         ek_log("could not start in-process service%s", NULL);
         return;
     }
+    ek_log("in-process service started%s", NULL);
     void *target = dlsym(RTLD_DEFAULT, "xpc_connection_create_mach_service");
-    if (target == NULL) target = (void *)ek_xpc_connection_create_mach_service;
+    if (target == NULL) {
+        target = (void *)ek_xpc_connection_create_mach_service;
+        ek_log("dlsym xpc_connection_create_mach_service NULL, using local alias%s", NULL);
+    }
     hook(target, (void *)hook_create_mach_service, (void **)&orig_create_mach_service);
-    ek_log("active, root=%s", g_root[0] ? g_root : "/");
+    ek_log("hook installed, ACTIVE root=%s", g_root[0] ? g_root : "/");
 }
