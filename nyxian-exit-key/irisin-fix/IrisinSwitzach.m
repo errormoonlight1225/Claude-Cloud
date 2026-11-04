@@ -44,21 +44,17 @@
 
 #pragma mark - libxpc 声明
 
-typedef void *xpc_object_t;
-typedef xpc_object_t xpc_connection_t;
-typedef xpc_object_t xpc_endpoint_t;
-typedef const void *xpc_type_t;
-typedef void (^xpc_handler_t)(xpc_object_t);
-
-extern const char _xpc_type_dictionary;
-extern const char _xpc_type_connection;
-#define EK_XPC_TYPE_DICTIONARY ((xpc_type_t)&_xpc_type_dictionary)
-#define EK_XPC_TYPE_CONNECTION ((xpc_type_t)&_xpc_type_connection)
+/* ObjC 下 Foundation 已带入系统的 xpc 类型定义，直接用它们；
+   函数本身仍用 __asm__ 别名声明（iOS SDK 把部分函数标为不可用）。 */
+#include <xpc/xpc.h>
+typedef xpc_object_t ek_xpc_endpoint_t;
+#define EK_XPC_TYPE_DICTIONARY XPC_TYPE_DICTIONARY
+#define EK_XPC_TYPE_CONNECTION XPC_TYPE_CONNECTION
 
 extern xpc_connection_t ek_xpc_connection_create(const char *, dispatch_queue_t) __asm__("_xpc_connection_create");
 extern xpc_connection_t ek_xpc_connection_create_mach_service(const char *, dispatch_queue_t, uint64_t) __asm__("_xpc_connection_create_mach_service");
-extern xpc_connection_t ek_xpc_connection_create_from_endpoint(xpc_endpoint_t) __asm__("_xpc_connection_create_from_endpoint");
-extern xpc_endpoint_t ek_xpc_endpoint_create(xpc_connection_t) __asm__("_xpc_endpoint_create");
+extern xpc_connection_t ek_xpc_connection_create_from_endpoint(ek_xpc_endpoint_t) __asm__("_xpc_connection_create_from_endpoint");
+extern ek_xpc_endpoint_t ek_xpc_endpoint_create(xpc_connection_t) __asm__("_xpc_endpoint_create");
 extern void ek_xpc_connection_set_event_handler(xpc_connection_t, xpc_handler_t) __asm__("_xpc_connection_set_event_handler");
 extern void ek_xpc_connection_set_target_queue(xpc_connection_t, dispatch_queue_t) __asm__("_xpc_connection_set_target_queue");
 extern void ek_xpc_connection_resume(xpc_connection_t) __asm__("_xpc_connection_resume");
@@ -92,7 +88,7 @@ static char g_root[PATH_MAX];     /* bootstrap 根目录（irisind hello 回复�
 static char g_helper[PATH_MAX];   /* <root>/usr/libexec/irisin-install */
 static dispatch_queue_t g_queue;
 static xpc_connection_t g_listener;
-static xpc_endpoint_t g_endpoint;
+static ek_xpc_endpoint_t g_endpoint;
 static uint64_t g_next_job = 1;
 
 /*
