@@ -98,23 +98,27 @@ static uint64_t g_next_job = 1;
  * (<Documents>/wiki.qaq.irisin/Journal/Dog_*.log)，这样用户用
  * "Export App Log" 就能把这些行一起导出。构造函数跑得比 Dog 早，
  * 所以启动后再延迟把缓存刷进当前日志。
+ *
+ * Switzach 里 Irisin 带容器，真实 Documents 在容器内，不是
+ * /var/mobile/Documents。所以日志目录从 CFFIXED_USER_HOME / HOME
+ * 推出来，并尝试多个候选路径。
  */
-#define EK_LOGDIR "/var/mobile/Documents/wiki.qaq.irisin/Journal"
 static char g_logbuf[8192];
 static size_t g_logused;
 static pthread_mutex_t g_loglock = PTHREAD_MUTEX_INITIALIZER;
 
-static void ek_flush_to_dog(void)
+/* 把当前缓存写进 <base>/Journal/ 下最新的 Dog_*.log，成功返回 true */
+static bool ek_flush_dir(const char *journal)
 {
-    DIR *d = opendir(EK_LOGDIR);
-    if (d == NULL) return;
+    DIR *d = opendir(journal);
+    if (d == NULL) return false;
     char newest[PATH_MAX] = {0};
     time_t newest_mtime = 0;
     struct dirent *e;
     while ((e = readdir(d)) != NULL) {
         if (strncmp(e->d_name, "Dog_", 4) != 0) continue;
         char path[PATH_MAX];
-        snprintf(path, sizeof(path), "%s/%s", EK_LOGDIR, e->d_name);
+        snprintf(path, sizeof(path), "%s/%s", journal, e->d_name);
         struct stat st;
         if (stat(path, &st) == 0 && st.st_mtime >= newest_mtime) {
             newest_mtime = st.st_mtime;
@@ -122,11 +126,29 @@ static void ek_flush_to_dog(void)
         }
     }
     closedir(d);
-    if (newest[0] == '\0') return;
+    if (newest[0] == '\0') return false;
     int fd = open(newest, O_WRONLY | O_APPEND);
-    if (fd < 0) return;
+    if (fd < 0) return false;
     (void)write(fd, g_logbuf, g_logused);
     close(fd);
+    return true;
+}
+
+static void ek_flush_to_dog(void)
+{
+    const char *suffix = "/Documents/wiki.qaq.irisin/Journal";
+    char journal[PATH_MAX];
+    const char *home;
+
+    if ((home = getenv("CFFIXED_USER_HOME")) != NULL) {
+        snprintf(journal, sizeof(journal), "%s%s", home, suffix);
+        if (ek_flush_dir(journal)) return;
+    }
+    if ((home = getenv("HOME")) != NULL) {
+        snprintf(journal, sizeof(journal), "%s%s", home, suffix);
+        if (ek_flush_dir(journal)) return;
+    }
+    ek_flush_dir("/var/mobile/Documents/wiki.qaq.irisin/Journal");
 }
 
 static void ek_log(const char *fmt, const char *arg)
