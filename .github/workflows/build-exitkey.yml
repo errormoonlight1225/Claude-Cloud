@@ -136,16 +136,28 @@ jobs:
           dpkg-deb -I ../build/IrisinSwitzachFix.deb
           dpkg-deb -c ../build/IrisinSwitzachFix.deb
 
+      - name: Upload deb artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs
+          path: nyxian-exit-key/build/*.deb
+          if-no-files-found: error
+
       - name: Publish release (exitkey-latest)
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release delete exitkey-latest --yes --cleanup-tag || true
-          gh release create exitkey-latest \
-            build/ExitKey_arm64e.deb build/IrisinSwitzachFix.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa \
-            --target "${{ github.sha }}" \
-            --prerelease \
-            --title "ExitKey (latest build)" \
-            --notes "悬浮退出键，自动编译自 ${{ github.sha }}。Nyxian（iphoneos-arm64e）装 ExitKey_arm64e.deb；普通 rootless 越狱装 ExitKey_rootless.deb；rootful 装 ExitKey_rootful.deb。"
+          FILES="build/ExitKey_arm64e.deb build/IrisinSwitzachFix.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa"
+          NOTES="悬浮退出键 + Irisin/Switzach 修复，自动编译自 ${{ github.sha }}。"
+          # 先尝试删除旧 release（GitHub 偶发 500，重试几次）
+          for i in 1 2 3; do
+            gh release delete exitkey-latest --yes --cleanup-tag && break || sleep 5
+          done
+          # 新建；如果 release/tag 仍存在，就改为覆盖上传，保证幂等
+          if ! gh release create exitkey-latest $FILES --target "${{ github.sha }}" --prerelease --title "ExitKey (latest build)" --notes "$NOTES"; then
+            echo "create failed, falling back to upload --clobber"
+            gh release create exitkey-latest --prerelease --title "ExitKey (latest build)" --notes "$NOTES" 2>/dev/null || true
+            gh release upload exitkey-latest $FILES --clobber
+          fi
