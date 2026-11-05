@@ -87,7 +87,6 @@ apt-get install -y -q --no-install-recommends \
     xwayland
 useradd -m -u 1000 -s /bin/bash -G video,render,input,kvm,audio macboot
 passwd -d macboot >/dev/null
-systemctl enable systemd-networkd systemd-resolved iwd macboot-firstboot.service >/dev/null 2>&1 || true
 systemctl mask apt-daily.timer apt-daily-upgrade.timer motd-news.timer e2scrub_all.timer fstrim.timer e2scrub_reap.service >/dev/null 2>&1 || true
 ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 '
@@ -96,6 +95,8 @@ ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 cp -a "$HERE/overlay/." "$M/"
 mv "$M/home-macboot/.bash_profile" "$M/home/macboot/.bash_profile"; rmdir "$M/home-macboot"
 chroot "$M" chown 1000:1000 /home/macboot/.bash_profile
+chroot "$M" systemctl enable systemd-networkd systemd-resolved iwd macboot-firstboot.service
+chroot "$M" test -e /etc/systemd/system/local-fs.target.wants/macboot-firstboot.service
 mkdir -p "$M/etc/systemd/system/getty@tty1.service.d" "$M/usr/share/doc/macboot"
 cat > "$M/etc/systemd/system/getty@tty1.service.d/autologin.conf" <<'GT'
 [Service]
@@ -114,6 +115,12 @@ install -m 0755 "$REIMS/bin/reims-ctl" "$M/usr/local/bin/reims-ctl"
 missing=$(chroot "$M" /bin/sh -c 'ldd /opt/reims/qemu-tree/bin/qemu-system-x86_64 /usr/local/bin/reims-ctl 2>&1 | grep "not found"' || true)
 [ -z "$missing" ] || { echo "MISSING SHARED LIBRARIES:"; echo "$missing"; exit 1; }
 
+# ---- state directories on MACDATA, created now so the macboot user (uid 1000) can use /data at once
+mkdir -p "$WORK/data" && mount "$L_DATA" "$WORK/data"
+mkdir -p "$WORK/data/reims/data" "$WORK/data/reims/config" "$WORK/data/reims/cache"
+chown -R 1000:1000 "$WORK/data/reims"
+umount "$WORK/data"
+
 # ---- kernel command line, GRUB (standalone EFI binary built here, config written by hand)
 mkdir -p "$M/boot/grub"
 cat > "$M/boot/grub/grub.cfg" <<'GRUB'
@@ -121,13 +128,13 @@ set timeout=1
 set default=0
 menuentry "MacBoot" {
     search --no-floppy --label rootfs --set=root
-    linux /vmlinuz root=LABEL=rootfs ro console=tty0 quiet loglevel=3 mitigations=off transparent_hugepage=madvise
-    initrd /initrd.img
+    linux /boot/vmlinuz root=LABEL=rootfs ro console=tty0 quiet loglevel=3 mitigations=off transparent_hugepage=madvise
+    initrd /boot/initrd.img
 }
 menuentry "MacBoot (rescue shell on tty1)" {
     search --no-floppy --label rootfs --set=root
-    linux /vmlinuz root=LABEL=rootfs ro console=tty0 console=ttyS0,115200 systemd.unit=rescue.target
-    initrd /initrd.img
+    linux /boot/vmlinuz root=LABEL=rootfs ro console=tty0 console=ttyS0,115200 systemd.unit=rescue.target
+    initrd /boot/initrd.img
 }
 GRUB
 mkdir -p "$WORK/esp/EFI/BOOT"

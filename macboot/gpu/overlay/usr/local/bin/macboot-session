@@ -15,7 +15,7 @@ reims-ctl doctor || true
 if ! need reims-util; then
     echo "reims-util is not installed in this image. Without it the VM's OpenCore image and the"
     echo "macOS installer cannot be made. See /usr/share/doc/macboot/README.md. Dropping to a shell."
-    exec bash -l
+    MACBOOT_NO_SESSION=1 exec bash -l
 fi
 
 if ! reims-ctl list 2>/dev/null | grep -qw "$VM"; then
@@ -28,7 +28,7 @@ if ! reims-ctl list 2>/dev/null | grep -qw "$VM"; then
     reims-util opencore -o OpenCore.qcow2 &&
     reims-util online-installer "$MACOS" &&
     reims-ctl create "$VM" --opencore OpenCore.qcow2 --installer "$d"/*"$MACOS"*installer*.dmg --memory "${GUEST_RAM:-8G}" ||
-        { echo "VM creation failed; shell on this console. Retry: macboot-session"; exec bash -l; }
+        { echo "VM creation failed; shell on this console. Retry: macboot-session"; MACBOOT_NO_SESSION=1 exec bash -l; }
     echo "VM created. It will boot into macOS Recovery: erase the disk in Disk Utility, Reinstall macOS."
     echo "Then follow 'METAL_ERROR_MODE' in /usr/share/doc/macboot/README.md once, or the desktop will not appear."
 fi
@@ -40,5 +40,5 @@ reims-ctl command "$VM" > /tmp/run-vm.sh
 REIMS_VGPU_WINDOW_BORDERLESS=1 cage -s -- bash /tmp/run-vm.sh
 rc=$?
 echo "VM exited (code $rc). Press Enter for a shell, or wait 10 s to power off."
-read -t 10 _ && exec bash -l
+read -t 10 _ && MACBOOT_NO_SESSION=1 exec bash -l
 sudo -n systemctl poweroff 2>/dev/null || systemctl poweroff
