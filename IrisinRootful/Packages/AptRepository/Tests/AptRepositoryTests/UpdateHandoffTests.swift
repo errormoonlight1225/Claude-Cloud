@@ -1,5 +1,5 @@
 @testable import AptRepository
-import CryptoKit
+import LegacyCrypto
 import Foundation
 import Testing
 

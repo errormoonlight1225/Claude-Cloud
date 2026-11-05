@@ -1,5 +1,6 @@
+import LegacyCompat
 import ArchiveKit
-import CryptoKit
+import LegacyCrypto
 import Foundation
 import IrisinProtocol
 
@@ -209,7 +210,7 @@ public enum DebianPreparation {
             throw CocoaError(.fileWriteUnknown)
         }
         let file = try FileHandle(forWritingTo: url)
-        defer { try? file.close() }
+        defer { try? file.compatClose() }
         var sha = SHA256()
         var md5 = Insecure.MD5()
         var total: Int64 = 0
@@ -221,7 +222,7 @@ public enum DebianPreparation {
                 break
             }
             let data = Data(buffer.prefix(count))
-            try file.write(contentsOf: data)
+            try file.compatWrite(contentsOf: data)
             sha.update(data: data)
             md5.update(data: data)
             total += Int64(count)

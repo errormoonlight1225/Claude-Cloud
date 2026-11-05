@@ -1,4 +1,4 @@
-import CryptoKit
+import LegacyCrypto
 import Foundation
 
 /// What a Release says its indexes hash to, so an index that is not the one

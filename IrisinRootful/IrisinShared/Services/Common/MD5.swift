@@ -5,7 +5,7 @@
 //  Created by Lakr Aream on 2021/8/24.
 //
 
-import CryptoKit
+import LegacyCrypto
 import Foundation
 
 /// Repository metadata still hashes package files with MD5, so verifying a

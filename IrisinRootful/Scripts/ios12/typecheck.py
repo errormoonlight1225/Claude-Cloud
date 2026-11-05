@@ -17,12 +17,16 @@ Environment:
   IOS_BIN     unpacked binary xcframeworks (default /opt/ios/bin)
   OUT         build directory (default /tmp/irisin-ios12-check)
 
+Each module is also linted for Swift concurrency left in its sources
+(MODULE.lint beside the log): iOS 12 cannot run any of it.
+
 Usage: typecheck.py [MODULE ...]   (no argument: every module)
        typecheck.py --list
        typecheck.py --from MODULE  (MODULE and everything after it)
 """
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -80,6 +84,7 @@ MODULES = [
     M("ArchiveKit", [DEPS / "libarchive.xcframework/Sources/ArchiveKit"]),
     # Third party, vendored and ported.
     M("LegacyCompat", [V / "LegacyCompat/Sources/LegacyCompat"]),
+    M("LegacyCrypto", [V / "LegacyCompat/Sources/LegacyCrypto"]),
     M("SnapKit", [V / "SnapKit/Sources"]),
     M("LRUCache", [V / "LRUCache/Sources"]),
     M("Dog", [V / "Dog/Sources/Dog"]),
@@ -92,36 +97,34 @@ MODULES = [
     M("IcliKit", [V / "icli/Sources/IcliKit"],
       ["IcliPrivate", "IcliSystem", "IcliLaunch", "IcliProbe", "ArchiveKit", "LegacyCompat"]),
     # First party packages.
-    M("IrisinProtocol", [P / "IrisinKit/Sources/IrisinProtocol"], ["CIrisinXPC", "CIrisinSpawn"]),
-    M("IrisinPreparation", [P / "IrisinKit/Sources/IrisinPreparation"], ["IrisinProtocol", "ArchiveKit"]),
+    M("IrisinProtocol", [P / "IrisinKit/Sources/IrisinProtocol"], ["CIrisinXPC", "CIrisinSpawn", "LegacyCompat", "LegacyCrypto"]),
+    M("IrisinPreparation", [P / "IrisinKit/Sources/IrisinPreparation"], ["IrisinProtocol", "ArchiveKit", "LegacyCompat", "LegacyCrypto"]),
     M("IrisinInstaller", [P / "IrisinKit/Sources/IrisinInstaller"],
-      ["CIrisinDB", "IrisinProtocol", "IrisinPreparation", "IcliKit"]),
-    M("IrisinClient", [P / "IrisinKit/Sources/IrisinClient"], ["IrisinProtocol", "IrisinInstaller"]),
-    M("IrisinVendor", [P / "IrisinKit/Sources/IrisinVendor"]),
-    M("IrisinExternalClient", [P / "IrisinExternalClient/Sources/IrisinExternalClient"], ["CIrisinExternalXPC"]),
+      ["CIrisinDB", "IrisinProtocol", "IrisinPreparation", "IcliKit", "LegacyCompat", "LegacyCrypto"]),
+    M("IrisinClient", [P / "IrisinKit/Sources/IrisinClient"], ["IrisinProtocol", "IrisinInstaller", "LegacyCompat", "LegacyCrypto"]),
+    M("IrisinVendor", [P / "IrisinKit/Sources/IrisinVendor"], ["LegacyCompat", "LegacyCrypto"]),
+    M("IrisinExternalClient", [P / "IrisinExternalClient/Sources/IrisinExternalClient"], ["CIrisinExternalXPC", "LegacyCompat", "LegacyCrypto"]),
     M("AptRepository", [P / "AptRepository/Sources/AptRepository"],
-      ["ArchiveKit", "IrisinProtocol", "IrisinPreparation", "WCDBSwift", "LRUCache"]),
-    M("AptResolver", [P / "AptRepository/Sources/AptResolver"], ["AptRepository", "LibSolv", "IrisinProtocol"]),
-    M("Runestone", [P / "Runestone/Sources/Runestone"], ["TreeSitter"], resources=True),
+      ["ArchiveKit", "IrisinProtocol", "IrisinPreparation", "WCDBSwift", "LRUCache", "LegacyCompat", "LegacyCrypto"]),
+    M("AptResolver", [P / "AptRepository/Sources/AptResolver"], ["AptRepository", "LibSolv", "IrisinProtocol", "LegacyCompat", "LegacyCrypto"]),
+    M("Runestone", [P / "Runestone/Sources/Runestone"], ["TreeSitter", "LegacyCompat", "LegacyCrypto"], resources=True),
     M("RunestoneLanguageSupport", [P / "Runestone/Sources/RunestoneLanguageSupport"],
-      ["Runestone", "TreeSitterBash", "TreeSitterJSON"]),
-    M("RunestoneThemeSupport", [P / "Runestone/Sources/RunestoneThemeSupport"], ["Runestone"]),
-    M("MarkdownParser", [P / "MarkdownView/Sources/MarkdownParser"], ["cmark_gfm", "cmark_gfm_extensions"]),
-    M("MarkdownView", [P / "MarkdownView/Sources/MarkdownView"], ["Litext", "MarkdownParser", "LRUCache", "DequeModule"]),
+      ["Runestone", "TreeSitterBash", "TreeSitterJSON", "LegacyCompat", "LegacyCrypto"]),
+    M("RunestoneThemeSupport", [P / "Runestone/Sources/RunestoneThemeSupport"], ["Runestone", "LegacyCompat", "LegacyCrypto"]),
+    M("MarkdownParser", [P / "MarkdownView/Sources/MarkdownParser"], ["cmark_gfm", "cmark_gfm_extensions", "LegacyCompat", "LegacyCrypto"]),
+    M("MarkdownView", [P / "MarkdownView/Sources/MarkdownView"], ["Litext", "MarkdownParser", "LRUCache", "DequeModule", "LegacyCompat", "LegacyCrypto"]),
     M("PackageDepiction", [P / "PackageDepiction/Sources/PackageDepiction"],
-      ["SDWebImage", "MarkdownView", "SnapKit", "Then"], resources=True),
-    M("IrisinWeb", [P / "IrisinWeb/Sources/IrisinWeb"], resources=True),
+      ["SDWebImage", "MarkdownView", "SnapKit", "Then", "LegacyCompat", "LegacyCrypto"], resources=True),
     # Products.
-    M("irisind", [ROOT / "IrisinDaemon"], ["IrisinProtocol"], executable=True),
-    M("irisin_install", [ROOT / "IrisinInstall"], ["IrisinProtocol", "IrisinInstaller"], executable=True),
+    M("irisind", [ROOT / "IrisinDaemon"], ["IrisinProtocol", "LegacyCompat", "LegacyCrypto"], executable=True),
+    M("irisin_install", [ROOT / "IrisinInstall"], ["IrisinProtocol", "IrisinInstaller", "LegacyCompat", "LegacyCrypto"], executable=True),
     M("irisin_cli", [ROOT / "IrisinCLI"],
-      ["IrisinProtocol", "IrisinClient", "IrisinVendor", "AptRepository", "AptResolver", "ArgumentParser"],
+      ["IrisinProtocol", "IrisinClient", "IrisinVendor", "AptRepository", "AptResolver", "ArgumentParser", "LegacyCompat", "LegacyCrypto"],
       executable=True),
     M("Irisin", [ROOT / "Irisin", ROOT / "IrisinShared"],
       ["IrisinProtocol", "IrisinClient", "IrisinVendor", "AptRepository", "AptResolver", "Dog",
        "PackageDepiction", "SnapKit", "SDWebImage", "SPIndicator", "LitextAnimation", "AlertController",
-       "Runestone", "RunestoneLanguageSupport", "RunestoneThemeSupport", "Then", "OrderedCollections",
-       "IrisinWeb"],
+       "Runestone", "RunestoneLanguageSupport", "RunestoneThemeSupport", "Then", "OrderedCollections", "LegacyCompat", "LegacyCrypto"],
       executable=True),
 ]
 
@@ -180,6 +183,45 @@ def check(module, common):
     return proc.returncode, errors, log
 
 
+# Swift 6.3 accepts `async` declarations for an iOS 12 target and reports
+# only concurrency library uses, but nothing of Swift concurrency can run on
+# iOS 12 (it would link libswift_Concurrency). Every remaining spelling of it
+# is reported here so the port can reach zero.
+CONCURRENCY = re.compile(
+    r"(?<![.\w])async(?=\s*(throws|->|\{|let\b|\)|$|\s*rethrows|\s*where))"
+    r"|\bawait\b|^\s*(?:(?:public|private|fileprivate|internal|package|final|nonisolated|distributed)\s+)*actor\s+\w"
+    r"|@concurrent\b|\bisolated\s+deinit\b|\bTask\s*[{(.<]|\bTask\.\w|\bAsync(Throwing)?Stream\b"
+    r"|\bwithTaskGroup\b|\bwithThrowingTaskGroup\b|\bwithChecked(Throwing)?Continuation\b|\bCheckedContinuation\b"
+    r"|\bMainActor\.|\bAsyncSequence\b|\bTaskGroup\b|\bCancellationError\b|@globalActor\b",
+    re.M,
+)
+# Compile-time-only spellings (nonisolated, sending, @MainActor on a
+# declaration) are not reported: in Swift 5 mode they emit nothing at run
+# time. Files only another platform compiles are skipped.
+OTHER_PLATFORM_FILE = re.compile(r"[@+](AppKit|macOS|watchOS|visionOS)\.swift$")
+
+
+def strip_comments_and_strings(text):
+    text = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
+    text = re.sub(r'"""(.*?)"""', lambda m: '""' + "\n" * m.group(0).count("\n"), text, flags=re.S)
+    text = re.sub(r'"(?:\\.|[^"\\\n])*"', '""', text)
+    text = re.sub(r"//[^\n]*", "", text)
+    return text
+
+
+def lint(module):
+    hits = []
+    for f in swift_files(module):
+        if OTHER_PLATFORM_FILE.search(f.name):
+            continue
+        code = strip_comments_and_strings(f.read_text())
+        for i, line in enumerate(code.split("\n"), 1):
+            m = CONCURRENCY.search(line)
+            if m:
+                hits.append(f"{f}:{i}: {m.group(0).strip()}: {line.strip()}")
+    return hits
+
+
 def main(argv):
     if "--list" in argv:
         print("\n".join(m["name"] for m in MODULES))
@@ -196,9 +238,13 @@ def main(argv):
     for module in selected:
         code, errors, log = check(module, common)
         unique = sorted(set(errors))
+        hits = lint(module)
+        (OUT / "logs" / f"{module['name']}.lint").write_text("\n".join(hits) + ("\n" if hits else ""))
         status = "ok" if code == 0 else f"FAIL ({len(unique)} errors)"
-        print(f"{module['name']:28} {status}  {log if code else ''}", flush=True)
-        if code:
+        if hits:
+            status += f", {len(hits)} concurrency uses"
+        print(f"{module['name']:28} {status}  {log if code or hits else ''}", flush=True)
+        if code or hits:
             failed += 1
     return 1 if failed else 0
 

@@ -1,4 +1,4 @@
-import CryptoKit
+import LegacyCrypto
 import Darwin
 import Foundation
 @testable import IrisinInstaller

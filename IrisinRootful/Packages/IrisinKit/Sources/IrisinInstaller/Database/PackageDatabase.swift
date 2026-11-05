@@ -1,3 +1,4 @@
+import LegacyCompat
 import Foundation
 import IrisinProtocol
 
@@ -350,8 +351,8 @@ final class PackageDatabase {
             throw CocoaError(.fileWriteUnknown)
         }
         let handle = try FileHandle(forWritingTo: temporary)
-        do { try handle.write(contentsOf: data); try handle.synchronize(); try handle.close() }
-        catch { try? handle.close(); throw error }
+        do { try handle.compatWrite(contentsOf: data); try handle.compatSynchronize(); try handle.compatClose() }
+        catch { try? handle.compatClose(); throw error }
         guard rename(temporary.path, url.path) == 0 else { throw CocoaError(.fileWriteUnknown) }
         let parent = open(url.deletingLastPathComponent().path, O_RDONLY)
         if parent >= 0 {

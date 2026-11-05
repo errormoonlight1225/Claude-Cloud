@@ -1,4 +1,5 @@
-import CryptoKit
+import LegacyCompat
+import LegacyCrypto
 import Foundation
 import IrisinProtocol
 
@@ -133,10 +134,10 @@ struct PackageArchive {
     /// a theme's four thousand files twice over.
     static func digests(_ url: URL) throws -> (sha256: String, md5: String) {
         let file = try FileHandle(forReadingFrom: url)
-        defer { try? file.close() }
+        defer { try? file.compatClose() }
         var sha = SHA256()
         var legacy = Insecure.MD5()
-        while let data = try file.read(upToCount: 65536), !data.isEmpty {
+        while let data = try file.compatRead(upToCount: 65536), !data.isEmpty {
             sha.update(data: data)
             legacy.update(data: data)
         }
@@ -149,10 +150,10 @@ struct PackageArchive {
 
     static func digest(_ url: URL, md5: Bool) throws -> String {
         let file = try FileHandle(forReadingFrom: url)
-        defer { try? file.close() }
+        defer { try? file.compatClose() }
         var sha = SHA256()
         var legacy = Insecure.MD5()
-        while let data = try file.read(upToCount: 65536), !data.isEmpty {
+        while let data = try file.compatRead(upToCount: 65536), !data.isEmpty {
             if md5 {
                 legacy.update(data: data)
             } else {

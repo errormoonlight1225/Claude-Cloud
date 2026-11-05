@@ -11,8 +11,11 @@ let package = Package(
     platforms: [.iOS(.v12), .tvOS(.v12), .macOS(.v10_14)],
     products: [
         .library(name: "LegacyCompat", targets: ["LegacyCompat"]),
+        .library(name: "LegacyCrypto", targets: ["LegacyCrypto"]),
     ],
     targets: [
         .target(name: "LegacyCompat", swiftSettings: [.swiftLanguageMode(.v5)]),
+        // SHA256 and Insecure.MD5 with CryptoKit's spelling, on CommonCrypto.
+        .target(name: "LegacyCrypto", swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

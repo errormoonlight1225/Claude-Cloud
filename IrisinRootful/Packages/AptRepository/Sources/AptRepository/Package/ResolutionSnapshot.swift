@@ -1,4 +1,4 @@
-import CryptoKit
+import LegacyCrypto
 import Foundation
 
 /// A consistent catalogue and an exact copy of dpkg's status, detached from WCDB.

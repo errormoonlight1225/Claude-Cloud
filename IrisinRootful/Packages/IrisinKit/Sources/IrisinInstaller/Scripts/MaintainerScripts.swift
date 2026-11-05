@@ -1,3 +1,4 @@
+import LegacyCompat
 import Foundation
 import IrisinProtocol
 
@@ -83,8 +84,8 @@ struct MaintainerScripts {
 
     private func interpreter(in script: URL) throws -> (path: String, arguments: [String]) {
         let file = try FileHandle(forReadingFrom: script)
-        defer { try? file.close() }
-        let prefix = try file.read(upToCount: 512) ?? Data()
+        defer { try? file.compatClose() }
+        let prefix = try file.compatRead(upToCount: 512) ?? Data()
         let firstLine = String(decoding: prefix, as: UTF8.self).split(separator: "\n").first ?? ""
         // dpkg runs a script through execvp, which hands a file with no
         // interpreter line to /bin/sh; a script that starts with a comment

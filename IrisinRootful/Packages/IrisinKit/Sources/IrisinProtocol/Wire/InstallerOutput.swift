@@ -10,7 +10,9 @@ import Foundation
 public enum InstallerOutput {
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        // iOS 12 port: .withoutEscapingSlashes is iOS 13; `encode` unescapes
+        // the slashes itself.
+        encoder.outputFormatting = [.sortedKeys]
         return encoder
     }()
 
@@ -25,7 +27,9 @@ public enum InstallerOutput {
             }
             return #"{"output":{"_0":""}}"#
         }
-        return String(decoding: data, as: UTF8.self)
+        // Every "/" the encoder wrote is "\/"; a literal backslash before
+        // it is "\\", so this replaces escaped slashes only.
+        return String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\\/", with: "/")
     }
 
     /// The event a line carries. A line that is not one is `.output(line)`.

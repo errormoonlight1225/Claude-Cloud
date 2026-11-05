@@ -1,3 +1,4 @@
+import LegacyCompat
 import Darwin
 import Foundation
 import IrisinProtocol
@@ -186,7 +187,7 @@ final class PackageFilesystem {
             handle = try FileHandle(forWritingTo: URL(fileURLWithPath: path))
         }
         // a JSON string escapes its newlines, so one record is one line
-        try handle?.write(contentsOf: JSONEncoder().encode(JournalRecord(at: place, backup: backups[place])) + [0x0A])
+        try handle?.compatWrite(contentsOf: JSONEncoder().encode(JournalRecord(at: place, backup: backups[place])) + [0x0A])
     }
 
     /// The journal's lines, the last one for a place winning, in their order.
@@ -576,7 +577,7 @@ final class PackageFilesystem {
     }
 
     func finish() throws {
-        try? handle?.close()
+        try? handle?.compatClose()
         handle = nil
         if FileManager.default.fileExists(atPath: journal.path) {
             try FileManager.default.removeItem(at: journal)

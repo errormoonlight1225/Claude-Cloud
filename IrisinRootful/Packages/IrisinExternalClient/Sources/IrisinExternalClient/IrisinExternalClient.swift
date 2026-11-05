@@ -5,7 +5,7 @@
 // Documentation/ExternalClients.md in the Irisin repository is the contract.
 
 import CIrisinExternalXPC
-import CryptoKit
+import LegacyCrypto
 import Darwin
 import Dispatch
 import Foundation

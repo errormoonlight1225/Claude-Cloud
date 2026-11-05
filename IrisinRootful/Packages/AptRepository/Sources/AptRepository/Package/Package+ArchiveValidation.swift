@@ -1,4 +1,4 @@
-import CryptoKit
+import LegacyCrypto
 import Foundation
 
 /// The repository's listing and the package file disagree. The file reads
