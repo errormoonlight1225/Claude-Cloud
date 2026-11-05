@@ -1,0 +1,50 @@
+#import "IcliPrivate.h"
+#import "IcliJSON.h"
+#import <Foundation/Foundation.h>
+#import <IOKit/IOKitLib.h>
+
+/// A registry name can be cut mid-character at io_name_t's 128 bytes, and @()
+/// gives nil for bytes that are not UTF-8, which a literal would throw on.
+static NSString *registryString(const char *bytes) {
+    size_t length = strnlen(bytes, sizeof(io_name_t));
+    return [[NSString alloc] initWithBytes:bytes length:length encoding:NSUTF8StringEncoding]
+        ?: [[NSString alloc] initWithBytes:bytes length:length encoding:NSISOLatin1StringEncoding]
+        ?: @"";
+}
+
+static void icliWalkRegistry(io_registry_entry_t entry, const char *planeName, int depth, NSMutableArray *entries) {
+    if (depth > 5 || entries.count >= 300) {
+        return;
+    }
+    io_name_t name = {0};
+    io_name_t cls = {0};
+    IORegistryEntryGetName(entry, name);
+    IOObjectGetClass(entry, cls);
+    [entries addObject:@{
+        @"name": registryString(name),
+        @"class": registryString(cls),
+        @"depth": @(depth),
+    }];
+    io_iterator_t children = IO_OBJECT_NULL;
+    if (IORegistryEntryGetChildIterator(entry, planeName, &children) != KERN_SUCCESS) {
+        return;
+    }
+    io_registry_entry_t child;
+    while ((child = IOIteratorNext(children))) {
+        icliWalkRegistry(child, planeName, depth + 1, entries);
+        IOObjectRelease(child);
+    }
+    IOObjectRelease(children);
+}
+
+char *icli_ioreg_json(const char *plane) {
+    const char *planeName = (plane && plane[0]) ? plane : kIOServicePlane;
+    io_registry_entry_t root = IORegistryGetRootEntry(kIOMainPortDefault);
+    if (!root) {
+        return icli_json_or_empty(@{@"entries": @[], @"error": @"no io registry"});
+    }
+    NSMutableArray *entries = [NSMutableArray array];
+    icliWalkRegistry(root, planeName, 0, entries);
+    IOObjectRelease(root);
+    return icli_json_or_empty(@{@"plane": @(planeName), @"entries": entries, @"count": @(entries.count)});
+}

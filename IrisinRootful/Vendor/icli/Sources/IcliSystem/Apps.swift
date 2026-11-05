@@ -1,0 +1,56 @@
+import Darwin
+import Foundation
+import IcliSystemPrivate
+
+/// LaunchServices' registrations, plus the application directories of every
+/// bootstrap layout. Read-only: bundle identifier, name, paths (a `data_path`
+/// means the record has a data container), version and build.
+public func listApps() throws -> [String: Any] {
+    var apps = decodeJSONArray(takeCString(icli_apps_json()))
+    apps.append(contentsOf: scanApplicationDirs())
+    apps = uniqued(apps)
+    return ["apps": apps, "count": apps.count]
+}
+
+private func scanApplicationDirs() -> [[String: Any]] {
+    let root = JailbreakRoot.current
+    let dirs = [
+        "/Applications",
+        "/var/containers/Bundle/Application",
+        root.jbrootPath("/Applications"),
+        "/cores/binpack/Applications",
+        "/private/var/containers/Bundle/tweaksupport/Applications",
+    ]
+    var extra: [[String: Any]] = []
+    for dir in dirs {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { continue }
+        for name in names where name.hasSuffix(".app") {
+            let path = (dir as NSString).appendingPathComponent(name)
+            let plist = path + "/Info.plist"
+            // Only string values are taken; an Info.plist may hold anything.
+            let info = NSDictionary(contentsOfFile: plist)
+            extra.append([
+                "name": info?["CFBundleDisplayName"] as? String ?? info?["CFBundleName"] as? String ?? name,
+                "bundle_id": info?["CFBundleIdentifier"] as? String ?? "",
+                "bundle_path": path,
+            ])
+        }
+    }
+    return extra
+}
+
+/// The first record for each bundle identifier; a record without one is kept.
+private func uniqued(_ apps: [[String: Any]]) -> [[String: Any]] {
+    var seen = Set<String>()
+    return apps.filter { app in
+        guard let id = app["bundle_id"] as? String else { return true }
+        return seen.insert(id).inserted
+    }
+}
+
+private func decodeJSONArray(_ raw: String?) -> [[String: Any]] {
+    guard let raw,
+          let obj = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [[String: Any]]
+    else { return [] }
+    return obj
+}

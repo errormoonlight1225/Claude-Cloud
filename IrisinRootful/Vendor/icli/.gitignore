@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+__pycache__/
+*.deb
+packaging/root/ 
+.claude/worktrees
+.claude

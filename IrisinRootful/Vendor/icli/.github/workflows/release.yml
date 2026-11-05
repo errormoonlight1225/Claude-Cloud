@@ -1,0 +1,146 @@
+name: DEB Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example 0.3.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deb-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+
+      - name: Check version and toolchain
+        run: |
+          python3 - <<'PY'
+          import os, plistlib, re
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          assert re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag), 'expected a release version tag'
+          with open('Resources/Info.plist', 'rb') as source:
+              version = plistlib.load(source)['CFBundleShortVersionString']
+          assert tag.removeprefix('v') == version, 'tag and Info.plist version differ'
+          # Each release's notes say what changed in that release only.
+          notes = Path(f'docs/releases/{version}.md')
+          assert notes.is_file(), f'{notes} is missing'
+          assert notes.read_text().strip(), f'{notes} is empty'
+          PY
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk appletvos --show-sdk-version
+          swift --version
+
+      - name: Install packaging tools
+        run: brew install ldid dpkg
+
+      - name: Build and sign the CLI
+        run: make all CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
+
+      - name: Build and sign the tvOS CLI
+        run: make tvos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=
+
+      - name: Archive names in the C locale
+        run: ./scripts/test-archive-locale.sh
+
+      - name: Launchd plist paths and the RootHide rewrite
+        run: ./scripts/test-launchd-plist-paths.sh
+
+      - name: Foreground-uid lookup guard for tvOS
+        run: ./scripts/test-foreground-uid.sh
+
+      - name: RootHide root names and the root on disk
+        run: ./scripts/test-roothide-root.sh
+
+      - name: Unified log filters, the log stream and bounded crash reads
+        run: ./scripts/test-syslog.sh
+
+      - name: Probe bridge, prelude, output capture and api handler
+        run: ./scripts/test-probe.sh
+
+      - name: SHA-512 crypt known answers for account set-password
+        run: ./scripts/test-sha512-crypt.sh
+
+      - name: Build and verify the iOS and tvOS DEBs
+        run: ./scripts/check-packages.sh
+
+      - name: Prepare release assets and notes
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, shutil, subprocess
+          from pathlib import Path
+          build = Path('.build')
+          output = build / 'publish'
+          output.mkdir()
+          report = json.loads((build / 'package-verification.json').read_text())
+          for package in report['packages']:
+              shutil.copy2(build / package['file'], output / package['file'])
+          # A tvOS guest without a bootstrap has no dpkg; it runs the executable as is.
+          shutil.copy2(build / 'icli-tvos', output / 'icli-tvos')
+          shutil.copy2(build / 'package-verification.json', output / 'package-verification.json')
+          files = sorted(output.iterdir())
+          (output / 'SHA256SUMS').write_text(''.join(
+              hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n' for path in files))
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          tag = os.environ['RELEASE_TAG']
+          changes = Path(f"docs/releases/{tag.removeprefix('v')}.md").read_text().strip()
+          notes = f'''Rootless and experimental RootHide DEBs contain the same signed arm64 executable. The tvOS DEB (`appletvos-arm64`, rootful) and the bare `icli-tvos` contain the signed tvOS executable.
+
+          {changes}
+
+          - Dependencies stay minimum versions: libarchive.xcframework from 1.0.0 (the `ArchiveKit` product) and Swift Argument Parser from 1.3.1.
+          - Swift Package library products: **IcliKit**, **IcliSystem** and **IcliLaunch**.
+          - CI checks architecture, firmware-only package dependency, entitlements, system-linked libraries, package ownership, matching binaries, and absence of process-launch imports.
+          - CI-built binaries are verified by package checks; CI does not rerun device tests.
+          - Native DEB operations do not execute maintainer scripts or triggers.
+          - Source commit: `{commit}`.
+          - Binary SHA-256: `{report['binary_sha256']}`; tvOS binary SHA-256: `{report['tvos']['binary_sha256']}`.
+
+          [Swift Package integration](https://github.com/owngoal-dev/icli/blob/{tag}/docs/swift-package.md) · [All entitlements](https://github.com/owngoal-dev/icli/blob/{tag}/docs/entitlements.md)
+          '''
+          (build / 'release-notes.md').write_text(notes)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(notes + '\n```text\n' + (output / 'SHA256SUMS').read_text() + '```\n')
+          PY
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: icli-debs-${{ env.RELEASE_TAG }}
+          path: .build/publish/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" .build/publish/* --clobber
+            gh release edit "$RELEASE_TAG" --title "icli $RELEASE_TAG" --notes-file .build/release-notes.md
+          else
+            gh release create "$RELEASE_TAG" .build/publish/* --verify-tag \
+              --title "icli $RELEASE_TAG" --notes-file .build/release-notes.md
+          fi

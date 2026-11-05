@@ -1,0 +1,159 @@
+#import "IcliPrivate.h"
+#import "IcliJSON.h"
+#import <Foundation/Foundation.h>
+#import <xpc/xpc.h>
+#import <objc/message.h>
+#import <dlfcn.h>
+
+// amfid's Developer Mode service, as vphoned uses it. The request and reply
+// are CF dictionaries wrapped by CoreFoundation's XPC bridge; the reply sits
+// under "cfreply". Status needs no privilege; amfid checks arming against
+// com.apple.private.amfi.developer-mode-control. The iOS SDK marks
+// xpc_connection_create_mach_service unavailable, so it is resolved at runtime.
+enum { AMFIActionArm = 0, AMFIActionStatus = 2 };
+
+// Both return a new reference, which ARC then owns.
+typedef xpc_connection_t (*CreateMachService)(
+    const char *,
+    dispatch_queue_t,
+    uint64_t
+) __attribute__((ns_returns_retained));
+typedef xpc_object_t (*CreateXPCMessage)(CFTypeRef) __attribute__((ns_returns_retained));
+
+char *icli_amfi_developer_mode_json(bool arm) {
+    CreateMachService createService = (CreateMachService)dlsym(RTLD_DEFAULT, "xpc_connection_create_mach_service");
+    CreateXPCMessage toXPC = (CreateXPCMessage)dlsym(RTLD_DEFAULT, "_CFXPCCreateXPCMessageWithCFObject");
+    CFTypeRef (*fromXPC)(xpc_object_t) = dlsym(RTLD_DEFAULT, "_CFXPCCreateCFObjectFromXPCMessage");
+    if (!createService || !toXPC || !fromXPC)
+        return icli_json(@{@"error": @"The XPC functions for amfid are unavailable."});
+    xpc_connection_t connection = createService("com.apple.amfi.xpc", NULL, 0);
+    if (!connection) return icli_json(@{@"error": @"Could not connect to amfid."});
+    xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {});
+    xpc_connection_resume(connection);
+    xpc_object_t message = toXPC((__bridge CFDictionaryRef)@{@"action": @(arm ? AMFIActionArm : AMFIActionStatus)});
+    // Not the _sync send: it has no timeout, and an amfid that never answers
+    // would hold the calling thread of a long-running host for good.
+    __block xpc_object_t reply = nil;
+    BOOL answered = NO;
+    if (message) {
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        dispatch_queue_t queue = dispatch_queue_create("icli.amfi.reply", DISPATCH_QUEUE_SERIAL);
+        xpc_connection_send_message_with_reply(connection, message, queue, ^(xpc_object_t response) {
+            reply = response;
+            dispatch_semaphore_signal(done);
+        });
+        answered = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC)) == 0;
+    }
+    xpc_connection_cancel(connection);
+    if (!answered || !reply || xpc_get_type(reply) != XPC_TYPE_DICTIONARY) {
+        return icli_json(@{@"error": @"amfid did not answer the Developer Mode request."});
+    }
+    xpc_object_t wrapped = xpc_dictionary_get_value(reply, "cfreply");
+    id object = wrapped ? CFBridgingRelease(fromXPC(wrapped)) : nil;
+    if (![object isKindOfClass:NSDictionary.class])
+        return icli_json(@{@"error": @"amfid sent a Developer Mode reply without a result."});
+    return icli_json(object);
+}
+
+// powerd's Low Power Mode service (com.apple.powerd.lowpowermode), reached
+// through LowPowerMode.framework the way Control Center's toggle reaches it.
+// powerd accepts clients with com.apple.powerd.lowpowermode.allow.
+static id lowPowerModeService(void) {
+    dlopen("/System/Library/PrivateFrameworks/LowPowerMode.framework/LowPowerMode", RTLD_NOW);
+    Class cls = NSClassFromString(@"_PMLowPowerMode");
+    return [cls respondsToSelector:@selector(sharedInstance)]
+        ? ((id (*)(Class, SEL))objc_msgSend)(cls, @selector(sharedInstance))
+        : nil;
+}
+
+int icli_low_power_mode_get(void) {
+    id service = lowPowerModeService();
+    SEL get = NSSelectorFromString(@"getPowerMode");
+    if (![service respondsToSelector:get]) return -1;
+    return ((long (*)(id, SEL))objc_msgSend)(service, get) == 1 ? 1 : 0;
+}
+
+int icli_low_power_mode_set(bool enabled) {
+    id service = lowPowerModeService();
+    SEL asyncSet = NSSelectorFromString(@"setPowerMode:fromSource:withCompletion:");
+    if ([service respondsToSelector:asyncSet]) {
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        __block BOOL accepted = NO;
+        void (^completion)(BOOL, NSError *) = ^(BOOL applied, NSError *error) {
+            accepted = applied && error == nil;
+            dispatch_semaphore_signal(done);
+        };
+        ((void (*)(id, SEL, long, NSString *, id))objc_msgSend)(
+            service,
+            asyncSet,
+            enabled ? 1 : 0,
+            @"ControlCenter",
+            completion
+        );
+        if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC)) != 0)
+            return -2;
+        return accepted ? 0 : -3;
+    }
+
+    // The synchronous selector can wait indefinitely on iOS 26. Only use it
+    // on older systems that do not expose the completion variant.
+    if (NSProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26) return -1;
+    SEL set = NSSelectorFromString(@"setPowerMode:fromSource:");
+    if (![service respondsToSelector:set]) return -1;
+    return ((BOOL (*)(id, SEL, long, NSString *))objc_msgSend)(
+        service,
+        set,
+        enabled ? 1 : 0,
+        @"ControlCenter"
+    ) ? 0 : -3;
+}
+
+// The system time zone is the /var/db/timezone/localtime symlink into
+// /var/db/timezone/zoneinfo. Only tzlinkd (com.apple.tzlink) moves it, for
+// clients with com.apple.tzlink.allow, through libutil's tzlink(), which the
+// SDK does not declare. timed owns the automatic time zone and takes commands
+// through CoreTime from clients with com.apple.timed. tzlink and CoreTime's
+// getter wait for their daemon with no timeout, so each runs on a queue of its
+// own: a daemon that never answers costs a thread, not the caller.
+static BOOL runWithin(int64_t seconds, dispatch_block_t work) {
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        work();
+        dispatch_semaphore_signal(done);
+    });
+    return dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC)) == 0;
+}
+
+static void *coreTimeSymbol(const char *name) {
+    void *coreTime = dlopen("/System/Library/PrivateFrameworks/CoreTime.framework/CoreTime", RTLD_NOW);
+    return coreTime ? dlsym(coreTime, name) : NULL;
+}
+
+int icli_automatic_time_zone_get(void) {
+    bool (*isEnabled)(void) = coreTimeSymbol("TMIsAutomaticTimeZoneEnabled");
+    if (!isEnabled) return -1;
+    __block bool enabled = false;
+    if (!runWithin(3, ^{ enabled = isEnabled(); })) return -2;
+    return enabled ? 1 : 0;
+}
+
+int icli_automatic_time_zone_set(bool enabled) {
+    // timed takes this command without a reply; the caller reads it back.
+    void (*setEnabled)(bool) = coreTimeSymbol("TMSetAutomaticTimeZoneEnabled");
+    if (!setEnabled) return -1;
+    setEnabled(enabled);
+    return 0;
+}
+
+int icli_time_zone_link(const char *name) {
+    void *libutil = dlopen("/usr/lib/libutil.dylib", RTLD_NOW);
+    int (*link)(const char *) = libutil ? dlsym(libutil, "tzlink") : NULL;
+    if (!link) return -1;
+    char *copy = strdup(name);
+    __block int error = 0;
+    BOOL answered = runWithin(5, ^{ error = link(copy); });
+    // A late answer still uses the copy, so it is freed only after one.
+    if (!answered) return -2;
+    free(copy);
+    return error;
+}

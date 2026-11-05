@@ -1,0 +1,133 @@
+#import "IcliPrivate.h"
+#import "IcliJSON.h"
+#import "SHA512Crypt.h"
+#import <Foundation/Foundation.h>
+#include <db.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
+/// Creates `temporary` holding `data` with the original mode and owner; removes it on failure.
+static NSString *writeStagedFile(NSString *temporary, NSData *data, struct stat *original) {
+    int fd = open(temporary.fileSystemRepresentation, O_WRONLY | O_CREAT | O_EXCL, original->st_mode & 07777);
+    if (fd < 0) return @(strerror(errno));
+    NSString *failure = nil;
+    if (write(fd, data.bytes, data.length) != (ssize_t)data.length) failure = @(strerror(errno));
+    if (!failure && fchown(fd, original->st_uid, original->st_gid) != 0) failure = @(strerror(errno));
+    if (!failure && fsync(fd) != 0) failure = @(strerror(errno));
+    close(fd);
+    if (failure) unlink(temporary.fileSystemRepresentation);
+    return failure;
+}
+
+/// Writes `data` to `path` through a sibling temp file, keeping the original mode and owner.
+static NSString *replaceFile(NSString *path, NSData *data, struct stat *original) {
+    NSString *temporary = [path stringByAppendingFormat:@".icli-%@", NSUUID.UUID.UUIDString];
+    NSString *failure = writeStagedFile(temporary, data, original);
+    if (failure) return failure;
+    if (rename(temporary.fileSystemRepresentation, path.fileSystemRepresentation) != 0) {
+        failure = @(strerror(errno));
+        unlink(temporary.fileSystemRepresentation);
+    }
+    return failure;
+}
+
+/// Rewrites the password field of every record for `user` in a pwd_mkdb hash database.
+static NSString *updateHashDatabase(NSString *path, NSString *user, NSString *hash, NSUInteger *updated) {
+    struct stat original;
+    if (stat(path.fileSystemRepresentation, &original) != 0) return @(strerror(errno));
+    NSData *contents = [NSData dataWithContentsOfFile:path];
+    if (!contents) return @"database unreadable";
+    NSString *temporary = [path stringByAppendingFormat:@".icli-%@", NSUUID.UUID.UUIDString];
+    NSString *failure = writeStagedFile(temporary, contents, &original);
+    if (failure) return failure;
+    DB *db = dbopen(temporary.fileSystemRepresentation, O_RDWR, 0, DB_HASH, NULL);
+    if (!db) {
+        unlink(temporary.fileSystemRepresentation);
+        return [@"dbopen: " stringByAppendingString:@(strerror(errno))];
+    }
+    NSMutableArray *keys = [NSMutableArray array];
+    NSMutableArray *values = [NSMutableArray array];
+    DBT key, value;
+    const char *name = user.UTF8String;
+    size_t nameLength = strlen(name);
+    for (int flag = R_FIRST; db->seq(db, &key, &value, flag) == 0; flag = R_NEXT) {
+        const unsigned char *bytes = value.data;
+        // Keys are '1'+name, '2'+record number, '3'+uid (pwd_mkdb writes the ASCII digits).
+        unsigned char kind = key.size ? ((unsigned char *)key.data)[0] : 0;
+        if (!(kind >= '1' && kind <= '3') || value.size <= nameLength + 1) continue;
+        if (memcmp(bytes, name, nameLength) != 0 || bytes[nameLength] != 0) continue;
+        const unsigned char *passwordEnd = memchr(bytes + nameLength + 1, 0, value.size - nameLength - 1);
+        if (!passwordEnd) continue;
+        NSMutableData *record = [NSMutableData dataWithBytes:bytes length:nameLength + 1];
+        [record appendBytes:hash.UTF8String length:strlen(hash.UTF8String)];
+        [record appendBytes:passwordEnd length:value.size - (size_t)(passwordEnd - bytes)];
+        [keys addObject:[NSData dataWithBytes:key.data length:key.size]];
+        [values addObject:record];
+    }
+    for (NSUInteger i = 0; i < keys.count && !failure; i++) {
+        DBT k = {.data = (void *)[keys[i] bytes], .size = [keys[i] length]};
+        DBT v = {.data = (void *)[values[i] bytes], .size = [values[i] length]};
+        if (db->put(db, &k, &v, 0) != 0) failure = @(strerror(errno));
+    }
+    if (!failure && db->sync(db, 0) != 0) failure = @(strerror(errno));
+    if (db->close(db) != 0 && !failure) failure = @(strerror(errno));
+    if (!failure && keys.count == 0) failure = @"user has no database record";
+    if (!failure && rename(temporary.fileSystemRepresentation, path.fileSystemRepresentation) != 0)
+        failure = @(strerror(errno));
+    if (failure) unlink(temporary.fileSystemRepresentation);
+    *updated = keys.count;
+    return failure;
+}
+
+char *icli_account_set_password_json(const char *etc_directory, const char *user, const char *password) {
+    if (!etc_directory || !user || !password || !*user) return icli_json(@{@"error": @"invalid account arguments"});
+    NSString *etc = @(etc_directory);
+    NSString *masterPath = [etc stringByAppendingPathComponent:@"master.passwd"];
+    NSString *databasePath = [etc stringByAppendingPathComponent:@"spwd.db"];
+    struct stat original;
+    if (stat(masterPath.fileSystemRepresentation, &original) != 0)
+        return icli_json(@{@"error": [@"master.passwd: " stringByAppendingString:@(strerror(errno))]});
+    NSString *text = [NSString stringWithContentsOfFile:masterPath encoding:NSUTF8StringEncoding error:nil];
+    if (!text) return icli_json(@{@"error": @"master.passwd unreadable (root required)"});
+    NSString *salt = icli_sha512_crypt_salt();
+    char *hashed = salt ? icli_sha512_crypt(password, salt.UTF8String) : NULL;
+    if (!hashed) return icli_json(@{@"error": @"password hashing failed"});
+    NSString *hash = @(hashed);
+    free(hashed);
+
+    NSMutableArray *lines = [[text componentsSeparatedByString:@"\n"] mutableCopy];
+    NSString *prefix = [@(user) stringByAppendingString:@":"];
+    NSUInteger matches = 0;
+    for (NSUInteger i = 0; i < lines.count; i++) {
+        if (![lines[i] hasPrefix:prefix]) continue;
+        NSMutableArray *fields = [[lines[i] componentsSeparatedByString:@":"] mutableCopy];
+        if (fields.count < 10) return icli_json(@{@"error": @"master.passwd entry is malformed"});
+        fields[1] = hash;
+        lines[i] = [fields componentsJoinedByString:@":"];
+        matches++;
+    }
+    if (matches == 0)
+        return icli_json(@{@"error": [NSString stringWithFormat:@"user not found in master.passwd: %s", user]});
+    NSUInteger updated = 0;
+    NSString *failure = updateHashDatabase(databasePath, @(user), hash, &updated);
+    if (failure) return icli_json(@{@"error": [@"spwd.db: " stringByAppendingString:failure]});
+    failure = replaceFile(
+        masterPath,
+        [[lines componentsJoinedByString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding],
+        &original
+    );
+    if (failure) return icli_json(@{
+        @"error": [@"master.passwd: " stringByAppendingString:failure],
+        @"spwd_db_updated": @YES
+    });
+    return icli_json(@{
+        @"user": @(user),
+        @"scheme": @"sha512crypt",
+        @"salt": salt,
+        @"master_passwd_entries": @(matches),
+        @"spwd_db_records": @(updated),
+        @"files": @[masterPath, databasePath]
+    });
+}

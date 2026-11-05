@@ -1,0 +1,415 @@
+import ArgumentParser
+import Foundation
+import IcliKit
+
+struct Screen: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        abstract: "Touch, pointer, screenshot, OCR",
+        subcommands: [
+            Tap.self, Swipe.self, LongPress.self, DoubleTap.self, Drag.self, Touch.self,
+            TouchSequence.self, Click.self, Scroll.self, Shot.self, Info.self, OCR.self, Describe.self
+        ],
+    )
+}
+
+private let normalizedHelp: ArgumentHelp =
+    "x and y are 0–1 in the fixed portrait digitizer space instead of UI points."
+
+private let pointerNormalizedHelp: ArgumentHelp =
+    "x and y are 0–1 of the interface as it is shown instead of UI points."
+
+extension Screen {
+    struct Tap: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Argument var x: Double
+        @Argument var y: Double
+        func run() {
+            emit(output) { try tap(x: x, y: y) }
+        }
+    }
+
+    struct Swipe: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Option var fromX: Double
+        @Option var fromY: Double
+        @Option var toX: Double
+        @Option var toY: Double
+        @Option var seconds: Double = 0.25
+        @Option var steps: Int = 20
+        func run() {
+            emit(output) { try swipe(x1: fromX, y1: fromY, x2: toX, y2: toY, seconds: seconds, steps: steps) }
+        }
+    }
+
+    struct LongPress: ParsableCommand {
+        static var configuration = CommandConfiguration(commandName: "long-press")
+        @OptionGroup var output: OutputOptions
+        @Argument var x: Double
+        @Argument var y: Double
+        @Option var seconds: Double = 0.6
+        func run() {
+            emit(output) { try longPress(x: x, y: y, seconds: seconds) }
+        }
+    }
+
+    struct DoubleTap: ParsableCommand {
+        static var configuration = CommandConfiguration(commandName: "double-tap")
+        @OptionGroup var output: OutputOptions
+        @Argument var x: Double
+        @Argument var y: Double
+        @Option var interval: Double = 0.1
+        func run() {
+            emit(output) { try doubleTap(x: x, y: y, interval: interval) }
+        }
+    }
+
+    struct Drag: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Option var fromX: Double?
+        @Option var fromY: Double?
+        @Option var toX: Double?
+        @Option var toY: Double?
+        @Option(
+            help: "Drag path as a JSON array of {x,y} points; use this option or all four endpoint options, not both.",
+        )
+        var points: String?
+        @Option var seconds: Double = 0.3
+        @Option var hold: Double = 0.5
+        @Option var steps: Int = 20
+        func run() {
+            emit(output) {
+                let path: [(Double, Double)]
+                if let points {
+                    guard fromX == nil, fromY == nil, toX == nil, toY == nil else {
+                        throw IcliError.failed("provide points or endpoints, not both")
+                    }
+                    guard let rows = try JSONSerialization.jsonObject(with: Data(points.utf8)) as? [[String: Double]] else {
+                        throw IcliError.failed("points must be a JSON array of {x,y}")
+                    }
+                    path = try rows.map { row in
+                        guard let x = row["x"], let y = row["y"] else {
+                            throw IcliError.failed("each point needs x and y")
+                        }
+                        return (x, y)
+                    }
+                } else {
+                    guard let fromX, let fromY, let toX, let toY else {
+                        throw IcliError.failed("provide points or all four endpoint coordinates")
+                    }
+                    path = [(fromX, fromY), (toX, toY)]
+                }
+                return try drag(points: path, seconds: seconds, hold: hold, steps: steps)
+            }
+        }
+    }
+
+    struct Touch: ParsableCommand {
+        static var configuration = CommandConfiguration(abstract: "Send one raw digitizer event: down, move or up.")
+        @OptionGroup var output: OutputOptions
+        @Argument(help: "down, move or up.") var phase: String
+        @Argument var x: Double
+        @Argument var y: Double
+        @Flag(help: normalizedHelp) var normalized = false
+        func run() {
+            emit(output) {
+                guard let phase = TouchPhase(rawValue: phase) else {
+                    throw IcliError.failed("phase must be down, move or up")
+                }
+                return try touch(phase, x: x, y: y, normalized: normalized)
+            }
+        }
+    }
+
+    struct TouchSequence: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            commandName: "touch-sequence",
+            abstract: "Send several digitizer events from one process.",
+        )
+        @OptionGroup var output: OutputOptions
+        @Option(help: "JSON array of {phase,x,y,delay_ms}; delay_ms is the pause after that event.") var events: String
+        @Flag(help: normalizedHelp) var normalized = false
+        func run() {
+            emit(output) { try touchSequence(TouchEvent.list(fromJSON: events), normalized: normalized) }
+        }
+    }
+
+    struct Click: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            abstract: "Click with a virtual pointer, as a trackpad does on an iPad.",
+            discussion: "The pointer exists only while the command runs. iOS on an iPhone uses it only through AssistiveTouch's pointer devices.",
+        )
+        @OptionGroup var output: OutputOptions
+        @Argument var x: Double
+        @Argument var y: Double
+        @Option(help: "primary, secondary or middle.") var button = "primary"
+        @Option(help: "1 for a click, 2 for a double click, 3 for a triple click.") var count = 1
+        @Option(help: "Seconds each press is held.") var hold = 0.05
+        @Option(help: "Seconds the pointer rests on x, y before the first press.") var hover = 0.0
+        @Flag(help: pointerNormalizedHelp) var normalized = false
+        func run() {
+            emit(output) {
+                try pointerClick(
+                    x: x, y: y, normalized: normalized, button: PointerButtons(name: button), count: count, hold: hold,
+                    hover: hover,
+                )
+            }
+        }
+    }
+
+    struct Scroll: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            abstract: "Scroll the view under a virtual pointer, as a trackpad does on an iPad.",
+            discussion: "dx and dy are points with a browser wheel's signs: positive dy goes toward the end of the content. The pointer exists only while the command runs.",
+        )
+        @OptionGroup var output: OutputOptions
+        @Argument var x: Double
+        @Argument var y: Double
+        @Option var dx = 0.0
+        @Option var dy = 0.0
+        @Option var seconds = 0.3
+        @Option var steps = 15
+        @Flag(help: pointerNormalizedHelp) var normalized = false
+        func run() {
+            emit(output) {
+                try pointerScrollGesture(x: x, y: y, normalized: normalized, dx: dx, dy: dy, seconds: seconds, steps: steps)
+            }
+        }
+    }
+
+    struct Shot: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Option(name: .customLong("output"), help: "Destination JPEG path; defaults to a temporary file.")
+        var path: String?
+        @Flag(help: "Include the JPEG as Base64 in the result; keep a file only when --output is supplied.")
+        var base64 = false
+        @Flag var nativeResolution = false
+        func run() {
+            emit(allowWhenLocked: true, output) {
+                try takeScreenshot(path: path, base64: base64, nativeResolution: nativeResolution)
+            }
+        }
+    }
+
+    struct Info: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(allowWhenLocked: true, output) { screenInfo() }
+        }
+    }
+
+    struct OCR: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Option var lang: [String] = ["zh-Hans", "en-US"]
+        @Option var minConfidence: Float = 0.3
+        func run() {
+            emit(output) { try recognizeScreen(languages: lang, minConfidence: minConfidence) }
+        }
+    }
+
+    struct Describe: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(output) { try describeScreen() }
+        }
+    }
+}
+
+struct Button: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        abstract: "Hardware buttons",
+        subcommands: [Home.self, Power.self, VolumeUp.self, VolumeDown.self, Mute.self, Wake.self],
+    )
+}
+
+extension Button {
+    struct Home: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(output) { try pressButton("home") }
+        }
+    }
+
+    struct Power: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(output) { try pressButton("power") }
+        }
+    }
+
+    struct VolumeUp: ParsableCommand {
+        static var configuration = CommandConfiguration(commandName: "volume-up")
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(output) { try pressButton("volume-up") }
+        }
+    }
+
+    struct VolumeDown: ParsableCommand {
+        static var configuration = CommandConfiguration(commandName: "volume-down")
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(output) { try pressButton("volume-down") }
+        }
+    }
+
+    struct Mute: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(output) { try pressButton("mute") }
+        }
+    }
+
+    struct Wake: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        func run() {
+            emit(allowWhenLocked: true, output) { try pressButton("wake") }
+        }
+    }
+}
+
+struct Input: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        abstract: "Text and raw key input",
+        subcommands: [Paste.self, TypeText.self, Key.self, HID.self],
+    )
+}
+
+extension Input {
+    struct Paste: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Argument var text: String
+        func run() {
+            emit(output) { try pasteText(text) }
+        }
+    }
+
+    struct TypeText: ParsableCommand {
+        static var configuration = CommandConfiguration(commandName: "type")
+        @OptionGroup var output: OutputOptions
+        @Argument var text: String
+        @Option(name: .customLong("delay-ms")) var delayMS: Double = 30
+        func run() {
+            emit(output) { try typeText(text, delayMS: delayMS) }
+        }
+    }
+
+    struct Key: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Argument var name: String
+        func run() {
+            emit(output) { try pressKey(name) }
+        }
+    }
+
+    struct HID: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            abstract: "Send a raw HID usage: a press, or only the key going down or up.",
+        )
+        @OptionGroup var output: OutputOptions
+        @Argument(help: "Usage page, decimal or 0x hex: 7 keyboard, 12 (0x0C) consumer.") var page: String
+        @Argument(help: "Usage, decimal or 0x hex.") var usage: String
+        @Flag(help: "Only press the key down.") var down = false
+        @Flag(help: "Only release the key.") var up = false
+        func run() {
+            emit(output) {
+                guard !(down && up) else { throw IcliError.failed("use --down or --up, not both") }
+                let page = try parseHIDNumber(page), usage = try parseHIDNumber(usage)
+                if down || up {
+                    return try hidEvent(page: page, usage: usage, down: down)
+                }
+                return try hidPress(page: page, usage: usage)
+            }
+        }
+    }
+}
+
+struct UI: ParsableCommand {
+    static var configuration = CommandConfiguration(
+        abstract: "Accessibility / OCR elements",
+        subcommands: [Tree.self, At.self, Tap.self, Wait.self, WaitGone.self],
+    )
+}
+
+struct ElementOptions: ParsableArguments {
+    @Argument(
+        help: "Text to match in an element's label, identifier, or value; required unless --identifier is supplied.",
+    )
+    var text: String?
+    @Option(help: "Match an exact element identifier or label; takes precedence over the text argument.")
+    var identifier: String?
+    @Option var role: String?
+    @Option(help: "Text matching mode: contains or exact; both ignore case.") var match: String = "contains"
+    @Option(help: "Zero-based index among matching elements; 0 selects the first match.") var index: Int = 0
+    func selector() throws -> ElementSelector {
+        try ElementSelector(text: text, identifier: identifier, role: role, match: match, index: index)
+    }
+}
+
+extension UI {
+    struct Tree: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Option var maxElements: Int = 250
+        @Option var limit: Int?
+        @Flag var includeOffscreen = false
+        @Flag var clickableOnly = false
+        func run() {
+            emit(output) {
+                try uiElements(
+                    maxElements: maxElements,
+                    visibleOnly: !includeOffscreen,
+                    clickableOnly: clickableOnly,
+                    limit: limit,
+                )
+            }
+        }
+    }
+
+    struct At: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @Argument var x: Double
+        @Argument var y: Double
+        func run() {
+            emit(output) { try elementAt(x: x, y: y) }
+        }
+    }
+
+    struct Tap: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @OptionGroup var selection: ElementOptions
+        func run() {
+            emit(output) { try tapElement(selection.selector()) }
+        }
+    }
+
+    struct Wait: ParsableCommand {
+        @OptionGroup var output: OutputOptions
+        @OptionGroup var selection: ElementOptions
+        @Option var timeout: Double = 10
+        @Option var interval: Double = 0.3
+        func run() {
+            emit(output) {
+                try waitForElement(selection.selector(), appear: true, timeout: timeout, interval: interval)
+            }
+        }
+    }
+
+    struct WaitGone: ParsableCommand {
+        static var configuration = CommandConfiguration(commandName: "wait-gone")
+        @OptionGroup var output: OutputOptions
+        @OptionGroup var selection: ElementOptions
+        @Option var timeout: Double = 10
+        @Option var interval: Double = 0.3
+        func run() {
+            emit(output) {
+                try waitForElement(selection.selector(), appear: false, timeout: timeout, interval: interval)
+            }
+        }
+    }
+}
+
+private func parseHIDNumber(_ text: String) throws -> Int {
+    let lower = text.lowercased()
+    let value = lower.hasPrefix("0x") ? Int(lower.dropFirst(2), radix: 16) : Int(lower)
+    guard let value else { throw IcliError.failed("\(text) is not a decimal or 0x hex number") }
+    return value
+}

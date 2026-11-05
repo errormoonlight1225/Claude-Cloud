@@ -1,0 +1,155 @@
+//
+//  AlertInputContentController.swift
+//  AlertController
+//
+//  Created by 秋星桥 on 2/22/25.
+//
+
+#if canImport(UIKit)
+    import UIKit
+
+    class AlertInputContentController: AlertContentController {
+        let field = InputField()
+
+        private let submitAction: @MainActor (ActionContext) -> Void
+
+        init(
+            title: String = "",
+            message: String = "",
+            originalText: String,
+            placeholder: String,
+            setupActions: @escaping @MainActor (ActionContext) -> Void,
+            onSubmit: @escaping @MainActor (ActionContext) -> Void
+        ) {
+            self.submitAction = onSubmit
+            super.init(title: title, message: message, setupActions: setupActions)
+            let trimmedText = originalText.trimmingCharacters(in: .whitespacesAndNewlines)
+            context.userObject = trimmedText
+            field.textField.placeholder = placeholder
+            field.textField.text = trimmedText
+            field.textPublisher = { [weak self] text in
+                self?.context.userObject = text
+            }
+            field.textReturnAction = { [weak self] in
+                self?.callSubmit()
+            }
+            customViews.append(field)
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            field.textField.becomeFirstResponder()
+            field.updateQuickOptionImage()
+        }
+
+        private func callSubmit() {
+            submitAction(context)
+        }
+    }
+
+    private class UITextFieldWithoutEscapeToClear: UITextField {
+        override var keyCommands: [UIKeyCommand]? {
+            [
+                UIKeyCommand(
+                    input: UIKeyCommand.inputEscape,
+                    modifierFlags: [],
+                    action: #selector(stub)
+                ),
+            ]
+        }
+
+        /// Forwards Escape to the hosting alert instead of clearing the text.
+        @objc func stub() {
+            var responder = next
+            while let current = responder {
+                if let alertController = current as? AlertBaseController {
+                    alertController.escapePressed()
+                    return
+                }
+                responder = current.next
+            }
+        }
+    }
+
+    class InputField: UIView, UITextFieldDelegate {
+        fileprivate let textField = UITextFieldWithoutEscapeToClear(frame: .zero)
+
+        var textPublisher: (String) -> Void = { _ in }
+        var textReturnAction: () -> Void = {}
+        let quickOptionButton = UIButton()
+
+        init() {
+            super.init(frame: .zero)
+            translatesAutoresizingMaskIntoConstraints = false
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
+
+            backgroundColor = AlertControllerConfiguration.accentColor.withAlphaComponent(0.1)
+            layer.cornerRadius = 8
+            layer.cornerCurve = .continuous
+
+            textField.textColor = .label.withAlphaComponent(0.9)
+            textField.font = .preferredFont(forTextStyle: .footnote)
+            textField.adjustsFontForContentSizeCategory = true
+            textField.translatesAutoresizingMaskIntoConstraints = false
+            textField.borderStyle = .none
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+            textField.allowsEditingTextAttributes = false
+
+            quickOptionButton.translatesAutoresizingMaskIntoConstraints = false
+            quickOptionButton.imageView?.contentMode = .scaleAspectFit
+            quickOptionButton.tintColor = AlertControllerConfiguration.accentColor
+            quickOptionButton.addTarget(self, action: #selector(tappedOptionButton), for: .touchUpInside)
+            updateQuickOptionImage()
+
+            addSubview(textField)
+            addSubview(quickOptionButton)
+
+            NSLayoutConstraint.activate([
+                textField.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+                textField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+                textField.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+
+                quickOptionButton.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+                quickOptionButton.leadingAnchor.constraint(equalTo: textField.trailingAnchor, constant: 8),
+                quickOptionButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+                quickOptionButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+                quickOptionButton.widthAnchor.constraint(equalTo: quickOptionButton.heightAnchor),
+            ])
+
+            textField.delegate = self
+            textField.addTarget(self, action: #selector(valueChanged), for: .valueChanged)
+            textField.addTarget(self, action: #selector(valueChanged), for: .editingChanged)
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError()
+        }
+
+        func updateQuickOptionImage() {
+            if (textField.text ?? "").isEmpty {
+                quickOptionButton.setImage(UIImage(systemName: "doc.on.clipboard"), for: .normal)
+            } else {
+                quickOptionButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+            }
+        }
+
+        @objc func tappedOptionButton() {
+            textField.text = (textField.text ?? "").isEmpty ? UIPasteboard.general.string : ""
+            valueChanged()
+        }
+
+        @objc func valueChanged() {
+            updateQuickOptionImage()
+            textPublisher(textField.text ?? "")
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            textField.resignFirstResponder()
+            textReturnAction()
+            textReturnAction = {}
+            return true
+        }
+    }
+#endif
