@@ -30,7 +30,7 @@ extension Downloads {
                 return String(legacyLocalized: "The download was interrupted.")
             }
             progress()
-            try? Task.sleep(continuousSeconds: 0.25)
+            try? LegacyTask.sleep(continuousSeconds: 0.25)
         }
         return nil
     }

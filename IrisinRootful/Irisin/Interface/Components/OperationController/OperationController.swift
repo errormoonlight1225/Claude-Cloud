@@ -383,7 +383,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
                 let settled = Self.barSettleInterval - Date().timeIntervalSince(appearedAt ?? .distantPast)
                 LegacyTask.detached { [weak self] in
                     if settled > 0 {
-                        try? Task.sleep(seconds: settled)
+                        try? LegacyTask.sleep(seconds: settled)
                     }
                     guard let self else { return }
                     finishOperation(succeeded: outcome.succeeded, ending: ending(of: monitor))

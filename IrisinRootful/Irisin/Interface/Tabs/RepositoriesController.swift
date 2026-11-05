@@ -318,7 +318,7 @@ class RepositoriesController: UIViewController {
         applySnapshot(animatingDifferences: true)
         SPIndicator.present(title: String(legacyLocalized: "Deleted"), preset: .done)
         LegacyTask.detached {
-            try? Task.sleep(seconds: 0.5) // let the rows animate out
+            try? LegacyTask.sleep(seconds: 0.5) // let the rows animate out
             for url in urls {
                 Self.remove(url)
             }

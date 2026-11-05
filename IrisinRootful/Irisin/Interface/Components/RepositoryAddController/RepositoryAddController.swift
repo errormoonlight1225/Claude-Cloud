@@ -413,7 +413,7 @@ class RepositoryAddController: UITableViewController {
         applySnapshot(animatingDifferences: true)
         guard target != nil else { return }
         probeTask = LegacyTask.detached { [weak self] in
-            try? Task.sleep(seconds: 0.6)
+            try? LegacyTask.sleep(seconds: 0.6)
             guard !LegacyTask.isCancelled, let self else { return }
             probing = target
             applySnapshot(animatingDifferences: true)

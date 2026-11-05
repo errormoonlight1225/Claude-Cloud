@@ -22,7 +22,7 @@ enum AutomaticRefresh {
         guard loop == nil else { return }
         loop = LegacyTask.detached {
             while !LegacyTask.isCancelled {
-                try? Task.sleep(continuousSeconds: 60)
+                try? LegacyTask.sleep(continuousSeconds: 60)
                 check()
             }
         }

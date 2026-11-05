@@ -251,7 +251,7 @@ class SettingsController: UITableViewController {
         }
         UIApplication.prepareForExitAndSuspend()
         LegacyTask.detached {
-            try? Task.sleep(seconds: 1)
+            try? LegacyTask.sleep(seconds: 1)
             PrivilegedBackend.run(job)
         }
     }

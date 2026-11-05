@@ -157,6 +157,15 @@ public final class LegacyTask: @unchecked Sendable {
     /// Blocks until the body returns. Never call on the main thread.
     public func wait() { group.wait() }
 
+    /// Blocks until the body returns or `seconds` pass; true when it returned.
+    @discardableResult
+    public func wait(timeout seconds: TimeInterval) -> Bool {
+        group.wait(timeout: .now() + seconds) == .success
+    }
+
+    /// Whether the body has returned, without waiting.
+    public var isFinished: Bool { group.wait(timeout: .now()) == .success }
+
     /// Runs `handler` on the main queue once the body returns.
     public func notifyOnMain(_ handler: @escaping () -> Void) {
         group.notify(queue: .main, execute: handler)
@@ -355,15 +364,37 @@ public func legacyFirstInOrder<T>(
 public final class LegacyFuture<Value>: @unchecked Sendable {
     private let group = DispatchGroup()
     private var result: Value?
+    /// The body's own cancellation, following the starting task's.
+    public let cancellation: LegacyCancellation
 
     public init(qos: DispatchQoS.QoSClass = .userInitiated, _ body: @escaping @Sendable () -> Value) {
-        let parent = LegacyTask.current
+        let cancellation = (LegacyTask.current ?? LegacyCancellation()).child()
+        self.cancellation = cancellation
         group.enter()
         DispatchQueue.global(qos: qos).async {
-            let value = LegacyTask.withCurrent(parent, body)
+            let value = LegacyTask.withCurrent(cancellation, body)
             self.result = value
             self.group.leave()
         }
+    }
+
+    /// `Task<Value, Never>` started detached: what `Task.detached { }` with
+    /// a value was.
+    public static func detached(qos: DispatchQoS.QoSClass = .userInitiated, _ body: @escaping @Sendable () -> Value) -> LegacyFuture {
+        LegacyTask.withCurrent(nil) { LegacyFuture(qos: qos, body) }
+    }
+
+    public func cancel() { cancellation.cancel() }
+    public var isCancelled: Bool { cancellation.isCancelled }
+
+    /// The value, or nil when `seconds` pass first.
+    public func value(timeout seconds: TimeInterval) -> Value? {
+        group.wait(timeout: .now() + seconds) == .success ? result : nil
+    }
+
+    /// Runs `handler` on the main queue with the value once it is there.
+    public func notifyOnMain(_ handler: @escaping (Value) -> Void) {
+        group.notify(queue: .main) { handler(self.result!) }
     }
 
     /// Blocks until the body has returned. Never call on the main thread.

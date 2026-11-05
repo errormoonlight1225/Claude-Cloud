@@ -377,7 +377,7 @@ extension SearchController: UISearchControllerDelegate, UISearchResultsUpdating,
                 return
             }
             LegacyTask.detached { [weak self] in
-                try? Task.sleep(seconds: 0.6)
+                try? LegacyTask.sleep(seconds: 0.6)
                 guard let self else { return }
                 // the user may have tapped a row, cancelled or left during the
                 // wait; the search is no longer on screen and must not put the

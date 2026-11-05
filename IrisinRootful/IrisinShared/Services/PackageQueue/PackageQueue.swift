@@ -359,7 +359,7 @@ final class PackageQueue {
         heldChange = LegacyTask.detached { [weak self] in
             do {
                 while Self.isRefreshing {
-                    try Task.sleep(continuousSeconds: Self.settleDelay)
+                    try LegacyTask.sleep(continuousSeconds: Self.settleDelay)
                 }
             } catch {
                 return
@@ -516,7 +516,7 @@ final class PackageQueue {
         }
         preflightDelay = LegacyTask.detached { [weak self] in
             do {
-                try Task.sleep(continuousSeconds: Self.settleDelay)
+                try LegacyTask.sleep(continuousSeconds: Self.settleDelay)
                 // at launch the refresh of what is out of date is queued a
                 // moment after the engines are up: not reading until then
                 // keeps a pool that refresh would make stale at once
@@ -524,7 +524,7 @@ final class PackageQueue {
                     || RepositoryCenter.default.obtainUpdateRemain() > 0
                     || Installer.shared.inProcessingQueue
                 {
-                    try Task.sleep(continuousSeconds: Self.settleDelay)
+                    try LegacyTask.sleep(continuousSeconds: Self.settleDelay)
                 }
             } catch {
                 return

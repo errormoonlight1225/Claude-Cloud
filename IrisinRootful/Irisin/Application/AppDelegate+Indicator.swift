@@ -42,7 +42,7 @@ extension AppDelegate {
         }
         if object.queueLeft < 1 {
             LegacyTask.detached {
-                try? Task.sleep(seconds: 1) // prevent hides another
+                try? LegacyTask.sleep(seconds: 1) // prevent hides another
                 SPIndicator.present(
                     title: String(legacyLocalized: "Repositories updated"),
                     message: "", // dont remove this

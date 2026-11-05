@@ -3,30 +3,24 @@
 //  Irisin
 //
 
-import LegacyCompat
 import Foundation
+import LegacyCompat
 
-nonisolated extension Task where Success == Never, Failure == Never {
-    static nonisolated func sleep(seconds: Double) throws {
-        try sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-    }
+// iOS 12 port: the app's Task helpers, on LegacyTask (Swift concurrency is
+// iOS 13). Every sleep here blocks its background thread.
 
-    /// `sleep(for: .seconds(seconds))`, which counts while the device
-    /// sleeps, on iOS 16 and later. iOS 15 has no `Duration`, and there it
-    /// is the uptime clock's nanoseconds, which stop with the device.
-    static nonisolated func sleep(continuousSeconds seconds: Double) throws {
-        if #available(iOS 16, *) {
-            try sleep(for: .seconds(seconds))
-        } else {
-            try sleep(nanoseconds: UInt64(max(0, seconds) * 1_000_000_000))
-        }
+extension LegacyTask {
+    /// Sleeps for `seconds` on a clock that counts while the device sleeps:
+    /// LegacyTask.sleep waits on the wall clock, which does.
+    static func sleep(continuousSeconds seconds: Double) throws {
+        try sleep(seconds: max(0, seconds))
     }
 }
 
 /// A moment on the clock that counts while the device sleeps, as
 /// `ContinuousClock` does: `CLOCK_MONOTONIC_RAW` is the clock it reads on
-/// Darwin, and it is there on iOS 15 too.
-nonisolated struct ContinuousDeadline: Sendable, Comparable {
+/// Darwin, and it is there on iOS 12 too.
+struct ContinuousDeadline: Sendable, Comparable {
     private let nanoseconds: UInt64
 
     static var now: ContinuousDeadline {
@@ -42,26 +36,25 @@ nonisolated struct ContinuousDeadline: Sendable, Comparable {
     }
 
     /// Sleeps until the deadline, at once when it has passed.
-    nonisolated func sleep() throws {
+    func sleep() throws {
         let now = ContinuousDeadline.now.nanoseconds
         guard nanoseconds > now else { return }
         try LegacyTask.sleep(continuousSeconds: Double(nanoseconds - now) / 1_000_000_000)
     }
 }
 
-extension Task where Failure == Never {
+extension LegacyTask {
     /// Waits for the task to finish, but no longer than `budget`; the task
     /// runs on either way. A page's first load gets about twelve frames this
     /// way before the page is pushed, so a quick one lands with it and only
-    /// a slow one animates in after. A task's value cannot be cancelled and
-    /// a task group waits for every child, so the sleep is what is cut short.
-    nonisolated func wait(upTo budget: TimeInterval) {
-        let timer = LegacyTask { try LegacyTask.sleep(continuousSeconds: budget) }
-        let answer = LegacyTask {
-            _ = value
-            timer.cancel()
-        }
-        _ = try? timer.value
-        answer.cancel()
+    /// a slow one animates in after.
+    func wait(upTo budget: TimeInterval) {
+        wait(timeout: budget)
+    }
+}
+
+extension LegacyFuture {
+    func wait(upTo budget: TimeInterval) {
+        _ = value(timeout: budget)
     }
 }
