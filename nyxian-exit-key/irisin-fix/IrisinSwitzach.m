@@ -516,7 +516,7 @@ static void ek_show_alert(void)
         while (vc.presentedViewController) vc = vc.presentedViewController;
         if (vc == nil) return;
 
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"IrisinSwitzach 2.5"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"IrisinSwitzach"
                                                                        message:text
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
@@ -527,7 +527,6 @@ static void ek_show_alert(void)
 __attribute__((constructor))
 static void irisin_switzach_init(void)
 {
-    ek_show_alert();
     schedule_delayed_flush();
     ek_log("constructor entered%s", NULL);
 
@@ -552,6 +551,7 @@ static void irisin_switzach_init(void)
     struct stat info;
     if (stat(g_helper, &info) != 0 || (info.st_mode & S_IFMT) != S_IFREG) {
         ek_log("irisin-install not found: %s", g_helper);
+        ek_show_alert();
         /* 不直接返回：改用 PATH 兜底再记录，仍然安装 hook，便于诊断 */
     } else {
         ek_log("irisin-install ok: %s", g_helper);
@@ -559,6 +559,7 @@ static void irisin_switzach_init(void)
 
     if (!start_server()) {
         ek_log("could not start in-process service%s", NULL);
+        ek_show_alert();
         return;
     }
     ek_log("in-process service started%s", NULL);
@@ -577,5 +578,6 @@ static void irisin_switzach_init(void)
         rebind_all_images();
         char nb[32]; snprintf(nb, sizeof(nb), "%d", g_rebind_count);
         ek_log("rebound import slots: %s", nb);
+        if (g_rebind_count == 0) ek_show_alert();
     }
 }
