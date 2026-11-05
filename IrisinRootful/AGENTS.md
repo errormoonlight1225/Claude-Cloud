@@ -1,5 +1,11 @@
 # Irisin — Agent Notes
 
+> **This tree is the iOS 12 rootful port** (`Documentation/iOS12Port.md`):
+> iOS 12.2+, `iphoneos-arm`, no Swift concurrency anywhere (use
+> `LegacyMainTask`/`awaitBackground` from `Vendor/LegacyCompat`), no API newer
+> than iOS 12 without a `compat` stand-in or an availability check. Check with
+> `Scripts/ios12/typecheck.py`; the notes below describe upstream.
+
 APT package manager for jailbroken iOS 15+, roothide and rootless bootstraps
 both. **iOS first.** Apple TV and Vision Pro get the launchpad
 (`IrisinLaunchpad`): the app's services and one screen of its own, managed
