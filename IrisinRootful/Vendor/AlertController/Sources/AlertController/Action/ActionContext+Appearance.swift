@@ -12,7 +12,6 @@ import Foundation
 #endif
 
 extension ActionContext.Action.Attribute {
-    @MainActor
     var foregroundColor: PlatformColor {
         switch self {
         case .accent:
@@ -22,7 +21,6 @@ extension ActionContext.Action.Attribute {
         }
     }
 
-    @MainActor
     var backgroundColor: PlatformColor {
         switch self {
         case .accent:
@@ -32,7 +30,6 @@ extension ActionContext.Action.Attribute {
         }
     }
 
-    @MainActor
     var borderColor: PlatformColor {
         AlertControllerConfiguration.accentColor
     }

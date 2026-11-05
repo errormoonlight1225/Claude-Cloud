@@ -140,7 +140,7 @@ import Foundation
                 context.duration = 0.25
                 self.animator().alphaValue = 1
             }
-            Task { @MainActor in
+            Task {
                 self.action.block()
             }
         }

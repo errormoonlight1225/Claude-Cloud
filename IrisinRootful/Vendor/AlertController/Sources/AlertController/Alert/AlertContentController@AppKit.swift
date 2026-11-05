@@ -39,7 +39,7 @@ import Foundation
             title: String = "",
             message: String = "",
             context: ActionContext? = nil,
-            setupActions: @escaping @MainActor (ActionContext) -> Void
+            setupActions: @escaping (ActionContext) -> Void
         ) {
             self.context = context ?? ActionContext()
             messageTitle = title

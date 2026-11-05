@@ -13,7 +13,6 @@ open class ProgressContext: ActionContext {
     /// Latest message from `purpose(message:)`, applied when the view loads.
     var pendingMessage: String?
 
-    @MainActor
     open func purpose(message: String) {
         assert(Thread.isMainThread)
         pendingMessage = message

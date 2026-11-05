@@ -5,6 +5,7 @@
 //  Created by 秋星桥 on 1/30/25.
 //
 
+import LegacyCompat
 import Foundation
 
 open class AlertProgressIndicatorViewController: AlertViewController {
@@ -16,12 +17,12 @@ open class AlertProgressIndicatorViewController: AlertViewController {
     }
 
     public convenience init(
-        title: String.LocalizationValue = "",
-        message: String.LocalizationValue = ""
+        title: LegacyLocalizationValue = "",
+        message: LegacyLocalizationValue = ""
     ) {
         let controller = AlertProgressIndicatorContentController(
-            title: String(localized: title),
-            message: String(localized: message)
+            title: String(legacyLocalized: title),
+            message: String(legacyLocalized: message)
         ) { _ in }
         self.init(contentViewController: controller)
     }

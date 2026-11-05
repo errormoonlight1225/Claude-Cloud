@@ -5,6 +5,7 @@
 //  Created by 秋星桥 on 2/22/25.
 //
 
+import LegacyCompat
 import Foundation
 
 #if canImport(UIKit)
@@ -13,11 +14,10 @@ import Foundation
     import AppKit
 #endif
 
-@MainActor
 open class ActionContext {
-    public typealias ActionBlock = @MainActor () -> Void
-    public typealias DismissBlock = @MainActor () -> Void
-    public typealias DismissHandler = @MainActor (@escaping DismissBlock) -> Void
+    public typealias ActionBlock = () -> Void
+    public typealias DismissBlock = () -> Void
+    public typealias DismissHandler = (@escaping DismissBlock) -> Void
 
     var actions = [Action]()
     var dismissHandler: DismissHandler?
@@ -89,7 +89,7 @@ open class ActionContext {
     }
 
     open func addAction(
-        title: String.LocalizationValue,
+        title: LegacyLocalizationValue,
         attribute: Action.Attribute = .normal,
         block: @escaping ActionBlock
     ) {
@@ -100,7 +100,7 @@ open class ActionContext {
         ))
     }
 
-    open func dispose(_ completion: @escaping @MainActor () async -> Void = {}) {
+    open func dispose(_ completion: @escaping () -> Void = {}) {
         guard !disposeRequested else { return }
         disposeRequested = true
         #if canImport(UIKit)
@@ -108,8 +108,10 @@ open class ActionContext {
             generator.notificationOccurred(.success)
         #endif
         let completionBlock: DismissBlock = {
-            Task { @MainActor in
-                await completion()
+            // iOS 12 port: the completion runs on the next main-queue turn,
+            // where the Task hop used to put it.
+            DispatchQueue.main.async {
+                completion()
             }
         }
         guard let dismissHandler else {
@@ -122,15 +124,15 @@ open class ActionContext {
 
     /// Resolves against the host app first, then falls back to the
     /// package's own translations (e.g. the default "Cancel" / "Done").
-    static func localizedString(_ value: String.LocalizationValue) -> String {
-        let localized = String(localized: value)
+    static func localizedString(_ value: LegacyLocalizationValue) -> String {
+        let localized = String(legacyLocalized: value)
         let unlocalized = String(
-            localized: value,
+            legacyLocalized: value,
             table: "AlertControllerMissingTable",
             bundle: .main
         )
         guard localized == unlocalized else { return localized }
-        return String(localized: value, bundle: AlertControllerConfiguration.module)
+        return String(legacyLocalized: value, bundle: AlertControllerConfiguration.module)
     }
 }
 

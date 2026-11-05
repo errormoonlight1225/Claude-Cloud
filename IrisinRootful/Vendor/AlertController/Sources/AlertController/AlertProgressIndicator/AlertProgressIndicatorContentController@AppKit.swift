@@ -16,7 +16,7 @@ import Foundation
         init(
             title: String = "",
             message: String = "",
-            setupActions: @escaping @MainActor (ActionContext) -> Void
+            setupActions: @escaping (ActionContext) -> Void
         ) {
             super.init(
                 title: title,

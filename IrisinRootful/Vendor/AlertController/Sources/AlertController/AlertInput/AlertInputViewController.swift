@@ -5,26 +5,27 @@
 //  Created by 秋星桥 on 1/30/25.
 //
 
+import LegacyCompat
 import Foundation
 
 open class AlertInputViewController: AlertViewController {
     public convenience init(
-        title: String.LocalizationValue = "",
-        message: String.LocalizationValue = "",
-        placeholder: String.LocalizationValue,
+        title: LegacyLocalizationValue = "",
+        message: LegacyLocalizationValue = "",
+        placeholder: LegacyLocalizationValue,
         text: String,
-        cancelButtonText: String.LocalizationValue = "Cancel",
-        doneButtonText: String.LocalizationValue = "Done",
-        onConfirm: @escaping @MainActor (String) -> Void
+        cancelButtonText: LegacyLocalizationValue = "Cancel",
+        doneButtonText: LegacyLocalizationValue = "Done",
+        onConfirm: @escaping (String) -> Void
     ) {
-        let confirm: @MainActor (ActionContext) -> Void = { context in
+        let confirm: (ActionContext) -> Void = { context in
             context.dispose { onConfirm(context.userObject as! String) }
         }
         let controller = AlertInputContentController(
-            title: String(localized: title),
-            message: String(localized: message),
+            title: String(legacyLocalized: title),
+            message: String(legacyLocalized: message),
             originalText: text,
-            placeholder: String(localized: placeholder),
+            placeholder: String(legacyLocalized: placeholder),
             setupActions: { context in
                 context.addAction(title: cancelButtonText) {
                     context.dispose()

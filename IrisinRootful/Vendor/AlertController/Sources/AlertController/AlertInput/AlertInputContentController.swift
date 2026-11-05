@@ -5,21 +5,23 @@
 //  Created by 秋星桥 on 2/22/25.
 //
 
+import LegacyCompat
+
 #if canImport(UIKit)
     import UIKit
 
     class AlertInputContentController: AlertContentController {
         let field = InputField()
 
-        private let submitAction: @MainActor (ActionContext) -> Void
+        private let submitAction: (ActionContext) -> Void
 
         init(
             title: String = "",
             message: String = "",
             originalText: String,
             placeholder: String,
-            setupActions: @escaping @MainActor (ActionContext) -> Void,
-            onSubmit: @escaping @MainActor (ActionContext) -> Void
+            setupActions: @escaping (ActionContext) -> Void,
+            onSubmit: @escaping (ActionContext) -> Void
         ) {
             self.submitAction = onSubmit
             super.init(title: title, message: message, setupActions: setupActions)
@@ -85,9 +87,9 @@
 
             backgroundColor = AlertControllerConfiguration.accentColor.withAlphaComponent(0.1)
             layer.cornerRadius = 8
-            layer.cornerCurve = .continuous
+            layer.compatContinuousCorners()
 
-            textField.textColor = .label.withAlphaComponent(0.9)
+            textField.textColor = .compatLabel.withAlphaComponent(0.9)
             textField.font = .preferredFont(forTextStyle: .footnote)
             textField.adjustsFontForContentSizeCategory = true
             textField.translatesAutoresizingMaskIntoConstraints = false
@@ -129,9 +131,9 @@
 
         func updateQuickOptionImage() {
             if (textField.text ?? "").isEmpty {
-                quickOptionButton.setImage(UIImage(systemName: "doc.on.clipboard"), for: .normal)
+                quickOptionButton.setImage(UIImage.compatSystemImage("doc.on.clipboard"), for: .normal)
             } else {
-                quickOptionButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+                quickOptionButton.setImage(UIImage.compatSystemImage("xmark.circle.fill"), for: .normal)
             }
         }
 

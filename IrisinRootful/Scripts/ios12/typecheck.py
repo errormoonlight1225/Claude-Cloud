@@ -79,11 +79,12 @@ MODULES = [
     M("LibSolv", [DEPS / "libsolv.xcframework/Sources/LibSolv"]),
     M("ArchiveKit", [DEPS / "libarchive.xcframework/Sources/ArchiveKit"]),
     # Third party, vendored and ported.
+    M("LegacyCompat", [V / "LegacyCompat/Sources/LegacyCompat"]),
     M("SnapKit", [V / "SnapKit/Sources"]),
     M("LRUCache", [V / "LRUCache/Sources"]),
     M("Dog", [V / "Dog/Sources/Dog"]),
     M("DisplayLink", [V / "DisplayLink/Sources/DisplayLink"]),
-    M("AlertController", [V / "AlertController/Sources/AlertController"], ["SnapKit"], resources=True),
+    M("AlertController", [V / "AlertController/Sources/AlertController"], ["SnapKit", "LegacyCompat"], resources=True),
     M("Litext", [V / "Litext/Sources/Litext"], resources=True),
     M("LitextAnimation", [V / "Litext/Sources/LitextAnimation"], ["Litext", "DisplayLink"]),
     M("IcliSystem", [V / "icli/Sources/IcliSystem"], ["IcliSystemPrivate"]),

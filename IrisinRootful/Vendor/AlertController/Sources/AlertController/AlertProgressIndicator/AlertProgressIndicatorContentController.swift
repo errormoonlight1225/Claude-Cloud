@@ -5,6 +5,8 @@
 //  Created by 秋星桥 on 2/22/25.
 //
 
+import LegacyCompat
+
 #if canImport(UIKit)
     import UIKit
 
@@ -14,7 +16,7 @@
         init(
             title: String = "",
             message: String = "",
-            setupActions: @escaping @MainActor (ActionContext) -> Void
+            setupActions: @escaping (ActionContext) -> Void
         ) {
             super.init(
                 title: title,
@@ -41,7 +43,7 @@
             super.init(frame: .zero)
             translatesAutoresizingMaskIntoConstraints = false
             let indicator = UIActivityIndicatorView()
-            indicator.style = .medium
+            indicator.style = .compatMedium
             indicator.translatesAutoresizingMaskIntoConstraints = false
             addSubview(indicator)
             NSLayoutConstraint.activate([

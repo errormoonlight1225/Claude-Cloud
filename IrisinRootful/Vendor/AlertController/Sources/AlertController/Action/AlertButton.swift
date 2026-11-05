@@ -5,6 +5,8 @@
 //  Created by 秋星桥 on 2/22/25.
 //
 
+import LegacyCompat
+
 #if canImport(UIKit)
     import UIKit
 
@@ -39,7 +41,7 @@
             backgroundColor = attribute.backgroundColor
 
             layer.cornerRadius = 12
-            layer.cornerCurve = .continuous
+            layer.compatContinuousCorners()
 
             label.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
@@ -74,7 +76,7 @@
         }
 
         private func updateBorderColor() {
-            layer.borderColor = attribute.borderColor.resolvedColor(with: traitCollection).cgColor
+            layer.borderColor = attribute.borderColor.compatResolvedColor(with: traitCollection).cgColor
         }
 
         override var canBecomeFocused: Bool {
@@ -110,7 +112,7 @@
             UIView.animate(withDuration: 0.25) {
                 self.alpha = 1
             }
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 self.action.block()
             }
         }

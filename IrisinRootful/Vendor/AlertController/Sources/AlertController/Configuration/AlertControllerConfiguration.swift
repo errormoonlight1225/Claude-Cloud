@@ -5,6 +5,7 @@
 //  Created by 秋星桥 on 1/30/25.
 //
 
+import LegacyCompat
 import Foundation
 
 #if canImport(UIKit)
@@ -13,7 +14,6 @@ import Foundation
     import AppKit
 #endif
 
-@MainActor
 public enum AlertControllerConfiguration {
     public static var alertImage: PlatformImage?
     public static var accentColor: PlatformColor = .red
@@ -27,11 +27,11 @@ public enum AlertControllerConfiguration {
 private extension AlertControllerConfiguration {
     #if canImport(UIKit)
         static var defaultSeparatorColor: PlatformColor {
-            .separator
+            .compatSeparator
         }
 
         static var defaultBackgroundColor: PlatformColor {
-            .systemBackground
+            .compatSystemBackground
         }
     #elseif canImport(AppKit)
         static var defaultSeparatorColor: PlatformColor {

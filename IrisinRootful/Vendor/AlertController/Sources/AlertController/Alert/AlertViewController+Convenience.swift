@@ -3,17 +3,18 @@
 //  AlertController
 //
 
+import LegacyCompat
 import Foundation
 
 public extension AlertViewController {
     convenience init(
-        title: String.LocalizationValue = "",
-        message: String.LocalizationValue = "",
-        setupActions: @escaping @MainActor (ActionContext) -> Void
+        title: LegacyLocalizationValue = "",
+        message: LegacyLocalizationValue = "",
+        setupActions: @escaping (ActionContext) -> Void
     ) {
         let controller = AlertContentController(
-            title: String(localized: title),
-            message: String(localized: message),
+            title: String(legacyLocalized: title),
+            message: String(legacyLocalized: message),
             setupActions: setupActions
         )
         self.init(contentViewController: controller)

@@ -5,6 +5,8 @@
 //  Created by 秋星桥 on 2/22/25.
 //
 
+import LegacyCompat
+
 #if canImport(UIKit)
     import UIKit
 
@@ -20,7 +22,7 @@
         private let textScrollView = UIScrollView()
         private let textStackView = UIStackView()
 
-        let backgroundView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        let backgroundView = UIVisualEffectView(effect: UIBlurEffect(style: .compatSystemMaterial))
         private var actionStackView: UIStackView?
         private var actionPresentations = [PresentedAlertAction]()
         private var appliedActionAxis: NSLayoutConstraint.Axis?
@@ -29,7 +31,7 @@
             title: String = "",
             message: String = "",
             context: ActionContext? = nil,
-            setupActions: @escaping @MainActor (ActionContext) -> Void
+            setupActions: @escaping (ActionContext) -> Void
         ) {
             self.context = context ?? ActionContext()
             messageTitle = title
@@ -116,7 +118,7 @@
                 imageView.image = image
                 imageView.translatesAutoresizingMaskIntoConstraints = false
                 imageView.layer.cornerRadius = 12
-                imageView.layer.cornerCurve = .continuous
+                imageView.layer.compatContinuousCorners()
                 imageView.layer.masksToBounds = true
                 imageView.heightAnchor.constraint(equalToConstant: 64).isActive = true
                 imageView.widthAnchor.constraint(equalToConstant: 64).isActive = true
@@ -153,7 +155,7 @@
                 titleLabel.text = messageTitle
                 titleLabel.font = .scaledSystemFont(forTextStyle: .body, weight: .semibold)
                 titleLabel.adjustsFontForContentSizeCategory = true
-                titleLabel.textColor = .label
+                titleLabel.textColor = .compatLabel
                 titleLabel.textAlignment = .center
                 titleLabel.numberOfLines = 0
                 titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -165,7 +167,7 @@
             messageLabel.text = messageContent
             messageLabel.font = .scaledSystemFont(forTextStyle: .footnote)
             messageLabel.adjustsFontForContentSizeCategory = true
-            messageLabel.textColor = .label
+            messageLabel.textColor = .compatLabel
             messageLabel.textAlignment = .center
             messageLabel.numberOfLines = 0
             messageLabel.lineBreakMode = .byWordWrapping

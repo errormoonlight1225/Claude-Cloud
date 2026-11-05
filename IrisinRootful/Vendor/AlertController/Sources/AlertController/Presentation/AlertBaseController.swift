@@ -5,6 +5,8 @@
 //  Created by 秋星桥 on 1/24/25.
 //
 
+import LegacyCompat
+
 #if canImport(UIKit)
     import UIKit
 
@@ -17,7 +19,7 @@
         public let contentLayoutGuide = UILayoutGuide()
 
         public let contentBackgroundView = UIVisualEffectView(
-            effect: UIBlurEffect(style: .systemUltraThinMaterial)
+            effect: UIBlurEffect(style: .compatSystemUltraThinMaterial)
         )
         open var shouldDismissWhenTappedAround = false
         open var shouldDismissWhenEscapeKeyPressed = false
@@ -44,7 +46,7 @@
             super.init(nibName: nil, bundle: nil)
             transitioningDelegate = self
             modalPresentationStyle = .custom
-            isModalInPresentation = true
+            if #available(iOS 13.0, *) { isModalInPresentation = true }
             addChild(rootViewController)
             rootViewController.view.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(rootViewController.view)
@@ -155,7 +157,7 @@
             contentView.backgroundColor = .clear
             contentView.clipsToBounds = true
             contentView.layer.cornerRadius = 16
-            contentView.layer.cornerCurve = .continuous
+            contentView.layer.compatContinuousCorners()
             view.addSubview(contentView)
             contentView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -305,7 +307,7 @@
                 modifierFlags: [],
                 action: #selector(escapePressed)
             )
-            escapeCommand.wantsPriorityOverSystemBehavior = true
+            if #available(iOS 15.0, *) { escapeCommand.wantsPriorityOverSystemBehavior = true }
             return (super.keyCommands ?? []) + [escapeCommand]
         }
 
