@@ -117,11 +117,13 @@ public final class LegacyTask: @unchecked Sendable {
 
     private init() {}
 
-    /// Runs `body` on a global queue at `qos`.
+    /// Runs `body` on a global queue at `qos`. The body is `@Sendable`, so
+    /// the compiler checks it as code off the main actor: main-actor state
+    /// it touches must be reached through `DispatchQueue.main.sync`/`async`.
     @discardableResult
     public static func detached(
         qos: DispatchQoS.QoSClass = .userInitiated,
-        _ body: @escaping () -> Void
+        _ body: @escaping @Sendable () -> Void
     ) -> LegacyTask {
         let task = LegacyTask()
         task.group.enter()

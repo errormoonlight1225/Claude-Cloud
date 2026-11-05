@@ -1,3 +1,4 @@
+import LegacyCompat
 import Foundation
 
 /// Sileo-style payment endpoints, one request each: the app and the
@@ -46,8 +47,8 @@ public enum VendorService {
         endpoint: URL,
         credentials: VendorCredentials,
         device: VendorDevice
-    ) async throws(Failure) -> [String] {
-        let reply = try await send(request(endpoint.appendingPathComponent("user_info"), credentials, device))
+    ) throws(Failure) -> [String] {
+        let reply = try send(request(endpoint.appendingPathComponent("user_info"), credentials, device))
         return reply["items"] as? [String] ?? []
     }
 
@@ -56,8 +57,8 @@ public enum VendorService {
         endpoint: URL,
         credentials: VendorCredentials,
         device: VendorDevice
-    ) async throws(Failure) -> PurchaseStatus {
-        let reply = try await send(request(package(identity, "info", at: endpoint), credentials, device))
+    ) throws(Failure) -> PurchaseStatus {
+        let reply = try send(request(package(identity, "info", at: endpoint), credentials, device))
         return PurchaseStatus(purchased: reply["purchased"] as? Bool, available: reply["available"] as? Bool)
     }
 
@@ -69,8 +70,8 @@ public enum VendorService {
         endpoint: URL,
         credentials: VendorCredentials,
         device: VendorDevice
-    ) async throws(Failure) -> URL? {
-        let reply = try await send(request(package(identity, "purchase", at: endpoint), credentials, device, [
+    ) throws(Failure) -> URL? {
+        let reply = try send(request(package(identity, "purchase", at: endpoint), credentials, device, [
             "payment_secret": credentials.secret,
             "architecture": architecture,
         ]))
@@ -89,8 +90,8 @@ public enum VendorService {
         endpoint: URL,
         credentials: VendorCredentials,
         device: VendorDevice
-    ) async throws(Failure) -> URL? {
-        let reply = try await send(request(package(identity, "authorize_download", at: endpoint), credentials, device, [
+    ) throws(Failure) -> URL? {
+        let reply = try send(request(package(identity, "authorize_download", at: endpoint), credentials, device, [
             "version": version,
             "repo": repository.absoluteString,
             "payment_secret": credentials.secret,
@@ -101,7 +102,7 @@ public enum VendorService {
 
     /// Tells the vendor the account left this device; the answer changes
     /// nothing here and is handed back only to be logged.
-    public static func signOut(endpoint: URL, credentials: VendorCredentials, device: VendorDevice) async -> String? {
+    public static func signOut(endpoint: URL, credentials: VendorCredentials, device: VendorDevice) -> String? {
         var request = URLRequest(url: endpoint.appendingPathComponent("sign_out"), timeoutInterval: 10)
         request.httpMethod = "POST"
         request.httpBody = json([
@@ -109,7 +110,7 @@ public enum VendorService {
             "udid": device.udid,
             "device": device.machine,
         ])
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
+        guard let (data, _) = try? URLSession.shared.compatData(for: request) else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
@@ -148,10 +149,10 @@ public enum VendorService {
         )) ?? Data()
     }
 
-    static func send(_ request: URLRequest) async throws(Failure) -> [String: Any] {
+    static func send(_ request: URLRequest) throws(Failure) -> [String: Any] {
         let data: Data
         do {
-            let (body, response) = try await URLSession.shared.data(for: request)
+            let (body, response) = try URLSession.shared.compatData(for: request)
             if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
                 throw Failure.status(http.statusCode)
             }

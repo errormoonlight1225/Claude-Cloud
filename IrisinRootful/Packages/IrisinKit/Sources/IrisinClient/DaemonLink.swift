@@ -109,12 +109,14 @@ public final class DaemonLink: @unchecked Sendable {
     ///    There is no path to the local backend on a device that has one.
     /// 3. Otherwise this binary came without a daemon. Once the grace period
     ///    has elapsed since the first miss, bind the local backend and say so.
-    public func hello() async throws -> Backend {
+    ///
+    /// iOS 12 port: blocks until the daemon answers; call off the main thread.
+    public func hello() throws -> Backend {
         if let bound {
             return bound
         }
         do {
-            let backend = try await transport.hello()
+            let backend = try transport.hello()
             return bind(backend)
         } catch {
             guard !daemonIsInstalled, graceHasElapsed() else { throw error }
@@ -150,11 +152,11 @@ public final class DaemonLink: @unchecked Sendable {
     /// handshake that has not happened yet is made here first, so a job asked
     /// for at cold launch waits for the daemon rather than being refused for
     /// arriving early.
-    public func run(_ job: InstallerJob) async throws -> JobTranscript {
-        guard try await hello().isPrivileged else {
+    public func run(_ job: InstallerJob) throws -> JobTranscript {
+        guard try hello().isPrivileged else {
             throw IrisinFailure(code: .notPermitted)
         }
-        return try await transport.run(job)
+        return try transport.run(job)
     }
 
     /// Drop the connection so the next request builds a new one. An XPC

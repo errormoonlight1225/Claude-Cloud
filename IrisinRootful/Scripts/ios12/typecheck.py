@@ -47,7 +47,6 @@ CLANG = {
     "CIrisinXPC": P / "IrisinKit/Sources/CIrisinXPC/module.modulemap",
     "CIrisinSpawn": P / "IrisinKit/Sources/CIrisinSpawn/module.modulemap",
     "CIrisinDB": P / "IrisinKit/Sources/CIrisinDB/module.modulemap",
-    "CIrisinExternalXPC": P / "IrisinExternalClient/Sources/CIrisinExternalXPC/module.modulemap",
     "TreeSitter": P / "Runestone/Sources/TreeSitter/include/module.modulemap",
     "TreeSitterBash": ("umbrella-dir", P / "Runestone/Sources/TreeSitterBash/include"),
     "TreeSitterJSON": ("umbrella-dir", P / "Runestone/Sources/TreeSitterJSON/include"),
@@ -55,6 +54,7 @@ CLANG = {
     "IcliLaunchPrivate": ("umbrella-header", V / "icli/Sources/IcliLaunchPrivate/include/IcliLaunchPrivate.h"),
     "IcliPrivate": ("umbrella-header", V / "icli/Sources/IcliPrivate/include/IcliPrivate.h"),
     "IcliProbe": ("umbrella-header", V / "icli/Sources/IcliProbe/include/IcliProbe.h"),
+    "COpenCombineHelpers": ("umbrella-header", V / "OpenCombine/Sources/COpenCombineHelpers/include/COpenCombineHelpers.h"),
 }
 
 FRAMEWORK_DIRS = [
@@ -86,6 +86,9 @@ MODULES = [
     M("LegacyCompat", [V / "LegacyCompat/Sources/LegacyCompat"]),
     M("LegacyCrypto", [V / "LegacyCompat/Sources/LegacyCrypto"]),
     M("SnapKit", [V / "SnapKit/Sources"]),
+    M("OpenCombine", [V / "OpenCombine/Sources/OpenCombine"], ["COpenCombineHelpers"]),
+    M("OpenCombineDispatch", [V / "OpenCombine/Sources/OpenCombineDispatch"], ["OpenCombine"]),
+    M("OpenCombineFoundation", [V / "OpenCombine/Sources/OpenCombineFoundation"], ["OpenCombine", "COpenCombineHelpers"]),
     M("LRUCache", [V / "LRUCache/Sources"]),
     M("Dog", [V / "Dog/Sources/Dog"]),
     M("DisplayLink", [V / "DisplayLink/Sources/DisplayLink"]),
@@ -103,7 +106,6 @@ MODULES = [
       ["CIrisinDB", "IrisinProtocol", "IrisinPreparation", "IcliKit", "LegacyCompat", "LegacyCrypto"]),
     M("IrisinClient", [P / "IrisinKit/Sources/IrisinClient"], ["IrisinProtocol", "IrisinInstaller", "LegacyCompat", "LegacyCrypto"]),
     M("IrisinVendor", [P / "IrisinKit/Sources/IrisinVendor"], ["LegacyCompat", "LegacyCrypto"]),
-    M("IrisinExternalClient", [P / "IrisinExternalClient/Sources/IrisinExternalClient"], ["CIrisinExternalXPC", "LegacyCompat", "LegacyCrypto"]),
     M("AptRepository", [P / "AptRepository/Sources/AptRepository"],
       ["ArchiveKit", "IrisinProtocol", "IrisinPreparation", "WCDBSwift", "LRUCache", "LegacyCompat", "LegacyCrypto"]),
     M("AptResolver", [P / "AptRepository/Sources/AptResolver"], ["AptRepository", "LibSolv", "IrisinProtocol", "LegacyCompat", "LegacyCrypto"]),

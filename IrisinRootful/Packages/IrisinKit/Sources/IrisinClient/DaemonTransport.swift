@@ -1,13 +1,15 @@
 import Darwin
 import Foundation
 import IrisinProtocol
+import LegacyCompat
 #if canImport(XPC)
     import XPC
 #endif
 
 /// The XPC side of the link: every operation as one message with an
 /// asynchronous reply, never the synchronous variant, which wedges its queue
-/// forever when a reply does not come.
+/// forever when a reply does not come. (iOS 12 port: the calls block their
+/// caller until that reply; callers stay off the main thread.)
 ///
 /// Looking the Mach service up is what starts the daemon; there is nothing to
 /// install or launch by hand.
@@ -17,11 +19,11 @@ final class DaemonTransport: @unchecked Sendable {
     #if targetEnvironment(simulator)
         /// No Mach service to look up: `SimulatorDaemon` is the daemon and the
         /// helper, in this process.
-        func hello() async throws -> DaemonLink.Backend {
+        func hello() throws -> DaemonLink.Backend {
             .daemon(installRoot: SimulatorDaemon.installRoot)
         }
 
-        func run(_ job: InstallerJob) async throws -> JobTranscript {
+        func run(_ job: InstallerJob) throws -> JobTranscript {
             try SimulatorDaemon.run(job)
         }
 
@@ -31,8 +33,8 @@ final class DaemonTransport: @unchecked Sendable {
         private let stateLock = NSLock()
         private var connection: xpc_connection_t?
 
-        func hello() async throws -> DaemonLink.Backend {
-            let reply = try await send(.hello) { request in
+        func hello() throws -> DaemonLink.Backend {
+            let reply = try send(.hello) { request in
                 xpc_dictionary_set_uint64(request, IrisinWire.Key.version, IrisinWire.version)
             }
             guard let root = xpc_dictionary_get_string(reply, IrisinWire.Key.installRoot) else {
@@ -41,8 +43,8 @@ final class DaemonTransport: @unchecked Sendable {
             return .daemon(installRoot: String(cString: root))
         }
 
-        func run(_ job: InstallerJob) async throws -> JobTranscript {
-            let reply = try await send(.run) { request in
+        func run(_ job: InstallerJob) throws -> JobTranscript {
+            let reply = try send(.run) { request in
                 try job.encode(into: request)
             }
             let descriptor = xpc_dictionary_dup_fd(reply, IrisinWire.Key.descriptor)
@@ -68,23 +70,25 @@ final class DaemonTransport: @unchecked Sendable {
         private func send(
             _ operation: IrisinOperation,
             fill: (xpc_object_t) throws -> Void
-        ) async throws -> xpc_object_t {
+        ) throws -> xpc_object_t {
             let request = xpc_dictionary_create(nil, nil, 0)
             xpc_dictionary_set_uint64(request, IrisinWire.Key.version, IrisinWire.version)
             xpc_dictionary_set_uint64(request, IrisinWire.Key.operation, operation.rawValue)
             try fill(request)
 
             let connection = try activeConnection()
-            let reply: xpc_object_t = try await withCheckedThrowingContinuation { continuation in
+            // iOS 12 port: the caller blocks (off the main thread) until the
+            // reply arrives on `queue`, where the continuation used to resume.
+            let reply: xpc_object_t = try legacyAwait { (finish: @escaping (Result<xpc_object_t, Error>) -> Void) in
                 xpc_connection_send_message_with_reply(connection, request, queue) { reply in
                     if xpc_get_type(reply) == IrisinXPC.typeDictionary {
-                        continuation.resume(returning: reply)
+                        finish(.success(reply))
                     } else {
                         // Interrupted or invalid. The daemon is on-demand and
                         // exits when idle, so this is a normal thing to see; the
                         // next call reconnects.
                         self.invalidate()
-                        continuation.resume(throwing: IrisinFailure(code: .operationFailed, systemError: ECONNRESET))
+                        finish(.failure(IrisinFailure(code: .operationFailed, systemError: ECONNRESET)))
                     }
                 }
             }
@@ -124,11 +128,11 @@ final class DaemonTransport: @unchecked Sendable {
             }
         }
     #else
-        func hello() async throws -> DaemonLink.Backend {
+        func hello() throws -> DaemonLink.Backend {
             throw IrisinFailure(code: .notPermitted)
         }
 
-        func run(_: InstallerJob) async throws -> JobTranscript {
+        func run(_: InstallerJob) throws -> JobTranscript {
             throw IrisinFailure(code: .notPermitted)
         }
 
