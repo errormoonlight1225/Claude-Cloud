@@ -1,0 +1,32 @@
+{
+  "pins" : [
+    {
+      "identity" : "icli",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/owngoal-dev/icli.git",
+      "state" : {
+        "revision" : "2fbdb5ee61d8c320732deb9768b22506f5e3d411",
+        "version" : "0.10.0"
+      }
+    },
+    {
+      "identity" : "libarchive.xcframework",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Lakr233/libarchive.xcframework.git",
+      "state" : {
+        "revision" : "554c59260965ac6afac43cfa6e813ea73917ac9d",
+        "version" : "1.0.1"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+        "version" : "1.8.2"
+      }
+    }
+  ],
+  "version" : 2
+}

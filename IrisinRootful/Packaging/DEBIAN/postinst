@@ -1,0 +1,72 @@
+#!/bin/sh
+# Scripts/package-deb.sh substitutes the install prefix below: empty for
+# roothide (whose dpkg relocates rootful paths into the randomized bootstrap
+# root) and /var/jb for rootless.
+
+# The app has no container, so its home is mobile's, shared with every other
+# app without one: inside the jbroot on roothide (whose sh reads /var/mobile
+# there, as the app does), the system's own on rootless. A sandbox would hand
+# it a Documents folder of its own; here the shared Documents is made for
+# mobile when missing, and the app keeps its data in a folder named for its
+# bundle id inside it, so no two such apps write into each other's. dpkg runs
+# this as root, so each missing level is made and handed to mobile on its
+# own: `mkdir -p` leaves every level above the last one root's, and mobile
+# can then make nothing beside it. A level that exists is left as it is, and
+# a symlink is never followed: mobile could plant one to have root hand it
+# some other directory. irisind's prepareUserHome does the same.
+app_data=/var/mobile/Documents/wiki.qaq.irisin
+mobile_dir() {
+    if [ -L "$1" ]; then
+        return 1
+    fi
+    if [ -d "$1" ]; then
+        return 0
+    fi
+    mkdir -m 0755 "$1" && chown -h 501:501 "$1"
+}
+for directory in /var/mobile /var/mobile/Documents "$app_data"; do
+    mobile_dir "$directory" || {
+        echo "warning: $directory could not be prepared for mobile." >&2
+        break
+    }
+done
+
+# 4.3.4 through 4.5.25 made the data folder with `mkdir -p` instead, and on a
+# bootstrap with no Documents that left Documents itself root's: every app
+# without a container then found it so and could keep nothing there. It goes
+# back to mobile, the owner a stock iOS gives it.
+documents=/var/mobile/Documents
+if [ ! -L "$documents" ] && [ -d "$documents" ] &&
+    [ "$(stat -c %u "$documents" 2>/dev/null)" = 0 ]; then
+    chown -h 501:501 "$documents" || {
+        echo "warning: $documents could not be given back to mobile." >&2
+    }
+fi
+
+helper=@PREFIX@/usr/libexec/irisin-install
+if [ -x "$helper" ]; then
+    echo '{"bootstrapIrisinDaemon":{}}' | "$helper" >/dev/null || {
+        echo "warning: Irisin's background service could not be loaded and started." >&2
+        echo "warning: reinstall Irisin before trying to install packages." >&2
+    }
+fi
+
+# The helper registers every new or moved bundle in the bootstrap's
+# /Applications with LaunchServices: the same job the app's Rebuild Icons
+# sends, handed over on standard input. It finds the bootstrap root from its
+# own path, so no rootful path is spelled here: on roothide that path must
+# stay unspoken. Its transcript is JSON for the app and is also in its log.
+#
+# Not when Irisin's own helper runs this script (it sets
+# IRISIN_INSTALLER_VERSION, dpkg never does): that is Irisin updating
+# itself, and registering the running app would stop it halfway through.
+# The helper registers the other apps the run changed, and the app asks for
+# its own registration as it exits.
+if [ -x "$helper" ] && [ -z "${IRISIN_INSTALLER_VERSION:-}" ]; then
+    echo '{"rebuildIconCache":{}}' | "$helper" >/dev/null || {
+        echo "warning: irisin.app was not registered with LaunchServices." >&2
+        echo "warning: run 'uicache -a' yourself, or the Irisin icon will not appear." >&2
+    }
+fi
+
+exit 0

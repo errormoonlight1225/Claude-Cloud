@@ -1,0 +1,20 @@
+Package: @PACKAGE_ID@
+Name: Irisin
+Version: @VERSION@
+Architecture: @ARCHITECTURE@
+Description: Modern package manager for @FLAVOR@ custom firmware
+ Browse your repositories, install and remove packages, keep tweaks updated
+ and read every depiction, on iPhone and iPad. The app runs without root;
+ installs go through a small on-demand root daemon whose helper installs
+ packages natively and registers apps with LaunchServices itself. No dpkg,
+ no uicache.
+Icon: https://lakr233.github.io/Irisin/icon.png
+Depiction: https://lakr233.github.io/Irisin/
+SileoDepiction: https://lakr233.github.io/Irisin/depiction.json
+Homepage: https://github.com/Lakr233/Irisin
+Maintainer: OwnGoal Studio <no-reply@owngoal.dev>
+Author: OwnGoal Studio <no-reply@owngoal.dev>
+Section: Applications
+Priority: optional
+Depends: firmware (>= @MINIMUM_IOS_VERSION@)
+Installed-Size: @INSTALLED_SIZE@

@@ -1,0 +1,539 @@
+import AptRepository
+import Foundation
+import IrisinProtocol
+import LibSolv
+
+public enum PackageResolver {
+    /// The plan for `request` against `snapshot`. `pool` is the one read
+    /// ahead of the request (`ResolutionPool`): used when it serves the
+    /// snapshot, read again when it does not, and a plan is the same
+    /// either way.
+    public static func resolve(
+        request: ResolutionRequest,
+        snapshot: ResolutionSnapshot,
+        pool: ResolutionPool? = nil
+    ) throws -> ResolutionPlan {
+        do {
+            return try solve(request: request, snapshot: snapshot, pool: pool)
+        } catch is CancellationError {
+            // no one is waiting for this plan, nor for why it failed
+            throw CancellationError()
+        } catch {
+            // the failure's own evidence first: it names what went wrong
+            let checks = ((error as? ResolutionFailure)?.checks ?? [])
+                + ResolutionDiagnostics.checks(request: request, snapshot: snapshot)
+            var reason = (error as? ResolutionFailure)?.reason ?? .unknown
+            if reason == .noPlan || error is LibSolv.ResolutionFailure, !checks.isEmpty {
+                // Private SAT token names are implementation details. The
+                // evidence rows explain which real package requirement failed.
+                let unmatched: Set<ResolutionCheck.Outcome> = [
+                    .missing, .incompatibleArchitecture, .noMatchingVersion, .invalidMetadata,
+                ]
+                reason = checks.contains { unmatched.contains($0.outcome) }
+                    ? .requirementsUnmatched
+                    : .requirementsConflict
+            }
+            throw ResolutionFailure(reason, checks: checks)
+        }
+    }
+
+    /// The plan for `request` against `snapshot`, with the pool the caller
+    /// keeps between requests: used while it serves the snapshot, and read
+    /// again into `pool` when it does not, for the next request. A request
+    /// for a package no pool read ahead would hold (a `.deb` on disk,
+    /// another repository's copy of an installed package) is solved with a
+    /// pool of its own and leaves a stale `pool` as it was: read now, it
+    /// would be read twice.
+    public static func resolve(
+        request: ResolutionRequest,
+        snapshot: ResolutionSnapshot,
+        keeping pool: inout ResolutionPool?
+    ) throws -> ResolutionPlan {
+        let foreign = request.installs.contains { package in
+            package.repoRef == nil || snapshot.origins[package.identity].map { $0 != package.repoRef } == true
+        }
+        if pool?.serves(snapshot) != true, !foreign {
+            pool = try ResolutionPool(snapshot: snapshot)
+        }
+        return try resolve(request: request, snapshot: snapshot, pool: pool)
+    }
+
+    private static func solve(
+        request: ResolutionRequest,
+        snapshot: ResolutionSnapshot,
+        pool prepared: ResolutionPool?
+    ) throws -> ResolutionPlan {
+        // a pool read for other inputs is never used; one the request would
+        // add a candidate to is read again with it, for this request alone
+        let pool = if let prepared, prepared.serves(snapshot), prepared.offers(request) {
+            prepared
+        } else {
+            try ResolutionPool(
+                snapshot: snapshot,
+                requested: ResolutionRequest(actions: Array(latestActions(of: request).values)).installs
+            )
+        }
+        var plan = try solve(request: request, snapshot: snapshot, in: pool)
+        if request.updateAll, !plan.heldBack.isEmpty {
+            plan.migration = try migration(request: request, snapshot: snapshot, pool: pool, plan: plan)
+        }
+        return plan
+    }
+
+    /// Each identity's last action in `request`: the one that counts.
+    private static func latestActions(of request: ResolutionRequest) -> [String: ResolutionAction] {
+        var actions: [String: ResolutionAction] = [:]
+        for action in request.actions {
+            actions[action.identity] = action
+        }
+        return actions
+    }
+
+    private static func solve(
+        request: ResolutionRequest,
+        snapshot: ResolutionSnapshot,
+        in pool: ResolutionPool
+    ) throws -> ResolutionPlan {
+        let actions = latestActions(of: request)
+        for entry in pool.installed {
+            let index = try entry.get()
+            try pool.records[index].admit(actions[pool.records[index].name])
+        }
+        let records = pool.records
+        let universe = pool.universe
+        let environment = try SolverEnvironment(distribution: .debian, architecture: snapshot.architecture)
+        let installedRepository = try environment.addRepository(name: "installed")
+        let availableRepository = try environment.addRepository(name: "available")
+        try environment.setInstalledRepository(installedRepository)
+        var ids: [PackageID] = []
+        ids.reserveCapacity(records.count)
+        let installed = Set(records.indices.filter { records[$0].installed })
+        let installedByName = Dictionary(uniqueKeysWithValues: installed.map { (records[$0].name, $0) })
+        for (index, record) in records.enumerated() {
+            let repository = record.installed ? installedRepository : availableRepository
+            try ids.append(environment.addPackage(pool.definition(of: index), to: repository))
+        }
+        var jobs: [Job] = []
+        var explicitInstall = Set<Int>()
+        var explicitRemove = Set<String>()
+        for name in actions.keys.sorted() {
+            switch actions[name]! {
+            case let .install(package):
+                guard let version = package.latestVersion, let metadata = package.payload[version] else {
+                    throw ResolutionFailure(.noVersion(package: name))
+                }
+                let requested = Package(
+                    identity: package.identity,
+                    payload: [version: metadata],
+                    repoRef: package.repoRef
+                )
+                let index: Int
+                switch pool.offer(of: requested) {
+                case let .record(found): index = found
+                // the version is offered and does not parse: say so
+                case let .unreadable(reason): throw ResolutionFailure(reason)
+                case nil: throw ResolutionFailure(.versionUnavailable(package: name))
+                }
+                explicitInstall.insert(index)
+                jobs.append(Job(.install, .package(ids[index])))
+            case .remove:
+                if let index = installedByName[name] {
+                    explicitRemove.insert(name)
+                    jobs.append(Job(.remove, .package(ids[index])))
+                }
+            }
+        }
+        /// what no plan may remove: everything protected, or once the user
+        /// allows removing system packages, only the records the bootstrap
+        /// writes for the device itself. No repository offers those again.
+        func kept(_ record: PoolPackage) -> Bool {
+            let device = record.name == "firmware" || record.name.hasPrefix("gsc.") || record.name.hasPrefix("cy+")
+            return record.protected && !(request.allowSystemRemoval && !device)
+        }
+        for index in installed.sorted() {
+            let record = records[index]
+            if record.held || (request.updateAll && snapshot.blockedUpdates.contains(record.name)) {
+                jobs.append(Job(.lock, .package(ids[index])))
+            }
+            if kept(record) {
+                jobs.append(Job(.install, .name(record.name)))
+            }
+        }
+        // Permit only explicitly requested downgrades. A global allowDowngrade
+        // flag alone would also downgrade unrelated installed dependencies.
+        for index in records.indices where !records[index].installed && !explicitInstall.contains(index) {
+            if let old = installedByName[records[index].name],
+               DebianVersion.compare(records[index].version, records[old].version) < 0
+            {
+                jobs.append(Job(.lock, .package(ids[index])))
+            }
+        }
+        if request.updateAll {
+            jobs.append(Job(.update, .all))
+        }
+        // What a run that stopped partway leaves broken, whatever its shape:
+        // a library's new version unpacked beside a dependant that needs the
+        // old one (issue 146: apt 2.6.0-2 beside libapt-pkg6.0 2.9.4-3), a
+        // new dependency never installed, a Breaks the broken package has
+        // not caught up with. libsolv keeps an installed package that was
+        // broken before as it is, so every plan failed validation until the
+        // user found the one request that mends it. Every plan mends it now,
+        // as libsolv's verify does, by installing or updating what it takes,
+        // and keeps each package involved: one goes only when the request
+        // removes it. When nothing mends it beside this request, the request
+        // is solved as before and fails naming what is broken.
+        var repair: [Job] = []
+        let broken = universe.broken(in: installed)
+        if !broken.isEmpty {
+            repair.append(Job(.verify, .all))
+            for index in broken.sorted() where actions[records[index].name] == nil {
+                repair.append(Job(.install, .name(records[index].name)))
+            }
+        }
+        var options = SolverOptions()
+        options.allowUninstall = !request.updateAll
+        options.allowDowngrade = !explicitInstall.isEmpty
+        options.installRecommendations = false
+        let result: Resolution
+        do {
+            do { result = try environment.solve(jobs + repair, options: options) }
+            catch is LibSolv.ResolutionFailure where !repair.isEmpty {
+                result = try environment.solve(jobs, options: options)
+            }
+        } catch let failure as LibSolv.ResolutionFailure {
+            // a removal the system keeps is the plainest cause to name
+            for name in explicitRemove.sorted() {
+                if let blocked = removalBlock(installedByName[name]!, base: installed, universe: universe, kept: kept) {
+                    throw blocked
+                }
+            }
+            var checks: [ResolutionCheck] = []
+            for problem in failure.problems {
+                var detail = problem
+                for index in records.indices.reversed() {
+                    detail = detail.replacingOccurrences(
+                        of: ResolutionPool.token(index),
+                        with: "\(records[index].name) (\(records[index].version))"
+                    )
+                }
+                // A missing dependency is explained with architecture/version
+                // evidence by ResolutionDiagnostics, without internal SAT names.
+                guard !detail.contains("missing:") else { continue }
+                checks.append(.init(package: "", requirement: detail, outcome: .conflictingRequirements))
+            }
+            throw ResolutionFailure(.noPlan, checks: checks)
+        }
+        let indexByID = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($0.element, $0.offset) })
+        var selected = Set(result.installed.compactMap { indexByID[$0.id] })
+        try universe.validate(selected)
+        // apt's marks: a package keeps the mark its installed copy has, a new
+        // one is automatic unless it was asked for, and a protected one never is
+        let installedNames = Set(installed.map { records[$0].name })
+        func isAuto(_ index: Int) -> Bool {
+            let record = records[index]
+            if record.protected {
+                return false
+            }
+            if installedNames.contains(record.name) {
+                return snapshot.autoInstalled.contains(record.name)
+            }
+            return !explicitInstall.contains(index)
+        }
+        // what the request names stays whatever its mark, and so does a held package
+        let dependents = unneededDependents(in: selected, universe: universe) {
+            records[$0].held || explicitInstall.contains($0) || !isAuto($0)
+        }
+        var everything: [String: [String]] = [:]
+        for (index, users) in dependents {
+            everything[records[index].name] = users.map { records[$0].name }.sorted()
+        }
+        // an unneeded package this plan would install goes without asking,
+        // unless an unneeded one that stays depends on it
+        let removed = ResolutionPlan.removable(
+            request.autoremove.union(everything.keys.filter { !installedNames.contains($0) }),
+            unneeded: everything
+        )
+        if !removed.isEmpty {
+            selected = selected.filter { !removed.contains(records[$0].name) }
+            try universe.validate(selected)
+        }
+        // offered as installed packages only: the new ones are settled above,
+        // so an edge through one of them is folded into the installed
+        // packages behind it
+        func users(of name: String) -> [String] {
+            var found = Set<String>()
+            var pending = everything[name] ?? []
+            while let next = pending.popLast() {
+                if found.insert(next).inserted {
+                    pending += everything[next] ?? []
+                }
+            }
+            return found.filter { $0 != name && installedNames.contains($0) }.sorted()
+        }
+        var unneeded: [String: [String]] = [:]
+        for name in everything.keys where installedNames.contains(name) {
+            unneeded[name] = users(of: name)
+        }
+        // a removal the solver kept: the failure says what keeps it
+        if let stayed = selected.first(where: { explicitRemove.contains(records[$0].name) }) {
+            throw removalBlock(stayed, base: selected, universe: universe, kept: kept)
+                ?? ResolutionFailure(.unresolvable)
+        }
+        // These indices identify full package records, including source and
+        // archive metadata. Matching only identity/version would allow a
+        // different file to stand in for the one the user chose.
+        guard explicitInstall.isSubset(of: selected) else {
+            throw ResolutionFailure(.unresolvable)
+        }
+        let finalNames = Set(selected.map { records[$0].name })
+        for index in installed {
+            let record = records[index]
+            if kept(record), !finalNames.contains(record.name) {
+                throw ResolutionFailure(.requiredBySystem(package: record.name))
+            }
+            if record.held, !selected.contains(index) {
+                throw ResolutionFailure(.onHold(package: record.name))
+            }
+        }
+        let additions = selected.subtracting(installed)
+        let removals = installed.filter { !finalNames.contains(records[$0].name) }
+        if request.updateAll, !removals.isEmpty {
+            throw ResolutionFailure(.updateAllRemoves)
+        }
+        let stages = try TransactionPlanner.plan(universe: universe, selected: selected)
+        let selectedByName = Dictionary(uniqueKeysWithValues: selected.map { (records[$0].name, $0) })
+        var heldBack: [String] = []
+        if request.updateAll {
+            var newestAvailable: [String: String] = [:]
+            for record in records where !record.installed {
+                if newestAvailable[record.name].map({ DebianVersion.compare(record.version, $0) > 0 }) ?? true {
+                    newestAvailable[record.name] = record.version
+                }
+            }
+            for index in installed.sorted() {
+                let name = records[index].name
+                if let current = selectedByName[name], let newest = newestAvailable[name],
+                   DebianVersion.compare(newest, records[current].version) > 0
+                {
+                    heldBack.append(records[index].name)
+                }
+            }
+        }
+        // the same edges the solver was given, read backwards: an addition is
+        // required by every selected package whose relation it witnesses
+        var requiredBy: [String: Set<String>] = [:]
+        for index in selected {
+            let record = records[index]
+            for kind in [PoolPackage.Group.Kind.depends, .preDepends] {
+                for relation in record.relations[kind] ?? [] {
+                    for witness in universe.witnesses(relation) where additions.contains(witness) && witness != index {
+                        requiredBy[records[witness].name, default: []].insert(record.name)
+                    }
+                }
+            }
+        }
+        // an entry left out concerns this plan when it is another version of
+        // a package the plan installs, one an addition's Depends or
+        // Pre-Depends names, or an update the update of everything skipped
+        var involved = Set(additions.map { records[$0].name })
+        for index in additions {
+            for kind in [PoolPackage.Group.Kind.depends, .preDepends] {
+                involved.formUnion((records[index].relations[kind] ?? []).flatMap(\.elements).map(\.representPackage))
+            }
+        }
+        if request.updateAll {
+            involved.formUnion(installedNames)
+        }
+        var diagnostics: [ResolutionFailure.Reason] = []
+        for (record, reason) in pool.unreadableInOrder where involved.contains(record.identity) {
+            if !diagnostics.contains(reason) {
+                diagnostics.append(reason)
+            }
+        }
+        return ResolutionPlan(
+            id: UUID(),
+            snapshot: snapshot,
+            install: additions.sorted().map { records[$0].package },
+            remove: removals.sorted().map { records[$0].package },
+            finalPackages: selected.sorted().map { records[$0].package },
+            stages: stages,
+            heldBack: heldBack.sorted(),
+            diagnostics: diagnostics,
+            requiredBy: requiredBy.mapValues { $0.sorted() },
+            autoInstalled: additions.filter(isAuto).map { records[$0].name }.sorted(),
+            unneeded: unneeded,
+            recoveryMode: false
+        )
+    }
+
+    /// What an update of everything that left updates behind needs to let
+    /// them through by moving installed packages to another repository:
+    /// those that follow their install origin (`ResolutionSnapshot.origins`)
+    /// and that a held-back update, or a package it would bring in, needs
+    /// at a version only another repository offers. Only those are let out
+    /// of their origin, so a newer copy elsewhere of anything else is still
+    /// not an update. Nil when no such package is found, or moving them
+    /// lets nothing through.
+    private static func migration(
+        request: ResolutionRequest,
+        snapshot: ResolutionSnapshot,
+        pool: ResolutionPool,
+        plan: ResolutionPlan
+    ) throws -> ResolutionPlan.Migration? {
+        // the other repositories' versions of what follows an origin, one
+        // record each, as the pool reads its candidates
+        var elsewhere: [String: [Package]] = [:]
+        for package in snapshot.packages {
+            guard let origin = snapshot.origins[package.identity], origin != package.repoRef else { continue }
+            for (version, metadata) in package.payload {
+                let record = Package(identity: package.identity, payload: [version: metadata], repoRef: package.repoRef)
+                if record.supports(architecture: snapshot.architecture) {
+                    elsewhere[package.identity, default: []].append(record)
+                }
+            }
+        }
+        guard !elsewhere.isEmpty else { return nil }
+        let records = pool.records
+        let universe = pool.universe
+        // from the newest version of every held-back package, through each
+        // package a relation of one would bring in: a relation nothing
+        // here satisfies names what has to move
+        let heldBack = Set(plan.heldBack)
+        var newest: [String: Int] = [:]
+        for index in records.indices where !records[index].installed && heldBack.contains(records[index].name) {
+            let name = records[index].name
+            if newest[name].map({ DebianVersion.compare(records[index].version, records[$0].version) > 0 }) ?? true {
+                newest[name] = index
+            }
+        }
+        var visited = Set(newest.values)
+        var pending = newest.values.sorted().map { records[$0] }
+        var moving: [String: [Package]] = [:]
+        while let record = pending.popLast() {
+            try Task.checkCancellation()
+            for kind in [PoolPackage.Group.Kind.depends, .preDepends] {
+                for clause in record.relations[kind] ?? [] {
+                    let witnesses = universe.witnesses(clause)
+                    guard witnesses.isEmpty else {
+                        for witness in witnesses where !records[witness].installed && visited.insert(witness).inserted {
+                            pending.append(records[witness])
+                        }
+                        continue
+                    }
+                    for element in clause.elements where moving[element.representPackage] == nil {
+                        guard let copies = elsewhere[element.representPackage] else { continue }
+                        let fitting = copies
+                            .compactMap { try? PoolPackage(reading: $0, installed: false, in: snapshot) }
+                            .filter { $0.satisfies(element, architecture: snapshot.architecture) }
+                        guard !fitting.isEmpty else { continue }
+                        moving[element.representPackage] = copies
+                        pending += fitting
+                    }
+                }
+            }
+        }
+        guard !moving.isEmpty else { return nil }
+        // the same update, with their other copies among the candidates
+        let probe: ResolutionPlan
+        do {
+            let wider = try ResolutionPool(snapshot: snapshot, requested: moving.keys.sorted().flatMap { moving[$0]! })
+            probe = try solve(request: request, snapshot: snapshot, in: wider)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            // the held-back updates say why on their own
+            return nil
+        }
+        let moves = probe.install.filter { package in
+            snapshot.origins[package.identity].map { $0 != package.repoRef } == true
+        }
+        let released = heldBack.subtracting(probe.heldBack)
+        guard !moves.isEmpty, !released.isEmpty else { return nil }
+        let moved = Set(moves.map(\.identity))
+        return .init(
+            moves: moves,
+            install: probe.install,
+            released: released.sorted(),
+            requiredBy: probe.requiredBy.filter { moved.contains($0.key) }
+        )
+    }
+
+    /// apt's autoremove mark: from every root, follow Depends, Pre-Depends
+    /// and the weak dependencies to each witness in `selected`. Each package
+    /// left unmarked maps to the unmarked packages that depend on it.
+    /// What stops the removal of `removed` from `base`: the system requires
+    /// it, or requires a package that would have to go with it, or a held
+    /// package would. Nil when nothing does.
+    private static func removalBlock(
+        _ removed: Int,
+        base: Set<Int>,
+        universe: PackageUniverse,
+        kept: (PoolPackage) -> Bool
+    ) -> ResolutionFailure? {
+        let packages = universe.packages
+        let name = packages[removed].name
+        if kept(packages[removed]) {
+            return ResolutionFailure(
+                .requiredBySystem(package: name),
+                checks: [.init(package: name, requirement: name, outcome: .requiredBySystem)]
+            )
+        }
+        // what leaves with it, as dpkg would take it: a package goes once
+        // a relation it had satisfied has no witness left
+        var gone: Set<Int> = [removed]
+        var changed = true
+        while changed {
+            changed = false
+            for index in base where !gone.contains(index) {
+                let record = packages[index]
+                let relations = (record.relations[.depends] ?? []) + (record.relations[.preDepends] ?? [])
+                let broken = relations.contains { relation in
+                    let witnesses = universe.witnesses(relation).filter(base.contains)
+                    return !witnesses.isEmpty && witnesses.allSatisfy(gone.contains)
+                }
+                if broken {
+                    gone.insert(index)
+                    changed = true
+                }
+            }
+        }
+        let system = gone.filter { kept(packages[$0]) }.map { packages[$0].name }.sorted()
+        if !system.isEmpty {
+            return ResolutionFailure(
+                .neededBySystem(package: name, dependents: system),
+                checks: system.map { .init(package: name, requirement: $0, outcome: .requiredBySystem) }
+            )
+        }
+        if let held = gone.filter({ packages[$0].held }).map({ packages[$0].name }).min() {
+            return ResolutionFailure(.onHold(package: held))
+        }
+        return nil
+    }
+
+    private static func unneededDependents(
+        in selected: Set<Int>,
+        universe: PackageUniverse,
+        isRoot: (Int) -> Bool
+    ) -> [Int: Set<Int>] {
+        func dependencies(_ index: Int) -> [Int] {
+            let record = universe.packages[index]
+            let relations = (record.relations[.depends] ?? []) + (record.relations[.preDepends] ?? [])
+                + record.weakDependencies
+            return relations.flatMap(universe.witnesses).filter { $0 != index && selected.contains($0) }
+        }
+        var marked = Set<Int>()
+        var pending = Array(selected.filter(isRoot))
+        while let index = pending.popLast() {
+            guard marked.insert(index).inserted else { continue }
+            pending += dependencies(index).filter { !marked.contains($0) }
+        }
+        let unmarked = selected.subtracting(marked)
+        var dependents = Dictionary(uniqueKeysWithValues: unmarked.map { ($0, Set<Int>()) })
+        for index in unmarked {
+            for dependency in dependencies(index) where unmarked.contains(dependency) {
+                dependents[dependency]!.insert(index)
+            }
+        }
+        return dependents
+    }
+}

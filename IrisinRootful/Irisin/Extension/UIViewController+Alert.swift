@@ -1,0 +1,140 @@
+//
+//  UIViewController+Alert.swift
+//  Irisin
+//
+
+import AlertController
+import UIKit
+
+/// Two shapes cover nearly every alert in the app: a notice you acknowledge and
+/// a question you answer.
+///
+/// AlertController runs `String(localized:)` on every title and message it is
+/// given, resolving against `Bundle.main` — which is this app's
+/// `Localizable.xcstrings`. Pass the English catalog key (`"Error"`), not an
+/// already-localized string: that would be looked up a second time, miss, and
+/// only survive by accident. The `String` overloads exist for genuinely
+/// dynamic text — an error description, a package name — which misses the
+/// catalog and comes back unchanged, as intended.
+extension UIViewController {
+    func presentNotice(
+        title: String.LocalizationValue,
+        message: String.LocalizationValue,
+        dismissTitle: String.LocalizationValue = "Dismiss",
+        onDismiss: @escaping () -> Void = {}
+    ) {
+        present(AlertViewController(title: title, message: message) { context in
+            context.addAction(title: dismissTitle) {
+                context.dispose { onDismiss() }
+            }
+        }, animated: true)
+    }
+
+    @_disfavoredOverload
+    func presentNotice(
+        title: String.LocalizationValue,
+        message: String,
+        dismissTitle: String.LocalizationValue = "Dismiss",
+        onDismiss: @escaping () -> Void = {}
+    ) {
+        presentNotice(
+            title: title,
+            message: String.LocalizationValue(message),
+            dismissTitle: dismissTitle,
+            onDismiss: onDismiss
+        )
+    }
+
+    func presentNotice(
+        title: String.LocalizationValue,
+        dismissTitle: String.LocalizationValue = "Dismiss",
+        onDismiss: @escaping () -> Void = {}
+    ) {
+        presentNotice(title: title, message: String(), dismissTitle: dismissTitle, onDismiss: onDismiss)
+    }
+
+    /// `destructive` paints the sheet in the delete colour: the filled
+    /// confirming button and the outlined Cancel. The alert library has one
+    /// accent for all and reads it while the sheet is built, so the swap
+    /// lasts exactly that long and cannot leak into the next alert.
+    func presentConfirmation(
+        title: String.LocalizationValue,
+        message: String.LocalizationValue,
+        confirmTitle: String.LocalizationValue = "Confirm",
+        destructive: Bool = false,
+        onConfirm: @escaping () -> Void
+    ) {
+        let accent = AlertControllerConfiguration.accentColor
+        if destructive {
+            AlertControllerConfiguration.accentColor = .swipeDelete
+        }
+        let alert = AlertViewController(title: title, message: message) { context in
+            context.addAction(title: "Cancel") {
+                context.dispose()
+            }
+            context.addAction(title: confirmTitle, attribute: .accent) {
+                context.dispose { onConfirm() }
+            }
+        }
+        AlertControllerConfiguration.accentColor = accent
+        present(alert, animated: true, completion: nil)
+    }
+
+    /// A request with a better pick on offer: take it, go on as asked, or
+    /// leave. Three buttons stack in the order they are added. Returns once
+    /// the alert is gone, so whatever comes next can be presented. The
+    /// message and `anywayTitle` arrive in the user's language.
+    func askRecommendation(
+        title: String.LocalizationValue,
+        message: String,
+        anywayTitle: String
+    ) async -> RecommendationChoice {
+        // a second tap while the first alert is up, or a page on its way
+        // out: nothing would come up, and nothing would ever answer
+        guard presentedViewController == nil, view.window != nil else { return .cancel }
+        return await withCheckedContinuation { continuation in
+            let alert = AlertViewController(title: title, message: String.LocalizationValue(message)) { context in
+                context.addAction(title: "Select Recommended", attribute: .accent) {
+                    context.dispose { continuation.resume(returning: .recommended) }
+                }
+                context.addAction(title: .init(anywayTitle)) {
+                    context.dispose { continuation.resume(returning: .anyway) }
+                }
+                context.addAction(title: "Cancel") {
+                    context.dispose { continuation.resume(returning: .cancel) }
+                }
+            }
+            present(alert, animated: true)
+        }
+    }
+
+    /// Returns once the dismissal has finished. The SDK marks
+    /// `dismiss(animated:completion:)` `NS_SWIFT_DISABLE_ASYNC`, so an
+    /// `await` on it returns at once, while the sheet is still leaving and
+    /// the next `present` would be refused.
+    func dismissFinishing(animated: Bool) async {
+        guard presentingViewController != nil else { return }
+        await withCheckedContinuation { continuation in
+            dismiss(animated: animated) { continuation.resume() }
+        }
+    }
+}
+
+/// The answer to `askRecommendation`.
+enum RecommendationChoice {
+    case recommended, anyway, cancel
+}
+
+/// A modal spinner for work the user has to wait through, built here rather
+/// than at the call site.
+///
+/// Xcode's extractor only sees a `String.LocalizationValue` literal handed to a
+/// function declared in this module: a literal passed straight to
+/// AlertController resolves at run time but never reaches
+/// `Localizable.xcstrings`, so it ships untranslated.
+func progressAlert(
+    title: String.LocalizationValue,
+    message: String.LocalizationValue
+) -> AlertProgressIndicatorViewController {
+    .init(title: title, message: message)
+}
