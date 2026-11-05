@@ -363,6 +363,118 @@ static MSHookFunction_t find_hooker(void)
 
 #pragma mark - 入口
 
+
+#pragma mark - 无 Substrate 时：改写导入表（fishhook 方式）
+
+#include <mach-o/loader.h>
+#include <mach-o/nlist.h>
+#include <sys/mman.h>
+#if __has_feature(ptrauth_calls)
+#include <ptrauth.h>
+#endif
+
+static const char *k_rebind_symbol = "_xpc_connection_create_mach_service";
+static const struct mach_header *g_self_header;
+static int g_rebind_count;
+
+static void rebind_section(const struct section_64 *sect, intptr_t slide,
+                           const struct nlist_64 *symtab, const char *strtab,
+                           const uint32_t *indirect)
+{
+    uint32_t type = sect->flags & SECTION_TYPE;
+    if (type != S_LAZY_SYMBOL_POINTERS && type != S_NON_LAZY_SYMBOL_POINTERS) return;
+    bool auth = strncmp(sect->sectname, "__auth_got", 16) == 0;
+    const uint32_t *indices = indirect + sect->reserved1;
+    void **slots = (void **)((uintptr_t)slide + sect->addr);
+    size_t count = sect->size / sizeof(void *);
+
+    for (size_t i = 0; i < count; i++) {
+        uint32_t index = indices[i];
+        if (index == INDIRECT_SYMBOL_ABS || index == INDIRECT_SYMBOL_LOCAL ||
+            index == (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS)) continue;
+        const char *name = strtab + symtab[index].n_un.n_strx;
+        if (strcmp(name, k_rebind_symbol) != 0) continue;
+
+        void **slot = &slots[i];
+        void *replacement = (void *)hook_create_mach_service;
+#if __has_feature(ptrauth_calls)
+        replacement = ptrauth_strip(replacement, ptrauth_key_asia);
+        if (auth) replacement = ptrauth_sign_unauthenticated(replacement, ptrauth_key_asia, slot);
+        else replacement = ptrauth_sign_unauthenticated(replacement, ptrauth_key_asia, 0);
+#else
+        (void)auth;
+#endif
+        uintptr_t page = (uintptr_t)slot & ~(uintptr_t)(getpagesize() - 1);
+        if (mprotect((void *)page, (size_t)getpagesize() * 2, PROT_READ | PROT_WRITE) != 0) {
+            char eb[32]; snprintf(eb, sizeof(eb), "%d", errno);
+            ek_log("rebind: mprotect failed errno=%s", eb);
+            continue;
+        }
+        *slot = replacement;
+        g_rebind_count++;
+    }
+}
+
+static void rebind_image(const struct mach_header *header, intptr_t slide)
+{
+    if (header == g_self_header || header->magic != MH_MAGIC_64) return;
+    const struct mach_header_64 *mh = (const struct mach_header_64 *)header;
+    /* 系统共享缓存里的库不碰：只改 Irisin 自己和它带的框架 */
+    if (mh->flags & 0x80000000 /* MH_DYLIB_IN_CACHE */) return;
+    const struct segment_command_64 *linkedit = NULL;
+    const struct symtab_command *symtab_cmd = NULL;
+    const struct dysymtab_command *dysymtab_cmd = NULL;
+
+    uintptr_t cursor = (uintptr_t)mh + sizeof(*mh);
+    for (uint32_t i = 0; i < mh->ncmds; i++) {
+        const struct load_command *lc = (const struct load_command *)cursor;
+        if (lc->cmd == LC_SEGMENT_64) {
+            const struct segment_command_64 *seg = (const struct segment_command_64 *)lc;
+            if (strcmp(seg->segname, SEG_LINKEDIT) == 0) linkedit = seg;
+        } else if (lc->cmd == LC_SYMTAB) {
+            symtab_cmd = (const struct symtab_command *)lc;
+        } else if (lc->cmd == LC_DYSYMTAB) {
+            dysymtab_cmd = (const struct dysymtab_command *)lc;
+        }
+        cursor += lc->cmdsize;
+    }
+    if (!linkedit || !symtab_cmd || !dysymtab_cmd || dysymtab_cmd->nindirectsyms == 0) return;
+
+    uintptr_t base = (uintptr_t)slide + linkedit->vmaddr - linkedit->fileoff;
+    const struct nlist_64 *symtab = (const struct nlist_64 *)(base + symtab_cmd->symoff);
+    const char *strtab = (const char *)(base + symtab_cmd->stroff);
+    const uint32_t *indirect = (const uint32_t *)(base + dysymtab_cmd->indirectsymoff);
+
+    cursor = (uintptr_t)mh + sizeof(*mh);
+    for (uint32_t i = 0; i < mh->ncmds; i++) {
+        const struct load_command *lc = (const struct load_command *)cursor;
+        if (lc->cmd == LC_SEGMENT_64) {
+            const struct segment_command_64 *seg = (const struct segment_command_64 *)lc;
+            if (strcmp(seg->segname, SEG_DATA) == 0 || strcmp(seg->segname, "__DATA_CONST") == 0 ||
+                strcmp(seg->segname, "__AUTH_CONST") == 0 || strcmp(seg->segname, "__AUTH") == 0) {
+                const struct section_64 *sect = (const struct section_64 *)(seg + 1);
+                for (uint32_t j = 0; j < seg->nsects; j++) {
+                    rebind_section(&sect[j], slide, symtab, strtab, indirect);
+                }
+            }
+        }
+        cursor += lc->cmdsize;
+    }
+}
+
+static void rebind_added_image(const struct mach_header *header, intptr_t slide)
+{
+    rebind_image(header, slide);
+}
+
+static void rebind_all_images(void)
+{
+    Dl_info info;
+    if (dladdr((const void *)rebind_all_images, &info)) g_self_header = (const struct mach_header *)info.dli_fbase;
+    /* 注册时会对已加载的所有镜像回调一次，之后加载的也会回调 */
+    _dyld_register_func_for_add_image(rebind_added_image);
+}
+
 static bool strip_suffix(char *path, const char *suffix)
 {
     size_t p = strlen(path), s = strlen(suffix);
@@ -404,7 +516,7 @@ static void ek_show_alert(void)
         while (vc.presentedViewController) vc = vc.presentedViewController;
         if (vc == nil) return;
 
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"IrisinSwitzach 2.4"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"IrisinSwitzach 2.5"
                                                                        message:text
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
@@ -445,22 +557,25 @@ static void irisin_switzach_init(void)
         ek_log("irisin-install ok: %s", g_helper);
     }
 
-    MSHookFunction_t hook = find_hooker();
-    if (hook == NULL) {
-        ek_log("MSHookFunction NOT found%s", NULL);
-        return;
-    }
-    ek_log("MSHookFunction found%s", NULL);
     if (!start_server()) {
         ek_log("could not start in-process service%s", NULL);
         return;
     }
     ek_log("in-process service started%s", NULL);
-    void *target = dlsym(RTLD_DEFAULT, "xpc_connection_create_mach_service");
-    if (target == NULL) {
-        target = (void *)ek_xpc_connection_create_mach_service;
-        ek_log("dlsym xpc_connection_create_mach_service NULL, using local alias%s", NULL);
+
+    /* 原函数：用本 dylib 自己的导入（不会被改写，因为跳过自身镜像） */
+    orig_create_mach_service = ek_xpc_connection_create_mach_service;
+
+    MSHookFunction_t hook = find_hooker();
+    if (hook != NULL) {
+        void *target = dlsym(RTLD_DEFAULT, "xpc_connection_create_mach_service");
+        if (target == NULL) target = (void *)ek_xpc_connection_create_mach_service;
+        hook(target, (void *)hook_create_mach_service, (void **)&orig_create_mach_service);
+        ek_log("hook installed via MSHookFunction, ACTIVE%s", NULL);
+    } else {
+        ek_log("MSHookFunction not found, rebinding import tables%s", NULL);
+        rebind_all_images();
+        char nb[32]; snprintf(nb, sizeof(nb), "%d", g_rebind_count);
+        ek_log("rebound import slots: %s", nb);
     }
-    hook(target, (void *)hook_create_mach_service, (void **)&orig_create_mach_service);
-    ek_log("hook installed, ACTIVE root=%s", g_root[0] ? g_root : "/");
 }
