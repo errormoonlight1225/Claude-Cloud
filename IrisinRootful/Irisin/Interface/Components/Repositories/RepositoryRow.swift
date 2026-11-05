@@ -167,7 +167,7 @@ class RepositoryRow: UIView {
             setIcon(nil, of: nil)
         }
         iconTask = LegacyMainTask { [weak self] in
-            let icon = awaitBackground { RepositoryAvatar.icon(for: url, data: data) }
+            let icon = RepositoryAvatar.icon(for: url, data: data)
             guard !LegacyTask.isCancelled, let self, repoUrl == url else { return }
             setIcon(icon, of: url)
         }

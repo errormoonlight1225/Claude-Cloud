@@ -62,7 +62,7 @@ enum ExportFile {
             let index = PackageCenter.default.index
             let name = "\(url.host ?? "repository")-\(stamp()).irisinrepo"
             LegacyMainTask {
-                guard let data = awaitBackground({ encodeRepository(repository, from: index) }) else {
+                guard let data = (encodeRepository(repository, from: index)) else {
                     host.presentNotice(title: "Unable to Export", message: "The file could not be written. Try again.")
                     return
                 }

@@ -130,13 +130,13 @@ class EmptyRepositoriesController: UITableViewController {
             return cached ?? fallback
         }
         LegacyMainTask { [weak self] in
-            _ = awaitBackground { RepositoryAvatar.icon(for: url, data: data) }
+            _ = RepositoryAvatar.icon(for: url, data: data)
             guard let self else { return }
             var snapshot = dataSource.snapshot()
             guard snapshot.indexOfItem(url) != nil else { return }
             // a reconfigure keeps the row, and its checkmark with it
             snapshot.reconfigureItems([url])
-            awaitBackground { dataSource.apply(snapshot, animatingDifferences: false) }
+            dataSource.apply(snapshot, animatingDifferences: false)
         }
         return fallback
     }

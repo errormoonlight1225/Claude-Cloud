@@ -157,7 +157,7 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
         // are the ones read after them, and they arrive without a move.
         LegacyMainTask {
             _ = awaitBackground { AppBootstrap.finished() }
-            awaitBackground { reload(animated: false) }
+            reload(animated: false)
         }
 
         // Finished refreshes and package records share one rebuild per second.
@@ -175,7 +175,7 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
                 // a center that announces itself mid-bootstrap is half of
                 // what the page shows; the first load above covers it
                 guard awaitBackground({ AppBootstrap.finished() }) else { return }
-                awaitBackground { self?.reload(animated: self?.hasShownSections ?? false) }
+                self?.reload(animated: self?.hasShownSections ?? false)
             }
         }
         .store(in: &subscriptions)

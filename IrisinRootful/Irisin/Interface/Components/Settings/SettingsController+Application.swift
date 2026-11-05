@@ -70,7 +70,7 @@ extension SettingsController {
             } catch {
                 result = .failure(error)
             }
-            awaitBackground { alert.dismissFinishing(animated: true) }
+            alert.dismissFinishing(animated: true)
             switch result {
             case let .success(file):
                 let page = DebOpenController()

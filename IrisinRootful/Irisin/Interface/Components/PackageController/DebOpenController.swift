@@ -50,7 +50,7 @@ class DebOpenController: UIViewController {
             return
         }
         opening = LegacyMainTask {
-            awaitBackground { open(url) }
+            open(url)
             text.text = ""
             indicator.stopAnimating()
         }
@@ -69,7 +69,7 @@ class DebOpenController: UIViewController {
     private func open(_ url: URL) {
         let kept: URL
         do {
-            kept = try awaitBackground { try Self.keep(url, inPlace: openedInPlace) }
+            kept = try Self.keep(url, inPlace: openedInPlace)
         } catch {
             guard !LegacyTask.isCancelled else { return }
             Dog.shared.join(self, "can not copy \(url.path): \(error)", level: .error)
@@ -79,7 +79,7 @@ class DebOpenController: UIViewController {
 
         let package: Package
         do {
-            package = try awaitBackground { try Self.read(kept) }
+            package = try Self.read(kept)
         } catch {
             Dog.shared.join(self, "can not read \(kept.path): \(error)", level: .error)
             failedAndExit(

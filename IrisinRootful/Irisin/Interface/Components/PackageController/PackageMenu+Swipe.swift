@@ -53,7 +53,7 @@ extension PackageMenu {
                 let anchor = anchor()
                 LegacyMainTask {
                     awaitBackground { QueueChangeController.$takesPlainChanges.withValue(true) { }
-                        awaitBackground { action.block(package, host, anchor) }
+                        action.block(package, host, anchor)
                     }
                 }
             }

@@ -235,7 +235,7 @@ extension UIViewController {
         LegacyMainTask {
             // the push waits for the parse up to about twelve frames, so
             // the rows land with the page instead of after it
-            awaitBackground { viewer.prepare(within: 0.2) }
+            viewer.prepare(within: 0.2)
             present(next: viewer)
         }
     }

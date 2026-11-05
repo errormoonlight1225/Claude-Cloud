@@ -41,14 +41,14 @@ extension PackageMenu {
         }
         // before a purchase is checked: nobody pays for the record the
         // alert is about to talk them out of
-        guard awaitBackground({ keeps(selected, from: host) }) else { return }
+        guard (keeps(selected, from: host)) else { return }
         if selected.localFileURL != nil {
-            awaitBackground { enqueue([.install(selected)], from: host) }
+            enqueue([.install(selected)], from: host)
             return
         }
 
         guard selected.isCommercial else {
-            awaitBackground { enqueue([.install(selected)], from: host) }
+            enqueue([.install(selected)], from: host)
             return
         }
         guard let repoUrl = signedInStore(of: selected, from: host) else { return }
@@ -62,13 +62,13 @@ extension PackageMenu {
             host.present(alert, animated: true) { done.resume() }
         }
         // the requests time out on their own; nothing waits forever
-        let check = awaitBackground { checkPurchase(of: selected, in: repoUrl) }
+        let check = checkPurchase(of: selected, in: repoUrl)
         // gone before the next sheet: the host cannot present while it is leaving
-        awaitBackground { alert.dismissFinishing(animated: true) }
+        alert.dismissFinishing(animated: true)
         if case let .purchased(purchased) = check {
-            awaitBackground { enqueue([.install(purchased)], from: host) }
+            enqueue([.install(purchased)], from: host)
         } else {
-            awaitBackground { present(check, from: host) }
+            present(check, from: host)
         }
     }
 
@@ -91,11 +91,11 @@ extension PackageMenu {
         if !center.blockedUpdateTable.contains(selected.identity),
            let newer = advice.newerAlternative(installedVersion: installed)
         {
-            let choice = awaitBackground { host.askRecommendation(
+            let choice = host.askRecommendation(
                 title: "Newer Version Available",
                 message: String(legacyLocalized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
                 anywayTitle: anyway
-            ) }
+            )
             switch choice {
             case .recommended:
                 host.present(next: PackageController(package: newer))
@@ -165,10 +165,10 @@ extension PackageMenu {
 
     /// `package` is trimmed to the version the user picked.
     static func checkPurchase(of package: Package, in repoUrl: URL) -> PurchaseCheck {
-        guard let info = awaitBackground({ VendorAccount.shared.purchaseStatus(
+        guard let info = (VendorAccount.shared.purchaseStatus(
             for: repoUrl,
             withPackageIdentity: package.identity
-        ) }) else {
+        )) else {
             // jsonReply already said why; this says what it cost.
             Dog.shared.join(
                 "PackageAction",
@@ -181,7 +181,7 @@ extension PackageMenu {
         guard info.purchased == true else {
             return info.available == true ? .forSale(identity: package.identity, repository: repoUrl) : .unavailable
         }
-        guard let download = awaitBackground({ VendorAccount.shared.queryDownloadLink(withPackage: package) }),
+        guard let download = (VendorAccount.shared.queryDownloadLink(withPackage: package)),
               let version = package.latestVersion,
               var meta = package.latestMetadata
         else {
@@ -198,11 +198,11 @@ extension PackageMenu {
         case .purchased:
             break
         case let .forSale(identity, repository):
-            _ = awaitBackground { VendorAccount.shared.initPurchase(
+            _ = VendorAccount.shared.initPurchase(
                 for: repository,
                 withPackageIdentity: identity,
                 window: host.view.window ?? UIWindow()
-            ) }
+            )
         case .vendorUnavailable:
             host.presentNotice(
                 title: "Vendor Unavailable",

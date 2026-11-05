@@ -160,7 +160,7 @@ enum PackageMenu {
                     ) { [weak host] chosen in
                         guard let host else { return }
                         let anchor = anchor ?? PopoverAnchor(sender: chosen.sender)
-                        LegacyMainTask { awaitBackground { action.block(package, host, anchor) } }
+                        LegacyMainTask { action.block(package, host, anchor) }
                     }
                 }
         }
@@ -204,7 +204,7 @@ enum PackageMenu {
     /// Every request in the app goes here: the change sheet shows what it
     /// does to the queue and adds it. Returns once the sheet is on its way in.
     static func enqueue(_ actions: [ResolutionAction], from host: UIViewController) {
-        awaitBackground { QueueChangeController.show(.actions(actions), from: host) }
+        QueueChangeController.show(.actions(actions), from: host)
     }
 }
 

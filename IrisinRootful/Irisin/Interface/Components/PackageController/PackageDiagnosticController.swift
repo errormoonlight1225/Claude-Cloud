@@ -241,7 +241,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             } else {
                 nil
             }
-            awaitBackground { progress.dismissFinishing(animated: true) }
+            progress.dismissFinishing(animated: true)
             guard let payload else {
                 let report = PackageActionReport.shared.allAvailable()
                 presentNotice(
@@ -256,7 +256,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             guard let host = sheet.presentingViewController else { return }
             let console = UINavigationController(rootViewController: OperationController(operation: payload))
             console.modalPresentationStyle = traitCollection.userInterfaceIdiom == .pad ? .formSheet : .fullScreen
-            awaitBackground { sheet.dismissFinishing(animated: true) }
+            sheet.dismissFinishing(animated: true)
             guard host.view.window != nil else { return }
             host.present(console, animated: true)
         }

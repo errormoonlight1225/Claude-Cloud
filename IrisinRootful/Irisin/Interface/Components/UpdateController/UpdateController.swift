@@ -136,14 +136,14 @@ class UpdateController: UIViewController, UITableViewDelegate {
     static func show(from host: UIViewController?) {
         let page = UpdateController()
         LegacyMainTask {
-            awaitBackground { page.prepare(within: 0.2) }
+            page.prepare(within: 0.2)
             host?.present(next: page)
         }
     }
 
     @objc
     func updateAll() {
-        LegacyMainTask { awaitBackground { QueueChangeController.show(.updateAll, from: self) } }
+        LegacyMainTask { QueueChangeController.show(.updateAll, from: self) }
     }
 
     @objc
@@ -174,10 +174,10 @@ class UpdateController: UIViewController, UITableViewDelegate {
             snapshot.appendSections([0])
             snapshot.appendItems(rows)
             snapshot.reconfigureItems(survivingFrom: diffableDataSource.snapshot())
-            awaitBackground { diffableDataSource.apply(
+            diffableDataSource.apply(
                 snapshot,
                 animatingDifferences: tableView.shouldAnimateDiff
-            ) }
+            )
             showBarButton(animated: tableView.shouldAnimateDiff)
             guard !LegacyTask.isCancelled else { return }
             if rows.isEmpty {

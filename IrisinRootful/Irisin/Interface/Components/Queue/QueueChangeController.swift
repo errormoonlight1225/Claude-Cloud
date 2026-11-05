@@ -139,10 +139,10 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     static func show(_ request: Request, from host: UIViewController) {
         let controller = QueueChangeController(request: request)
         if takesPlainChanges {
-            awaitBackground { controller.prepare(within: 1) }
-            if awaitBackground({ controller.takeIfPlain() }) { return }
+            controller.prepare(within: 1)
+            if (controller.takeIfPlain()) { return }
         } else {
-            awaitBackground { controller.prepare(within: 0.2) }
+            controller.prepare(within: 0.2)
         }
         let root = controller.failure.map {
             report(of: $0, alone: true, recoveryPackage: controller.recoveryPackage, recoveryRemoval: controller.recoveryRemoval)
@@ -276,7 +276,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             case let .actions(actions):
                 awaitBackground { (PackageQueue.shared.propose(actions, cleanup: ticked), nil) }
             case .updateAll, .migrate:
-                awaitBackground { Self.proposeUpdate(for: request, cleanup: ticked) }
+                Self.proposeUpdate(for: request, cleanup: ticked)
             case let .withdraw(identity):
                 awaitBackground { (PackageQueue.shared.proposeWithdrawal(of: identity, cleanup: ticked), nil) }
             }

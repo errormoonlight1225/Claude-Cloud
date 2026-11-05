@@ -145,13 +145,12 @@ final class VendorAccount {
         else {
             return nil
         }
-        return awaitBackground { Self.logged(endpoint.appendingPathComponent("user_info")) { () throws(VendorService.Failure) in }
+        return Self.logged(endpoint.appendingPathComponent("user_info")) { () throws(VendorService.Failure) in }
             try awaitBackground { try VendorService.purchasedIdentities(
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
             ) }
-        }
     }
 
     func purchaseStatus(for repo: URL, withPackageIdentity identity: String) -> PurchaseStatus? {
@@ -163,14 +162,13 @@ final class VendorAccount {
         else {
             return nil
         }
-        return awaitBackground { Self.logged(VendorService.package(identity, "info", at: endpoint)) { () throws(VendorService.Failure) in }
+        return Self.logged(VendorService.package(identity, "info", at: endpoint)) { () throws(VendorService.Failure) in }
             try awaitBackground { try VendorService.purchaseStatus(
                 of: identity,
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
             ) }
-        }
     }
 
     func initPurchase(
@@ -187,7 +185,7 @@ final class VendorAccount {
             return
         }
         // nil as well for a purchase that already went through: no page to open
-        let page = awaitBackground { Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { () throws(VendorService.Failure) in }
+        let page = Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { () throws(VendorService.Failure) in }
             try awaitBackground { try VendorService.purchasePage(
                 for: identity,
                 architecture: PackagedArchitecture.architecture,
@@ -195,7 +193,6 @@ final class VendorAccount {
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
             ) }
-        }
         guard let url = page ?? nil else {
             return
         }

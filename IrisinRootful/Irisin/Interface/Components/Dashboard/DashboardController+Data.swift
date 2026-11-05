@@ -15,7 +15,7 @@ extension DashboardController {
     @objc
     func refresh() {
         LegacyMainTask {
-            awaitBackground { reload(animated: true) }
+            reload(animated: true)
             refreshControl.endRefreshing()
             SPIndicator.present(
                 title: String(legacyLocalized: "Refreshed"),

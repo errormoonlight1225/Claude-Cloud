@@ -109,7 +109,7 @@ extension InstalledController {
         }
         guard let request else { return }
         setEditing(false, animated: true)
-        LegacyMainTask { awaitBackground { QueueChangeController.show(request, from: self) } }
+        LegacyMainTask { QueueChangeController.show(request, from: self) }
     }
 
     // MARK: - TWO-FINGER SELECTION

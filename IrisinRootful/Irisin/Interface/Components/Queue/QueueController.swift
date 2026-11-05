@@ -413,7 +413,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         else { return }
         let page = QueuePackageController(change: change)
         opening = LegacyMainTask { [weak self] in
-            awaitBackground { page.prepare(within: 0.2) }
+            page.prepare(within: 0.2)
             guard let self else { return }
             opening = nil
             // the page was left while the package was read
@@ -437,7 +437,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         ) { [weak self] _, _, completion in
             completion(true)
             guard let self else { return }
-            LegacyMainTask { awaitBackground { QueueChangeController.show(.withdraw(change.package.identity), from: self) } }
+            LegacyMainTask { QueueChangeController.show(.withdraw(change.package.identity), from: self) }
         }
         action.backgroundColor = .swipeDelete
         return UISwipeActionsConfiguration(actions: [action])
@@ -464,7 +464,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         case .stagingFailed, .ready, .downloading:
             // Retry after staging repeats a Bootstrap Install as one
             let bootstrap = bootstrapInstall || (stage == .stagingFailed && bootstrapRequested)
-            LegacyMainTask { awaitBackground { checkAndCommit(plan, bootstrapInstall: bootstrap) } }
+            LegacyMainTask { checkAndCommit(plan, bootstrapInstall: bootstrap) }
         case .empty, .blocked, .staging:
             break
         }
@@ -478,7 +478,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         var bootstrap = bootstrapInstall
         var withoutDpkg = false
         if !bootstrap, !QueueInstallChecks.hasDpkg(plan) {
-            switch awaitBackground { askWithoutDpkg(offersBootstrap: plan.allowsBootstrapInstall) } {
+            switch askWithoutDpkg(offersBootstrap: plan.allowsBootstrapInstall) {
             case .cancel: return
             case .bootstrapInstall: bootstrap = true
             case .installAnyway: withoutDpkg = true

@@ -63,7 +63,7 @@ final class DownloadArchiveController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         guard work == nil else { return }
-        work = LegacyMainTask { [weak self] in awaitBackground { self?.run() } }
+        work = LegacyMainTask { [weak self] in self?.run() }
     }
 
     // MARK: - Work
@@ -71,12 +71,12 @@ final class DownloadArchiveController: UIViewController {
     private func run() {
         var target = package
         if let store {
-            let check = awaitBackground { PackageMenu.checkPurchase(of: package, in: store) }
+            let check = PackageMenu.checkPurchase(of: package, in: store)
             guard case let .purchased(purchased) = check else {
                 guard !LegacyTask.isCancelled else { return }
-                awaitBackground { close() }
+                close()
                 if let host {
-                    awaitBackground { PackageMenu.present(check, from: host) }
+                    PackageMenu.present(check, from: host)
                 }
                 return
             }
@@ -96,7 +96,7 @@ final class DownloadArchiveController: UIViewController {
             guard !LegacyTask.isCancelled else { return }
         }
         let status = downloads.status(for: url)
-        awaitBackground { close() }
+        close()
         // Cancel may land while the card leaves
         guard !LegacyTask.isCancelled else { return }
         guard let file = status?.file, FileManager.default.fileExists(atPath: file.path) else {
@@ -137,7 +137,7 @@ final class DownloadArchiveController: UIViewController {
     private func close() {
         guard let alert = parent, alert.presentingViewController != nil, !alert.isBeingDismissed else { return }
         cancelButton.isEnabled = false
-        awaitBackground { alert.dismissFinishing(animated: true) }
+        alert.dismissFinishing(animated: true)
     }
 
     // MARK: - Card
@@ -214,7 +214,7 @@ final class DownloadArchiveController: UIViewController {
         cancelButton.legacyAddAction(for: .touchUpInside) { [weak self] _ in
             guard let self else { return }
             work?.cancel()
-            LegacyMainTask { awaitBackground { self.close() } }
+            LegacyMainTask { self.close() }
         }
 
         let stack = UIStackView(arrangedSubviews: [

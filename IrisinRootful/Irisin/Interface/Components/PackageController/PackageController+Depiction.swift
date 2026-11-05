@@ -252,12 +252,12 @@ extension PackageController {
             // said what it shows now, and only the alert is left to go
             guard !LegacyTask.isCancelled, let self else {
                 if let alert, !alert.isBeingDismissed {
-                    awaitBackground { alert.dismissFinishing(animated: true) }
+                    alert.dismissFinishing(animated: true)
                 }
                 return
             }
             // gone before a notice: the page cannot present while it is leaving
-            awaitBackground { alert?.dismissFinishing(animated: true) }
+            alert?.dismissFinishing(animated: true)
             switch outcome {
             case let .success(translated):
                 // an engine unsure of the language hands the text back as it was
