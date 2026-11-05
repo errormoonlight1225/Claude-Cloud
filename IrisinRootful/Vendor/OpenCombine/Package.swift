@@ -63,12 +63,6 @@ let package = Package(
             ]
         ),
     ],
-            swiftSettings: [
-                .unsafeFlags(["-enable-testing"]),
-                .define("WASI", .when(platforms: [.wasi]))
-            ]
-        )
-    ],
     cxxLanguageStandard: .cxx17
 )
 

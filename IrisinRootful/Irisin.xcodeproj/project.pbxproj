@@ -21,9 +21,6 @@
 		CA1000000000000000000290 /* SPIndicator in Frameworks */ = {isa = PBXBuildFile; productRef = CA1000000000000000000291 /* SPIndicator */; };
 		CA10000000000000000002A0 /* LitextAnimation in Frameworks */ = {isa = PBXBuildFile; productRef = CA10000000000000000002A1 /* LitextAnimation */; };
 		CA10000000000000000002E0 /* AlertController in Frameworks */ = {isa = PBXBuildFile; productRef = CA10000000000000000002E1 /* AlertController */; };
-		CA10000000000000000002F0 /* Runestone in Frameworks */ = {isa = PBXBuildFile; productRef = CA10000000000000000002F1 /* Runestone */; };
-		CA1000000000000000000300 /* RunestoneLanguageSupport in Frameworks */ = {isa = PBXBuildFile; productRef = CA1000000000000000000301 /* RunestoneLanguageSupport */; };
-		CA1000000000000000000310 /* RunestoneThemeSupport in Frameworks */ = {isa = PBXBuildFile; productRef = CA1000000000000000000311 /* RunestoneThemeSupport */; };
 		CA2000000000000000000040 /* IrisinProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = CA2000000000000000000041 /* IrisinProtocol */; };
 		CA8000000000000000000040 /* IrisinProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = CA8000000000000000000041 /* IrisinProtocol */; };
 		CA8000000000000000000042 /* IrisinClient in Frameworks */ = {isa = PBXBuildFile; productRef = CA8000000000000000000043 /* IrisinClient */; };
@@ -133,9 +130,6 @@
 				CA1000000000000000000290 /* SPIndicator in Frameworks */,
 				CA10000000000000000002A0 /* LitextAnimation in Frameworks */,
 				CA10000000000000000002E0 /* AlertController in Frameworks */,
-				CA10000000000000000002F0 /* Runestone in Frameworks */,
-				CA1000000000000000000300 /* RunestoneLanguageSupport in Frameworks */,
-				CA1000000000000000000310 /* RunestoneThemeSupport in Frameworks */,
 			);
 		};
 		CA2000000000000000000012 /* Frameworks */ = {
@@ -233,9 +227,6 @@
 				CA1000000000000000000291 /* SPIndicator */,
 				CA10000000000000000002A1 /* LitextAnimation */,
 				CA10000000000000000002E1 /* AlertController */,
-				CA10000000000000000002F1 /* Runestone */,
-				CA1000000000000000000301 /* RunestoneLanguageSupport */,
-				CA1000000000000000000311 /* RunestoneThemeSupport */,
 				502F2D43304EBFBC006C2087 /* Then */,
 				502F639C304F1353006C2087 /* OrderedCollections */,
 			);
@@ -389,7 +380,6 @@
 				CA5000000000000000000001 /* XCLocalSwiftPackageReference "Packages/IrisinKit" */,
 				CA5000000000000000000002 /* XCLocalSwiftPackageReference "Packages/AptRepository" */,
 				CA5000000000000000000006 /* XCLocalSwiftPackageReference "Packages/PackageDepiction" */,
-				CA5000000000000000000007 /* XCLocalSwiftPackageReference "Packages/Runestone" */,
 				CA6000000000000000000001 /* XCRemoteSwiftPackageReference "SnapKit" */,
 				CA6000000000000000000002 /* XCRemoteSwiftPackageReference "SDWebImage" */,
 				CA6000000000000000000003 /* XCRemoteSwiftPackageReference "SPIndicator" */,
@@ -860,10 +850,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/PackageDepiction;
 		};
-		CA5000000000000000000007 /* XCLocalSwiftPackageReference "Packages/Runestone" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/Runestone;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1005,18 +991,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CA600000000000000000000A /* XCRemoteSwiftPackageReference "AlertController" */;
 			productName = AlertController;
-		};
-		CA10000000000000000002F1 /* Runestone */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Runestone;
-		};
-		CA1000000000000000000301 /* RunestoneLanguageSupport */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RunestoneLanguageSupport;
-		};
-		CA1000000000000000000311 /* RunestoneThemeSupport */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RunestoneThemeSupport;
 		};
 		CA2000000000000000000041 /* IrisinProtocol */ = {
 			isa = XCSwiftPackageProductDependency;
