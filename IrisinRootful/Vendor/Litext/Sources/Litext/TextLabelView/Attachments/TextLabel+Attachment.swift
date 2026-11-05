@@ -17,7 +17,6 @@ extension TextLabel {
     /// Insert one with `attributedString(attributes:)`. The label places the view
     /// over the space CoreText reserves for it after each layout pass. One
     /// attachment, and so one view, can be shown by only one label at a time.
-    @MainActor
     open class Attachment {
         /// The object replacement character an attachment occupies in the string.
         public static let replacementText = "\u{FFFC}"

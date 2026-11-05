@@ -45,7 +45,6 @@ import Litext
     /// A minimal animator implements ``animateChange(_:at:)``, ``advance(to:invalidation:)``,
     /// ``animatingRange``, ``draw(_:in:at:)`` and ``finish()``. The label holds its animator
     /// strongly; an animator shared between labels must keep one timeline per label.
-    @MainActor
     public protocol LTXTextAnimator: AnyObject {
         /// The label's text changed and its animation policy chose to animate the change.
         ///
@@ -197,7 +196,6 @@ import Litext
         /// glyphs alone. An effect that draws glyph runs one by one can check it, and
         /// draw a line that has one through ``draw(in:)`` instead, so the background
         /// takes part in the effect.
-        @MainActor
         public var lineRenderer: TextLabel.LineRenderer? {
             layout?.lineRenderer
         }
@@ -228,7 +226,6 @@ import Litext
         /// so backgrounds a renderer draws, such as the pill behind inline code, take
         /// part in the effect rather than vanishing from the line while it animates.
         /// The text position is put back afterwards.
-        @MainActor
         public func draw(in context: CGContext) {
             guard let layout, let renderer = layout.lineRenderer else {
                 CTLineDraw(line, context)
@@ -244,7 +241,6 @@ import Litext
         /// Draws only what the label's `lineRenderer` puts behind the glyphs, at the
         /// context's text position, for an effect that draws the glyphs itself. Draws
         /// nothing without a renderer. The text position is put back afterwards.
-        @MainActor
         public func drawBackground(in context: CGContext) {
             guard let layout, let renderer = layout.lineRenderer else { return }
             let textPosition = context.textPosition

@@ -35,7 +35,9 @@
         }
 
         var image: UIImage? {
-            switch self {
+            // iOS 12 port: SF Symbols are iOS 13; the menu then shows titles only.
+            guard #available(iOS 13.0, *) else { return nil }
+            return switch self {
             case .copy:
                 UIImage(systemName: "doc.on.doc")
             case .selectAll:

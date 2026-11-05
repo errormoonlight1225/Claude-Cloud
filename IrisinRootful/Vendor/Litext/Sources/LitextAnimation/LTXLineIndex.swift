@@ -24,7 +24,6 @@ import Litext
         /// Each line's typographic box, in layout space.
         private(set) var rects: [CGRect] = []
 
-        @MainActor
         init(lines: [TextLabel.LayoutLine]) {
             starts.reserveCapacity(lines.count)
             ends.reserveCapacity(lines.count)
@@ -66,7 +65,6 @@ import Litext
         /// the lines' own boxes do.
         ///
         /// - Important: Performance-sensitive. O(1): reads at most four line boxes.
-        @MainActor
         func strip(of lines: Range<Int>, in layout: TextLabel.Layout) -> CGRect {
             guard !lines.isEmpty, lines.lowerBound >= 0, lines.upperBound <= count else { return .null }
             let first = layout.viewRect(fromLayoutRect: rects[lines.lowerBound])

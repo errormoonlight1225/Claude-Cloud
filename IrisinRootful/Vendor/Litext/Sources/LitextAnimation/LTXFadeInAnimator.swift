@@ -41,7 +41,6 @@ import Litext
     /// Subclasses may override the ``LTXTextAnimator`` members to observe or adjust the
     /// effect, calling `super`. The per-glyph work stays final, so overriding adds no
     /// dynamic dispatch inside a line.
-    @MainActor
     open class LTXFadeInAnimator: LTXTextAnimator {
         /// How the effect looks. Changes apply to text that arrives afterwards.
         public struct Configuration: Sendable, Hashable {
@@ -563,7 +562,6 @@ import Litext
     /// The rise draws below the line's own strip, so the animator reports it through
     /// ``LTXTextAnimator/overdrawInsets`` and the label widens the area it redraws by that
     /// much.
-    @MainActor
     public final class LTXFadeUpAnimator: LTXFadeInAnimator {
         /// - Parameter rise: How far below its place a unit starts, in points.
         public init(rise: CGFloat = 6) {

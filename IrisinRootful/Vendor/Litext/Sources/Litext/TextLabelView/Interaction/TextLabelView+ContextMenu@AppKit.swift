@@ -290,7 +290,6 @@
 
     /// One speech synthesizer for every label, so starting one stops the other, as
     /// the system's Start Speaking does.
-    @MainActor
     final class TextLabelSpeech {
         static let shared = TextLabelSpeech()
         private let synthesizer = AVSpeechSynthesizer()

@@ -22,7 +22,6 @@
     /// click opens the system text menu only on the view that owns the interaction;
     /// the touches it does not use still travel up the responder chain to the label.
     @available(iOS 16.0, macCatalyst 16.0, visionOS 1.0, *)
-    @MainActor
     final class TextLabelInputProxy: UIView, UITextInteractionDelegate {
         weak var label: TextLabelView?
         weak var inputDelegate: UITextInputDelegate?

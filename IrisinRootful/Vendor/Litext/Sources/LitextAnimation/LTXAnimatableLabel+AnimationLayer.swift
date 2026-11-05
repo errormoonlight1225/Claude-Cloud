@@ -76,7 +76,7 @@ import QuartzCore
             // Neither value leaves the main thread this runs on.
             nonisolated(unsafe) let context = context
             nonisolated(unsafe) let layer = self
-            MainActor.assumeIsolated {
+            do {
                 layer.label?.drawAnimation(in: context, layer: layer)
             }
         }
@@ -239,10 +239,17 @@ import QuartzCore
             // the view's appearance current, so dynamic colours would resolve against the
             // app's appearance instead: dark text in a dark-mode label.
             #if canImport(UIKit)
-                traitCollection.performAsCurrent {
+                func draw() {
                     UIGraphicsPushContext(context)
                     textLayout.drawAnimation(in: context, visibleRect: visibleRect)
                     UIGraphicsPopContext()
+                }
+                // iOS 12 port: performAsCurrent is iOS 13, and iOS 12 has no
+                // dynamic colours for it to resolve.
+                if #available(iOS 13.0, *) {
+                    traitCollection.performAsCurrent { draw() }
+                } else {
+                    draw()
                 }
             #else
                 effectiveAppearance.performAsCurrentDrawingAppearance {

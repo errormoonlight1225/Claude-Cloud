@@ -12,7 +12,6 @@ public extension TextLabel {
     /// A link or attachment range in a laid-out `TextLabel.Layout`.
     ///
     /// Only the layout creates regions, so the class is `final`.
-    @MainActor
     final class HighlightRegion {
         public enum Kind {
             case link

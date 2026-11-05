@@ -12,7 +12,6 @@ extension TextLabel {
     ///
     /// After the visible lines are drawn, `action` is called once for every visible
     /// line the attributed range touches, however many runs CoreText splits it into.
-    @MainActor
     open class LineDrawingAction: NSObject {
         /// Draws extra content for one line: a background bar, a quote rule, an
         /// underline of your own.

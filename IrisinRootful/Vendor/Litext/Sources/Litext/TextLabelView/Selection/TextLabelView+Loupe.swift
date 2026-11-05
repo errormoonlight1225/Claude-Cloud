@@ -4,7 +4,6 @@ import Foundation
     import UIKit
 
     /// One session per gesture, even when its active endpoint moves to another label.
-    @MainActor
     final class SelectionLoupe {
         // Erased so the package can still deploy to iOS 15.
         private var sessionStorage: AnyObject?
@@ -32,7 +31,7 @@ import Foundation
             coordinateView = nil
         }
 
-        isolated deinit { invalidate() }
+        deinit { invalidate() }
     }
 
     extension TextLabelView {

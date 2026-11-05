@@ -42,7 +42,6 @@ import Litext
     ///
     /// Subclasses may override the ``LTXTextAnimator`` members to observe or adjust the
     /// transition, calling `super`. The per-glyph work stays final.
-    @MainActor
     open class LTXNumericTransitionAnimator: LTXTextAnimator {
         /// Which way glyphs roll.
         public enum Direction: Sendable, Hashable {

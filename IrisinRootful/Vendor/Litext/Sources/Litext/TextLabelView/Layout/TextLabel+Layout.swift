@@ -130,7 +130,6 @@ private struct AttachmentMetrics: Equatable {
 
 public extension TextLabel {
     /// One laid-out glyph run, as `TextLabel.Layout.layoutRuns(matching:)` reports it.
-    @MainActor
     struct LayoutRun {
         public let lineIndex: Int
         public let attributes: [NSAttributedString.Key: Any]
@@ -148,7 +147,6 @@ public extension TextLabel {
     ///
     /// Geometry is in CoreText layout space (lower-left origin). Convert it with
     /// `viewRect(fromLayoutRect:)` before comparing it with view coordinates.
-    @MainActor
     struct LayoutLine {
         /// The line's position among the laid-out lines, starting at zero.
         public let index: Int
@@ -191,7 +189,6 @@ extension TextLabel {
     /// layout whose line boxes overlap out of order, which mixed font sizes under a
     /// small `lineHeightMultiple` can produce, falls back to scanning the lines and
     /// returns the same answers.
-    @MainActor
     open class Layout: NSObject {
         /// An immutable snapshot of the string the layout was created with.
         open private(set) var attributedString: NSAttributedString

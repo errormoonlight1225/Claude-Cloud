@@ -42,7 +42,6 @@ extension TextLabel {
     /// - Important: Performance-sensitive: both steps run for every visible line on every
     ///   display pass, and for every line in flight on every animation frame. Avoid
     ///   allocating or measuring text here.
-    @MainActor
     open class LineRenderer {
         public init() {}
 

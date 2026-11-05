@@ -25,7 +25,6 @@
     /// The label owns this object and keeps the recognizer on its current window only
     /// while its handles show. The object holds the label weakly, so a window that
     /// retains the recognizer and its target never keeps the label alive.
-    @MainActor
     final class SelectionHandleGrabGesture: NSObject {
         private weak var label: TextLabelView?
         let recognizer = Recognizer()
@@ -73,7 +72,7 @@
         /// main thread; the hop covers a label released elsewhere.
         nonisolated func detachWhenLabelDeallocates() {
             if Thread.isMainThread {
-                MainActor.assumeIsolated { detach() }
+                { detach() }()
             } else {
                 DispatchQueue.main.async { self.detach() }
             }

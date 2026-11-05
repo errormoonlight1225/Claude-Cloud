@@ -6,7 +6,6 @@
 import Foundation
 
 public extension TextLabel {
-    @MainActor
     protocol AttachmentRepresentable {
         func attributedStringRepresentation() -> NSAttributedString
     }

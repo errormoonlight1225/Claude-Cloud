@@ -24,7 +24,6 @@ import QuartzCore
     /// Subclasses that override a layout, drawing or interaction method must call
     /// `super`: the base implementations keep the text layout, the selection and the
     /// menus in step.
-    @MainActor
     open class TextLabelView: PlatformView, Identifiable {
         /// A stable identity for the label, unique to each instance.
         public let id: UUID = .init()

@@ -23,7 +23,6 @@ import Litext
     /// - In the animation layer, a line that touches the animator's `animatingRange` goes to
     ///   the animator, and the animator adds its own content after the lines. Every other
     ///   line is drawn by `CTLineDraw` without a protocol call.
-    @MainActor
     final class LTXAnimatableTextLayout: TextLabel.Layout {
         /// The label the layout draws for, which owns the animator.
         weak var label: LTXAnimatableLabel?

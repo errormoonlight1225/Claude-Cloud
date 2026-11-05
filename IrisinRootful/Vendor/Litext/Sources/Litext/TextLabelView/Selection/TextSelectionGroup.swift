@@ -27,7 +27,6 @@ import Foundation
     /// The group holds its labels weakly and each label holds its group, so the host
     /// only needs to keep the labels alive. Selecting text in a label outside the group
     /// clears the group's selection, as it clears any other label's.
-    @MainActor
     public final class TextSelectionGroup {
         /// The part of the selection in one label.
         public struct Segment {
@@ -416,7 +415,6 @@ import Foundation
 
     // MARK: - Delegate
 
-    @MainActor
     public protocol TextSelectionGroupDelegate: AnyObject {
         /// Called once for every change of the group's selection.
         func textSelectionGroupDidChangeSelection(_ group: TextSelectionGroup)

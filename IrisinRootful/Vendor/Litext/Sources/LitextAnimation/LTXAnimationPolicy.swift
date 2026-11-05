@@ -14,7 +14,6 @@ import Litext
     ///
     /// The label builds one for every assignment that changes its text, asks its policy
     /// whether to animate, and passes the same value to the animator when it does.
-    @MainActor
     public struct LTXAnimationContext {
         /// The difference between the previous and the new text.
         public let change: LTXTextChange
@@ -84,7 +83,6 @@ import Litext
     /// Hosts that reuse labels, such as table and collection view cells, use the policy to
     /// tell streaming into the same content from showing new content. A change the policy
     /// declines appears in its final state at once.
-    @MainActor
     public protocol LTXAnimationPolicy {
         /// Whether the change described by `context` animates.
         ///
@@ -123,10 +121,10 @@ import Litext
 
     /// A policy that asks a closure.
     public struct LTXClosureAnimationPolicy: LTXAnimationPolicy {
-        private let body: @MainActor (LTXAnimationContext) -> Bool
+        private let body: (LTXAnimationContext) -> Bool
 
         /// Creates a policy that animates a change when `body` returns `true`.
-        public init(_ body: @escaping @MainActor (LTXAnimationContext) -> Bool) {
+        public init(_ body: @escaping (LTXAnimationContext) -> Bool) {
             self.body = body
         }
 

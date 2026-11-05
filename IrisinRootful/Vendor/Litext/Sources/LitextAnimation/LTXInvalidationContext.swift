@@ -20,7 +20,6 @@ import Litext
     ///
     /// - Important: Performance-sensitive. Invalidating characters costs two binary searches
     ///   over the laid-out lines, however many lines the range touches; nothing allocates.
-    @MainActor
     public final class LTXInvalidationContext {
         /// The union of everything invalidated, in the label's coordinates (top-left origin).
         /// `.null` when nothing was.

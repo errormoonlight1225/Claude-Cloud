@@ -4,7 +4,6 @@
     /// A group has one display interaction and one pair of UIKit handles, rather
     /// than a separate selection UI for each of its labels.
     @available(iOS 17.0, *)
-    @MainActor
     final class SystemSelectionDisplay: NSObject {
         private let interaction: UITextSelectionDisplayInteraction
         private weak var proxy: TextLabelInputProxy?
@@ -62,7 +61,7 @@
             interaction.view?.removeInteraction(interaction)
         }
 
-        isolated deinit { detach() }
+        deinit { detach() }
     }
 
     @available(iOS 17.0, *)

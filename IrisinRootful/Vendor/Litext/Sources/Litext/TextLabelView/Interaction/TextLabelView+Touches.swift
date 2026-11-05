@@ -12,6 +12,19 @@
     /// Subclasses that override a touch, press or hit-testing hook below must call
     /// `super` for the events they do not consume, or selection and link taps stop working.
     extension TextLabelView {
+        /// iOS 12 port: `UIEvent.buttonMask` is iOS 13.4; before it there is no
+        /// secondary click to tell apart.
+        static func isSecondaryClick(_ event: UIEvent?) -> Bool {
+            #if os(tvOS)
+                return false
+            #else
+                if #available(iOS 13.4, *) {
+                    return event?.buttonMask == .secondary
+                }
+                return false
+            #endif
+        }
+
         fileprivate static var menuOwnerIdentifier: UUID = .init()
 
         /// Handles ⌘C and ⌘A from a hardware keyboard while the label is selectable,
@@ -67,7 +80,7 @@
             #if os(tvOS)
                 false
             #else
-                isSelectable && event?.buttonMask == .secondary && secondaryClickPassesThrough(at: point)
+                isSelectable && Self.isSecondaryClick(event) && secondaryClickPassesThrough(at: point)
             #endif
         }
 
@@ -105,7 +118,7 @@
             #endif
 
             #if !os(tvOS)
-                if isSelectable, event?.buttonMask == .secondary {
+                if isSelectable, Self.isSecondaryClick(event) {
                     // A right click leaves the selection alone when it lands on it and
                     // otherwise selects the word under it, as the system text views do,
                     // so the menu that follows has text to act on.
@@ -284,6 +297,8 @@
             /// interaction also watches every touch for a long press, and on iOS 18 that
             /// holds back a selection handle drag over the label until the finger lifts.
             public func installContextMenuInteraction() {
+                // iOS 12 port: context menus are iOS 13.
+                guard #available(iOS 13.0, *) else { return }
                 let interaction = UIContextMenuInteraction(delegate: self)
                 addInteraction(interaction)
             }
@@ -291,6 +306,8 @@
             /// Adds a pointer interaction that shows the text beam over a selectable
             /// label, except over attachment views. The label installs one itself.
             public func installTextPointerInteraction() {
+                // iOS 12 port: pointer interactions are iOS 13.4.
+                guard #available(iOS 13.4, *) else { return }
                 let pointerInteraction = UIPointerInteraction(delegate: self)
                 addInteraction(pointerInteraction)
             }
@@ -362,10 +379,16 @@
                     }
 
                     Self.menuOwnerIdentifier = id
-                    menuController.showMenu(
-                        from: self,
-                        rect: unionRect.insetBy(dx: -8, dy: -8),
-                    )
+                    if #available(iOS 13.0, *) {
+                        menuController.showMenu(
+                            from: self,
+                            rect: unionRect.insetBy(dx: -8, dy: -8),
+                        )
+                    } else {
+                        // iOS 12 port: the pre-iOS 13 spelling.
+                        menuController.setTargetRect(unionRect.insetBy(dx: -8, dy: -8), in: self)
+                        menuController.setMenuVisible(true, animated: true)
+                    }
                 #endif
             }
 
@@ -413,7 +436,11 @@
                     }
                 #endif
                 #if !os(visionOS)
-                    UIMenuController.shared.hideMenu()
+                    if #available(iOS 13.0, *) {
+                        UIMenuController.shared.hideMenu()
+                    } else {
+                        UIMenuController.shared.setMenuVisible(false, animated: true)
+                    }
                 #endif
             }
 
@@ -476,6 +503,7 @@
 
             /// The available selection menu items as actions, for the edit menu and
             /// the Mac Catalyst context menu.
+            @available(iOS 13.0, *)
             func makeSelectionMenuActions() -> [UIAction] {
                 availableTextSelectionMenuItems().map { item in
                     let selector = item.action

@@ -61,7 +61,6 @@ import QuartzCore
     /// The label lays its text out through `makeTextLayout(_:)`. A subclass that returns a
     /// layout of its own keeps the animator, but no line reaches it: the animation region is
     /// then only the animator's `additionalContentBounds`.
-    @MainActor
     open class LTXAnimatableLabel: TextLabelView {
         // MARK: - Public
 
@@ -443,7 +442,6 @@ import QuartzCore
     }
 
     /// Forwards display link frames to a label it does not keep alive.
-    @MainActor
     final class LTXDisplayLinkTarget: DisplayLinkDelegate {
         weak var label: LTXAnimatableLabel?
 

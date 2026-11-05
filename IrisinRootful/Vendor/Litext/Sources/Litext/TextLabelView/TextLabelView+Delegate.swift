@@ -15,7 +15,6 @@ import Foundation
 
 #if !os(watchOS)
 
-    @MainActor
     public protocol TextLabelViewDelegate: AnyObject {
         /// Called when a link or attachment is tapped. `location` is in the label's
         /// view coordinates (top-left origin); `region.rects` are in layout space,

@@ -7,10 +7,10 @@ let package = Package(
     name: "Litext",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v15),
-        .macCatalyst(.v15),
+        .iOS(.v12),
+        .macCatalyst(.v13),
         .macOS(.v12),
-        .tvOS(.v15),
+        .tvOS(.v12),
         .visionOS(.v1),
         .watchOS(.v8),
     ],
@@ -19,14 +19,14 @@ let package = Package(
         .library(name: "LitextAnimation", targets: ["LitextAnimation"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Lakr233/DisplayLink.git", from: "3.0.1"),
+        .package(path: "../DisplayLink"),
     ],
     targets: [
         .target(
             name: "Litext",
             resources: [.process("Resources")],
             swiftSettings: [
-                .swiftLanguageMode(.v6),
+                .swiftLanguageMode(.v5),
             ],
         ),
         .target(
@@ -40,23 +40,9 @@ let package = Package(
                 ),
             ],
             swiftSettings: [
-                .swiftLanguageMode(.v6),
-            ],
-        ),
-        .testTarget(
-            name: "LitextTests",
-            dependencies: ["Litext"],
-            swiftSettings: [
-                .swiftLanguageMode(.v6),
-            ],
-        ),
-        .testTarget(
-            name: "LitextAnimationTests",
-            dependencies: ["LitextAnimation"],
-            swiftSettings: [
-                .swiftLanguageMode(.v6),
+                .swiftLanguageMode(.v5),
             ],
         ),
     ],
-    swiftLanguageModes: [.v6],
+    swiftLanguageModes: [.v5],
 )

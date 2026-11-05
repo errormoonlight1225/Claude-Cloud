@@ -9,6 +9,7 @@
 
     import UIKit
 
+    @available(iOS 13.0, *)
     extension TextLabelView: UIContextMenuInteractionDelegate {
         public func contextMenuInteraction(
             _: UIContextMenuInteraction,
