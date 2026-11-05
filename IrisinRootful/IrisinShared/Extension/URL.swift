@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import LegacyCompat
 
 nonisolated extension URL {
     /// returns the total allocated size of the directory's immediate contents
@@ -54,18 +55,17 @@ nonisolated extension URL {
         // a coordinator is safe to use from any thread, cancel() included
         nonisolated(unsafe) let coordinator = NSFileCoordinator()
         let intent = NSFileAccessIntent.readingIntent(with: self, options: .withoutChanges)
-        return try withTaskCancellationHandler {
-            try withCheckedThrowingContinuation { continuation in
-                coordinator.coordinate(with: [intent], queue: OperationQueue()) { error in
-                    if let error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume(with: Result { try body(intent.url) })
-                    }
+        // iOS 12 port: the calling (background) thread waits for the
+        // coordinator; the current LegacyTask's cancellation cancels it
+        LegacyTask.current?.onCancel { coordinator.cancel() }
+        return try legacyAwait { (finished: @escaping (Result<Value, Error>) -> Void) in
+            coordinator.coordinate(with: [intent], queue: OperationQueue()) { error in
+                if let error {
+                    finished(.failure(error))
+                } else {
+                    finished(Result { try body(intent.url) })
                 }
             }
-        } onCancel: {
-            coordinator.cancel()
         }
     }
 }

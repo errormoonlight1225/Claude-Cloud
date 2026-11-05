@@ -29,8 +29,8 @@ class InstalledNavigator: UINavigationController {
         )
         tabBarItem.badgeColor = .buttonNormal
 
-        NotificationCenter.default.publisher(for: PackageCenter.packageRecordChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: PackageCenter.packageRecordChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.updateAvailableUpdateBadge() }
             .store(in: &subscriptions)
     }

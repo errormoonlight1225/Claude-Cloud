@@ -38,7 +38,6 @@ nonisolated enum TestUpdate {
     /// The package for `architecture`, in a directory of its own under the
     /// temporary directory and named as the release names it: the caller's
     /// to move.
-    @concurrent
     static nonisolated func download(architecture: String) throws(Failure) -> URL {
         var request = URLRequest(url: releases, timeoutInterval: 30)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -50,7 +49,7 @@ nonisolated enum TestUpdate {
             throw .noPackage
         }
         do {
-            let (downloaded, answer) = try URLSession.shared.download(from: asset.browserDownloadURL)
+            let (downloaded, answer) = try URLSession.shared.compatDownload(for: URLRequest(url: asset.browserDownloadURL))
             guard (answer as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.unreachable }
             let directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("TestUpdate-\(UUID().uuidString)", isDirectory: true)

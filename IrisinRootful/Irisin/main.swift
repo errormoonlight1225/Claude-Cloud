@@ -51,11 +51,9 @@ do {
 // here and may resume much later, after "Reset on Next Launch" was turned on
 // in the Settings app; AppDelegate.prepareEnvironment() runs on the launch
 // itself.
-MainActor.assumeIsolated {
-    _ = UIApplicationMain(
-        CommandLine.argc,
-        CommandLine.unsafeArgv,
-        nil,
-        NSStringFromClass(AppDelegate.self)
-    )
-}
+_ = UIApplicationMain(
+    CommandLine.argc,
+    CommandLine.unsafeArgv,
+    nil,
+    NSStringFromClass(AppDelegate.self)
+)

@@ -36,22 +36,29 @@ final class Installer {
         ignoreScriptFailures: Bool = false,
         bootstrapInstall: Bool = false
     ) -> OperationPayload? {
-        guard !inProcessingQueue else {
+        // iOS 12 port: runs on a background thread; the installer's and the
+        // queue's state are the main thread's
+        let reserved = DispatchQueue.main.sync { () -> Bool in
+            guard !inProcessingQueue else { return false }
+            // Reserve staging across the copies; a second tap must not erase
+            // the first payload's files. Each confirmed plan has a separate
+            // directory.
+            inProcessingQueue = true
+            PackageQueue.shared.operationBegan()
+            return true
+        }
+        guard reserved else {
             Dog.shared.join(self, "refusing to stage a payload while an operation runs", level: .warning)
             return nil
         }
-        // Reserve staging across awaits; a second tap must not erase the first
-        // payload's files. Each confirmed plan has a separate directory.
-        inProcessingQueue = true
-        defer { inProcessingQueue = false }
-        PackageQueue.shared.operationBegan()
+        defer { DispatchQueue.main.sync { inProcessingQueue = false } }
         var sources: [(Package, URL)] = []
         do {
-            guard try PackageQueue.currency(of: plan, index: PackageCenter.default.index) == .current else {
+            guard try PackageQueue.currency(of: plan, index: DispatchQueue.main.sync { PackageCenter.default.index }) == .current else {
                 // read again, so the queue is solved against what moved and
                 // Retry stages that plan, not this one again
                 PackageCenter.default.reloadLocalPackages()
-                PackageQueue.shared.solveAgainNow()
+                DispatchQueue.main.sync { PackageQueue.shared.solveAgainNow() }
                 throw ResolutionFailure(message: String(legacyLocalized: "Packages changed. Review the changes and try again."))
             }
             for package in plan.install {
@@ -65,10 +72,10 @@ final class Installer {
                 sources.append((package, file))
             }
             let install = try Self.stage(sources, at: workingLocation.appendingPathComponent(plan.id.uuidString))
-            // checked again after the await: staging takes a while
-            guard try PackageQueue.currency(of: plan, index: PackageCenter.default.index) == .current else {
+            // checked again after staging, which takes a while
+            guard try PackageQueue.currency(of: plan, index: DispatchQueue.main.sync { PackageCenter.default.index }) == .current else {
                 PackageCenter.default.reloadLocalPackages()
-                PackageQueue.shared.solveAgainNow()
+                DispatchQueue.main.sync { PackageQueue.shared.solveAgainNow() }
                 throw ResolutionFailure(
                     message: String(legacyLocalized: "Packages changed while preparing the installation. Try again.")
                 )
@@ -89,7 +96,7 @@ final class Installer {
                 statusDigest: plan.snapshot.statusDigest,
                 // read now, not when the plan was solved: a switch turned
                 // off since then has the helper refuse the removal
-                allowSystemRemoval: PackageQueue.shared.allowSystemRemoval,
+                allowSystemRemoval: DispatchQueue.main.sync { PackageQueue.shared.allowSystemRemoval },
                 ignoreScriptFailures: ignoreScriptFailures,
                 recoveryMode: plan.recoveryMode,
                 bootstrapInstall: bootstrapInstall
@@ -99,26 +106,26 @@ final class Installer {
         } catch let missing as MissingDownload {
             // not a resolution problem: the plan is fine, the file is not
             // there. The caller asks for it again.
-            PackageActionReport.shared.clear()
+            DispatchQueue.main.sync { PackageActionReport.shared.clear() }
             Dog.shared.join(self, "download for \(missing.identity) is missing, not staging", level: .warning)
             return nil
         } catch let mismatch as ArchiveMismatch {
             // the file is whole and the listing is wrong: rejected before the
             // helper hears of it, and said out loud, since Retry cannot fix it
-            PackageActionReport.shared.clear()
-            PackageActionReport.shared.record(
+            DispatchQueue.main.sync { PackageActionReport.shared.clear() }
+            DispatchQueue.main.sync { PackageActionReport.shared.record(
                 mismatch.report,
                 alertTitle: String(legacyLocalized: "Package Does Not Match Repository")
-            )
+            ) }
             Dog.shared.join(self, "refusing to install: \(mismatch)", level: .error)
             return nil
         } catch {
             // this attempt's reason, not every attempt's
-            PackageActionReport.shared.clear()
-            PackageActionReport.shared.record(
+            DispatchQueue.main.sync { PackageActionReport.shared.clear() }
+            DispatchQueue.main.sync { PackageActionReport.shared.record(
                 (error as? ResolutionFailure)?.message
                     ?? String(legacyLocalized: "Unable to prepare the installation. Try again.")
-            )
+            ) }
             Dog.shared.join(self, "Cannot prepare transaction: \(error)", level: .error)
             return nil
         }
@@ -133,23 +140,23 @@ final class Installer {
         guard package.localFileURL != nil,
               package.isSupportedOnDevice
         else {
-            PackageActionReport.shared.clear()
-            PackageActionReport.shared.record(
+            DispatchQueue.main.sync { PackageActionReport.shared.clear() }
+            DispatchQueue.main.sync { PackageActionReport.shared.record(
                 String(legacyLocalized: "This package cannot be installed in Recovery Mode on this system.")
-            )
+            ) }
             return nil
         }
         do {
             let plan = try Self.recoveryPlan(
                 for: package,
-                index: PackageCenter.default.index
+                index: DispatchQueue.main.sync { PackageCenter.default.index }
             )
             return createOperationPayload(plan: plan)
         } catch {
-            PackageActionReport.shared.clear()
-            PackageActionReport.shared.record(
+            DispatchQueue.main.sync { PackageActionReport.shared.clear() }
+            DispatchQueue.main.sync { PackageActionReport.shared.record(
                 String(legacyLocalized: "Unable to prepare the installation. Try again.")
-            )
+            ) }
             Dog.shared.join(self, "Cannot prepare recovery transaction: \(error)", level: .error)
             return nil
         }
@@ -157,24 +164,26 @@ final class Installer {
 
     nonisolated func createRecoveryRemovalPayload(identity: String) -> OperationPayload? {
         do {
+            let (index, allowSystemRemoval) = DispatchQueue.main.sync {
+                (PackageCenter.default.index, PackageQueue.shared.allowSystemRemoval)
+            }
             let plan = try Self.recoveryRemovalPlan(
                 identity: identity,
-                index: PackageCenter.default.index,
-                allowSystemRemoval: PackageQueue.shared.allowSystemRemoval
+                index: index,
+                allowSystemRemoval: allowSystemRemoval
             )
             return createOperationPayload(plan: plan)
         } catch {
-            PackageActionReport.shared.clear()
+            DispatchQueue.main.sync { PackageActionReport.shared.clear() }
             if let failure = error as? ResolutionFailure {
-                PackageActionReport.shared.record(failure.message, checks: failure.checks)
+                DispatchQueue.main.sync { PackageActionReport.shared.record(failure.message, checks: failure.checks) }
             } else {
-                PackageActionReport.shared.record(String(legacyLocalized: "Unable to prepare this operation. Try again."))
+                DispatchQueue.main.sync { PackageActionReport.shared.record(String(legacyLocalized: "Unable to prepare this operation. Try again.")) }
             }
             return nil
         }
     }
 
-    @concurrent
     private nonisolated static func recoveryRemovalPlan(
         identity: String,
         index: PackageIndex,
@@ -188,7 +197,6 @@ final class Installer {
         let identity: String
     }
 
-    @concurrent
     private nonisolated static func stage(
         _ sources: [(Package, URL)],
         at location: URL
@@ -212,7 +220,6 @@ final class Installer {
         return result
     }
 
-    @concurrent
     private nonisolated static func recoveryPlan(
         for package: Package,
         index: PackageIndex
@@ -239,17 +246,19 @@ final class Installer {
         inProcessingQueue = true
         PackageQueue.shared.operationBegan()
         LegacyTask.detached {
-            let (outcome, changedTweaks) = perform(operation, monitor: monitor)
-            // released before the outcome is published: whoever awaits the
-            // outcome may begin the next operation straight away, and the
-            // queue is settled before anyone looks at it
-            inProcessingQueue = false
-            PackageQueue.shared.operationFinished(
-                plan: operation.plan,
-                succeeded: outcome.succeeded,
-                dryRun: operation.transaction.dryRun
-            )
-            monitor.finish(outcome, changedTweaks: changedTweaks)
+            let (outcome, changedTweaks) = self.perform(operation, monitor: monitor)
+            DispatchQueue.main.sync {
+                // released before the outcome is published: whoever awaits
+                // the outcome may begin the next operation straight away,
+                // and the queue is settled before anyone looks at it
+                self.inProcessingQueue = false
+                PackageQueue.shared.operationFinished(
+                    plan: operation.plan,
+                    succeeded: outcome.succeeded,
+                    dryRun: operation.transaction.dryRun
+                )
+                monitor.finish(outcome, changedTweaks: changedTweaks)
+            }
         }
         return monitor
     }
@@ -260,7 +269,7 @@ final class Installer {
         _ operation: OperationPayload,
         monitor: OperationMonitor
     ) -> (OperationMonitor.Outcome, changedTweaks: Bool) {
-        guard (try? PackageQueue.currency(of: operation.plan, index: PackageCenter.default.index)) == .current
+        guard (try? PackageQueue.currency(of: operation.plan, index: DispatchQueue.main.sync { PackageCenter.default.index })) == .current
         else {
             return (.failed(String(legacyLocalized: "Packages changed. Review the changes and try again.")), false)
         }
@@ -276,13 +285,15 @@ final class Installer {
             level: .info
         )
 
-        if case .daemon = PrivilegedBackend.backend {
-            // without one, the refusal that follows says it all
-            monitor.append(PrivilegedBackend.localizedStatus)
+        DispatchQueue.main.sync {
+            if case .daemon = PrivilegedBackend.backend {
+                // without one, the refusal that follows says it all
+                monitor.append(PrivilegedBackend.localizedStatus)
+            }
         }
         let tweaks = TweakInjection.read()
         let status = PrivilegedBackend.run(.transaction(operation.transaction)) { event in
-            monitor.record(event)
+            DispatchQueue.main.sync { monitor.record(event) }
         }
 
         // MARK: - FINISH UP
@@ -295,7 +306,8 @@ final class Installer {
         // announced before the attempt, and a reinstall that fails there
         // leaves the old file behind under the same version. A package the
         // run never reached, or a dry run, leaves the previous origin alone.
-        let configured = Set(monitor.transcript.compactMap { event -> String? in
+        let transcript = DispatchQueue.main.sync { monitor.transcript }
+        let configured = Set(transcript.compactMap { event -> String? in
             guard case let .package(.configuring, identity, version) = event else { return nil }
             return identity + " " + version
         })
@@ -305,7 +317,8 @@ final class Installer {
         PackageCenter.default.reloadLocalPackages(installedFrom: sources)
 
         let changedTweaks = TweakInjection.read() != tweaks
-        return (.init(status: status, failure: monitor.failure), changedTweaks)
+        let failure = DispatchQueue.main.sync { monitor.failure }
+        return (.init(status: status, failure: failure), changedTweaks)
     }
 
     private nonisolated static func reset(_ location: URL) throws {

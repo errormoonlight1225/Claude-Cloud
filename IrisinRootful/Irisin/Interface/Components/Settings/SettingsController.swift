@@ -138,14 +138,14 @@ class SettingsController: UITableViewController {
         }
         applySnapshot(animatingDifferences: false)
 
-        NotificationCenter.default.publisher(for: .SettingsDidChange)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .SettingsDidChange)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.reloadValues() }
             .store(in: &subscriptions)
         // The daemon answers a moment after launch; the footer says so.
         PrivilegedBackend.backendUpdates
             .removeDuplicates()
-            .receive(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.footer.refresh() }
             .store(in: &subscriptions)
         Publishers.MergeMany([
@@ -153,11 +153,11 @@ class SettingsController: UITableViewController {
             RepositoryCenter.metadataUpdate,
             .RepositoryPaymentChanged,
         ].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
-        .receive(on: DispatchQueue.main)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
+        .receive(on: DispatchQueue.main.ocombine)
         .sink { [weak self] _ in self?.applySnapshot(animatingDifferences: true) }
         .store(in: &subscriptions)
     }

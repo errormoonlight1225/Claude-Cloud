@@ -57,8 +57,8 @@ class SearchCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
 
         // a package the row asked for and had to wait on
-        NotificationCenter.default.publisher(for: PackageLookupCache.loaded)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: PackageLookupCache.loaded)
+            .receive(on: DispatchQueue.main.ocombine)
             .compactMap { $0.userInfo?[PackageLookupCache.keysKey] as? Set<PackageLookupCache.Key> }
             .sink { [weak self] keys in
                 guard let self, let shown,
@@ -69,8 +69,8 @@ class SearchCell: UITableViewCell {
             }
             .store(in: &subscriptions)
         // the queue's mark comes and goes with the queue
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in
                 guard let self, let shown else { return }
                 switch shown.associatedValue {

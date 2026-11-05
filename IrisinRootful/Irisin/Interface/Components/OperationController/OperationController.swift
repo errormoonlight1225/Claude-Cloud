@@ -361,7 +361,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
     private func bind(_ monitor: OperationMonitor) {
         monitor.$packages
             .removeDuplicates()
-            .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
+            .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main.ocombine, latest: true)
             .sink { [weak self] packages in
                 guard let self else { return }
                 refreshVisibleRows()
@@ -372,7 +372,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
         monitor.$outcome
             .compactMap(\.self)
             .first()
-            .receive(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] outcome in
                 guard let self else { return }
                 title = outcome.succeeded ? String(localized: "Completed") : String(localized: "Failed")

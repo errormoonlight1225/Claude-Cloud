@@ -160,14 +160,14 @@ class SidebarController: UIViewController {
             RepositoryCenter.metadataUpdate,
             .RepositoryQueueChanged,
         ].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
         .sink { [weak self] _ in self?.rebuild(animated: true) }
         .store(in: &subscriptions)
-        NotificationCenter.default.publisher(for: RepositoryCenter.metadataUpdate)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.metadataUpdate)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.settleRefreshControl() }
             .store(in: &subscriptions)
     }

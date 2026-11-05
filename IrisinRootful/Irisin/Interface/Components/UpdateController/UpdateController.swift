@@ -99,16 +99,16 @@ class UpdateController: UIViewController, UITableViewDelegate {
             RepositoryCenter.registrationUpdate,
             PackageCenter.packageRecordChanged,
         ].map {
-            notificationCenter.publisher(for: $0)
+            notificationCenter.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
         .sink { [weak self] _ in self?.reload() }
         .store(in: &subscriptions)
 
         // the queue taking the updates, or letting one go, turns the button
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.showBarButton(animated: true) }
             .store(in: &subscriptions)
     }

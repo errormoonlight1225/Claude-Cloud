@@ -17,8 +17,8 @@ import SPIndicator
 
 extension AppDelegate {
     func observeRepositoryUpdates() {
-        repositoryUpdateSubscription = NotificationCenter.default.publisher(for: RepositoryCenter.metadataUpdate)
-            .receive(on: DispatchQueue.main)
+        repositoryUpdateSubscription = NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.metadataUpdate)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] notification in self?.popIndicator(for: notification) }
     }
 

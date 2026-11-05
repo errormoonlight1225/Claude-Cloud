@@ -60,9 +60,9 @@ nonisolated enum Downloader {
         from url: URL,
         headers: [String: String] = [:],
         session: URLSession? = nil
-    ) -> AsyncThrowingStream<DownloadEvent, any Error> {
+    ) -> LegacyThrowingStream<DownloadEvent> {
         let session = session ?? Self.session
-        return AsyncThrowingStream { continuation in
+        return LegacyThrowingStream { continuation in
             let work = LegacyTask.detached {
                 do {
                     try run(url: url, headers: headers, session: session, into: continuation)
@@ -71,7 +71,7 @@ nonisolated enum Downloader {
                     continuation.finish(throwing: error)
                 }
             }
-            continuation.onTermination = { _ in work.cancel() }
+            continuation.onTermination = { work.cancel() }
         }
     }
 
@@ -79,13 +79,13 @@ nonisolated enum Downloader {
         url: URL,
         headers: [String: String],
         session: URLSession,
-        into continuation: AsyncThrowingStream<DownloadEvent, any Error>.Continuation
+        into continuation: LegacyThrowingStream<DownloadEvent>.Continuation
     ) throws {
         let partial = PartialDownloads.file(for: url)
         var request = URLRequest(url: url)
         // HTTP/3 packets can outgrow the reduced MTU inside a VPN tunnel and
         // abort a large download with -1005. TCP has no such trouble.
-        request.assumesHTTP3Capable = false
+        if #available(iOS 14.5, *) { request.assumesHTTP3Capable = false }
         for (field, value) in headers {
             request.setValue(value, forHTTPHeaderField: field)
         }
@@ -105,7 +105,10 @@ nonisolated enum Downloader {
             var sampledBytes: Int64 = 0
             var sampledAt = Date()
 
-            for try chunk in DownloadTaskRelay.stream(for: request, in: session) {
+            let chunks = DownloadTaskRelay.stream(for: request, in: session)
+            // the stream's task is cancelled with this download's
+            LegacyTask.current?.onCancel { chunks.cancel() }
+            while let chunk = try chunks.next() {
                 switch chunk {
                 case let .response(response):
                     let plan = try plan(for: response, having: onDisk)
@@ -125,7 +128,7 @@ nonisolated enum Downloader {
                         resumable = false
                         throw DownloadError.overrun(expected: total, received: completed)
                     }
-                    try writer.write(contentsOf: data)
+                    try writer.compatWrite(contentsOf: data)
                     let now = Date()
                     let elapsed = now.timeIntervalSince(sampledAt)
                     if elapsed >= progressInterval {
@@ -140,9 +143,9 @@ nonisolated enum Downloader {
                 }
             }
 
-            // An AsyncStream ends quietly when its consumer goes away, so a
-            // short file is the only tell left that this was a cancellation
-            // rather than a complete download.
+            // A cancelled stream ends quietly, so a short file is the only
+            // tell left that this was a cancellation rather than a complete
+            // download.
             try LegacyTask.checkCancellation()
             guard total <= 0 || completed == total else {
                 throw DownloadError.truncated(expected: total, received: completed)

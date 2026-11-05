@@ -49,8 +49,8 @@ final class OperationMonitor {
 
     let operation: Installer.OperationPayload
 
-    @Published private(set) var phase: InstallerEvent.Phase?
-    @Published private(set) var progress: Progress?
+    @OpenCombine.Published private(set) var phase: InstallerEvent.Phase?
+    @OpenCombine.Published private(set) var progress: Progress?
     /// What the console shows, one row each, in order. Not published
     /// itself: a published array is copied whole on every append, which a
     /// script that prints thousands of lines turns into a main-actor stall.
@@ -59,16 +59,16 @@ final class OperationMonitor {
         didSet { lineCount = lines.count }
     }
 
-    @Published private(set) var lineCount = 0
+    @OpenCombine.Published private(set) var lineCount = 0
     /// Where each package stands, for the row that shows it.
-    @Published private(set) var packages: OperationPackages
+    @OpenCombine.Published private(set) var packages: OperationPackages
     /// What each package's scripts were and said, for the page that explains
     /// its failure. Read when that page opens; unpublished like `lines`.
     private(set) var packageOutput: [String: [String]] = [:]
     /// The helper's warnings, for the summary the closing screen shows.
-    @Published private(set) var warnings: [String] = []
+    @OpenCombine.Published private(set) var warnings: [String] = []
     /// Set exactly once, when the operation is over.
-    @Published private(set) var outcome: Outcome?
+    @OpenCombine.Published private(set) var outcome: Outcome?
 
     /// Every helper event, in order, as it arrived, the final `exit` included.
     private(set) var transcript: [InstallerEvent] = []
@@ -111,16 +111,21 @@ final class OperationMonitor {
         }
     }
 
-    /// The outcome, once there is one.
-    var finished: Outcome {
-        get {
-            for value in $outcome.values {
-                if let value {
-                    return value
-                }
+    /// The outcome, once there is one. iOS 12 port: blocks the calling
+    /// (background) thread until `outcome` is set on the main queue.
+    nonisolated var finished: Outcome {
+        let semaphore = DispatchSemaphore(value: 0)
+        let box = LegacyProtected<Outcome?>(nil)
+        var token: AnyCancellable?
+        DispatchQueue.main.sync {
+            token = self.$outcome.compactMap { $0 }.first().sink { value in
+                box.value = value
+                semaphore.signal()
             }
-            return .failed(String(legacyLocalized: "Operation failed. Try again."))
         }
+        semaphore.wait()
+        withExtendedLifetime(token) {}
+        return box.value ?? .failed(String(legacyLocalized: "Operation failed. Try again."))
     }
 
     /// A line the app itself wants on the console, such as its status.

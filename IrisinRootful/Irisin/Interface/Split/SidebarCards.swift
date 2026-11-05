@@ -88,16 +88,16 @@ class SidebarCards: UIView {
             x.trailing.equalTo(self.snp.trailing)
         }
 
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .map { _ in QueueController.badge }
             .prepend(QueueController.badge)
             .removeDuplicates()
             .sink { [weak self] badge in self?.queueCard.badgeText = badge ?? "" } // empty for animation
             .store(in: &subscriptions)
 
-        NotificationCenter.default.publisher(for: PackageCenter.packageRecordChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: PackageCenter.packageRecordChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.updateAvailableUpdateBadge() }
             .store(in: &subscriptions)
 

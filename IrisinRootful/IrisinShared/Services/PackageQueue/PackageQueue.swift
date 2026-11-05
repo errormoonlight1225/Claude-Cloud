@@ -68,7 +68,7 @@ final class PackageQueue {
             allowSystemRemovalStore.wrappedValue = newValue
             guard plan != nil else { return }
             refreshTask?.cancel()
-            refreshTask = LegacyTask.detached { refresh(force: true) }
+            refreshTask = LegacyTask.detached { self.refresh(force: true) }
         }
     }
 
@@ -82,23 +82,23 @@ final class PackageQueue {
     private var pool: (generation: Int, value: ResolutionPool)?
     /// The preflight's read in flight: a solve waits for it rather than
     /// reading the same pool again.
-    private var poolRead: (generation: Int, task: LegacyTask, awaited: Bool)?
+    private var poolRead: (generation: Int, task: LegacyFuture<ResolutionPool?>, awaited: Bool)?
     /// The packages moved and the preflight waits for them to settle.
-    private var preflightDelay: LegacyTask?
+    private var preflightDelay: LegacyMainDelay?
     private var generations = 0
     /// A repository was written while the repositories refreshed and the
     /// queue has not been solved again for it: this waits out the refresh
     /// and solves it then, unless word of the last write does first.
-    private var heldChange: LegacyTask?
+    private var heldChange: LegacyMainDelay?
 
     private init() {
-        NotificationCenter.default.publisher(for: PackageCenter.packageRecordChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: PackageCenter.packageRecordChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.packagesChanged() }
             .store(in: &subscriptions)
         // the pool holds the whole catalogue: the next solve reads it again
-        NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.dropPool() }
             .store(in: &subscriptions)
     }
@@ -122,7 +122,10 @@ final class PackageQueue {
         keepingQueued: Bool = false,
         notices: [String] = []
     ) -> Result<Proposal, ResolutionFailure> {
-        var actions = actions
+        // iOS 12 port: the queue's state is the main thread's; this solve
+        // runs on the caller's background thread
+        let (queued, queuedCleanup) = DispatchQueue.main.sync { (self.actions, self.cleanup) }
+        var actions = queued
         for action in new {
             if let index = actions.firstIndex(where: { $0.identity == action.identity }) {
                 if !keepingQueued {
@@ -132,7 +135,7 @@ final class PackageQueue {
                 actions.append(action)
             }
         }
-        return proposal(actions: actions, cleanup: cleanup ?? self.cleanup, notices: notices)
+        return proposal(actions: actions, cleanup: cleanup ?? queuedCleanup, notices: notices)
     }
 
     /// Takes the proposal as the queue. False when the queue or the
@@ -179,15 +182,17 @@ final class PackageQueue {
         cleanup: Set<String>? = nil
     ) -> Result<Proposal, ResolutionFailure> {
         let dropped = requests(bringing: identity)
+        let (queued, queuedCleanup) = DispatchQueue.main.sync { (self.actions, self.cleanup) }
         return proposal(
-            actions: actions.filter { !dropped.contains($0.identity) },
-            cleanup: (cleanup ?? self.cleanup).subtracting([identity]),
+            actions: queued.filter { !dropped.contains($0.identity) },
+            cleanup: (cleanup ?? queuedCleanup).subtracting([identity]),
             notices: []
         )
     }
 
     /// The queued requests the package is in the plan for.
     private nonisolated func requests(bringing identity: String) -> Set<String> {
+        let (actions, plan) = DispatchQueue.main.sync { (self.actions, self.plan) }
         let queued = Set(actions.map(\.identity))
         guard !queued.contains(identity), let plan else { return [identity] }
         if plan.install.contains(where: { $0.identity == identity }) {
@@ -267,8 +272,10 @@ final class PackageQueue {
     /// is read as it is now, the one the Updates page lists, even while the
     /// repositories refresh.
     nonisolated func updateAllActions() -> Result<UpdateAll, ResolutionFailure> {
-        if Self.isRefreshing {
-            readPool(awaited: true)
+        DispatchQueue.main.sync {
+            if Self.isRefreshing {
+                readPool(awaited: true)
+            }
         }
         switch solve(ResolutionRequest(updateAll: true)) {
         case let .success(plan):
@@ -281,7 +288,9 @@ final class PackageQueue {
                     }),
                     actions: found.install.filter { installed.contains($0.identity) }.map { .install($0) },
                     requiredBy: found.requiredBy.mapValues { names in
-                        names.map { name in updated[name].map(PackageCenter.default.name(of:)) ?? name }
+                        names.map { name in updated[name].map { package in
+                            DispatchQueue.main.sync { PackageCenter.default.name(of: package) }
+                        } ?? name }
                     }
                 )
             }
@@ -325,9 +334,9 @@ final class PackageQueue {
     /// Returns once the queue has been solved again against the packages
     /// as they last moved: what a failed run left is what Try Again stages.
     nonisolated func settled() {
-        while let task = refreshTask {
-            task.value
-            if task == refreshTask {
+        while let task = DispatchQueue.main.sync(execute: { refreshTask }) {
+            task.wait()
+            if task === DispatchQueue.main.sync(execute: { refreshTask }) {
                 return
             }
         }
@@ -351,19 +360,12 @@ final class PackageQueue {
         changed()
         guard plan != nil else { return }
         refreshTask?.cancel()
-        refreshTask = LegacyTask.detached { refresh() }
+        refreshTask = LegacyTask.detached { self.refresh() }
     }
 
     private func hold() {
         guard heldChange == nil else { return }
-        heldChange = LegacyTask.detached { [weak self] in
-            do {
-                while Self.isRefreshing {
-                    try LegacyTask.sleep(continuousSeconds: Self.settleDelay)
-                }
-            } catch {
-                return
-            }
+        heldChange = LegacyMainDelay.poll(every: Self.settleDelay, until: { !Self.isRefreshing }) { [weak self] in
             guard let self else { return }
             heldChange = nil
             packagesChanged()
@@ -387,26 +389,31 @@ final class PackageQueue {
     /// `force` solves again even when the packages did not move: the rules
     /// the plan was solved under did.
     private nonisolated func refresh(force: Bool = false) {
-        guard !Installer.shared.inProcessingQueue, let plan else { return }
-        let revision = revision
+        let state = DispatchQueue.main.sync { () -> (ResolutionPlan, Int, [ResolutionAction], Set<String>, [String], PackageIndex)? in
+            guard !Installer.shared.inProcessingQueue, let plan else { return nil }
+            return (plan, revision, actions, cleanup, notices, PackageCenter.default.index)
+        }
+        guard let (plan, revision, actions, cleanup, notices, index) = state else { return }
         // current means the packages did not move
         if !force,
-           (try? Self.isCurrent(plan: plan, index: PackageCenter.default.index)) == true
+           (try? Self.isCurrent(plan: plan, index: index)) == true
         {
             return
         }
-        guard !LegacyTask.isCancelled, revision == self.revision else { return }
+        guard !LegacyTask.isCancelled, revision == DispatchQueue.main.sync(execute: { self.revision }) else { return }
         // the request's own lines (held-back updates) outlive a solve; the
         // old plan's go with it and the new plan says its own
         let planned = Self.notices(of: plan)
         let result = proposal(actions: actions, cleanup: cleanup, notices: notices.filter { !planned.contains($0) })
-        guard !LegacyTask.isCancelled, revision == self.revision else { return }
-        switch result {
-        case let .success(proposal):
-            commit(proposal)
-        case let .failure(failure):
-            blocked = failure.message
-            changed()
+        DispatchQueue.main.sync {
+            guard !LegacyTask.isCancelled, revision == self.revision else { return }
+            switch result {
+            case let .success(proposal):
+                commit(proposal)
+            case let .failure(failure):
+                blocked = failure.message
+                changed()
+            }
         }
     }
 
@@ -418,7 +425,7 @@ final class PackageQueue {
         cleanup: Set<String>,
         notices: [String]
     ) -> Result<Proposal, ResolutionFailure> {
-        let revision = revision
+        let revision = DispatchQueue.main.sync { self.revision }
         guard !actions.isEmpty else {
             return .success(Proposal(actions: [], cleanup: [], plan: nil, notices: notices, revision: revision))
         }
@@ -444,7 +451,7 @@ final class PackageQueue {
     private nonisolated func solve(_ request: ResolutionRequest) -> Result<ResolutionPlan, ResolutionFailure> {
         let first = solveOnce(request)
         guard first.refusedPinned, !LegacyTask.isCancelled else { return first.result }
-        readPool(awaited: true)
+        DispatchQueue.main.sync { _ = readPool(awaited: true) }
         return solveOnce(request).result
     }
 
@@ -453,17 +460,18 @@ final class PackageQueue {
     private nonisolated func solveOnce(
         _ request: ResolutionRequest
     ) -> (result: Result<ResolutionPlan, ResolutionFailure>, refusedPinned: Bool) {
-        guard !Installer.shared.inProcessingQueue else { return (.failure(Self.busy), false) }
+        guard !DispatchQueue.main.sync(execute: { Installer.shared.inProcessingQueue }) else { return (.failure(Self.busy), false) }
         let (prepared, pinned) = startingPool()
         // the wait is for the pool, and the pool is kept: whoever asked
         // and left since is not solved for
         guard !LegacyTask.isCancelled else { return (.failure(ResolutionFailure(.unknown)), false) }
         // read after the wait: the index carries the update settings
-        let index = PackageCenter.default.index
+        let (index, allowSystemRemoval, generation) = DispatchQueue.main.sync { () -> (PackageIndex, Bool, Int) in
+            generations += 1
+            return (PackageCenter.default.index, self.allowSystemRemoval, generations)
+        }
         var request = request
         request.allowSystemRemoval = allowSystemRemoval
-        generations += 1
-        let generation = generations
         do {
             let (plan, read) = try Self.resolve(
                 request: request,
@@ -471,15 +479,18 @@ final class PackageQueue {
                 pool: prepared,
                 pinned: pinned
             )
-            adopt(read, generation: generation)
+            let busy = DispatchQueue.main.sync { () -> Bool in
+                adopt(read, generation: generation)
+                return Installer.shared.inProcessingQueue
+            }
             // the catalogue may have been written since: the plan says
             // which one it was solved with, and `currency(of:)` holds that
             // against the one there is before it is taken or staged
-            guard !Installer.shared.inProcessingQueue,
-                  try Self.changes(since: plan, index: PackageCenter.default.index)
+            guard !busy,
+                  try Self.changes(since: plan, index: DispatchQueue.main.sync { PackageCenter.default.index })
                   .isDisjoint(with: [.installed, .settings]),
                   // an operation may have begun during the status check
-                  !Installer.shared.inProcessingQueue
+                  !DispatchQueue.main.sync(execute: { Installer.shared.inProcessingQueue })
             else {
                 return (.failure(Self.moved), false)
             }
@@ -514,21 +525,18 @@ final class PackageQueue {
             read.task.cancel()
             poolRead = nil
         }
-        preflightDelay = LegacyTask.detached { [weak self] in
-            do {
-                try LegacyTask.sleep(continuousSeconds: Self.settleDelay)
-                // at launch the refresh of what is out of date is queued a
-                // moment after the engines are up: not reading until then
-                // keeps a pool that refresh would make stale at once
-                while !RepositoryCenter.default.hasQueuedLaunchRefresh
-                    || RepositoryCenter.default.obtainUpdateRemain() > 0
-                    || Installer.shared.inProcessingQueue
-                {
-                    try LegacyTask.sleep(continuousSeconds: Self.settleDelay)
-                }
-            } catch {
-                return
+        preflightDelay = LegacyMainDelay.poll(
+            initialDelay: Self.settleDelay,
+            every: Self.settleDelay,
+            // at launch the refresh of what is out of date is queued a
+            // moment after the engines are up: not reading until then
+            // keeps a pool that refresh would make stale at once
+            until: {
+                RepositoryCenter.default.hasQueuedLaunchRefresh
+                    && RepositoryCenter.default.obtainUpdateRemain() == 0
+                    && !Installer.shared.inProcessingQueue
             }
+        ) { [weak self] in
             self?.readPool()
         }
     }
@@ -538,7 +546,7 @@ final class PackageQueue {
     /// `awaited` when a solve is about to wait for it: the packages moving
     /// in the meantime do not cancel it.
     @discardableResult
-    private func readPool(awaited: Bool = false) -> LegacyTask {
+    private func readPool(awaited: Bool = false) -> LegacyFuture<ResolutionPool?> {
         preflightDelay?.cancel()
         preflightDelay = nil
         poolRead?.task.cancel()
@@ -547,12 +555,13 @@ final class PackageQueue {
         let index = PackageCenter.default.index
         let previous = pool?.value
         // nobody waits for it yet; a solve that does raises it to its own
-        let task = LegacyTask.detached(qos: .utility) { [weak self] () -> ResolutionPool? in
+        let task = LegacyFuture<ResolutionPool?>.detached(qos: .utility) { [weak self] in
             let read = Self.readPool(index: index, previous: previous)
-            if let self {
-                adopt(read, generation: generation)
-                if poolRead?.generation == generation {
-                    poolRead = nil
+            DispatchQueue.main.sync {
+                guard let self else { return }
+                self.adopt(read, generation: generation)
+                if self.poolRead?.generation == generation {
+                    self.poolRead = nil
                 }
             }
             return read
@@ -566,8 +575,10 @@ final class PackageQueue {
     /// one read. It may be out of date all the same (the dpkg status can
     /// change without a word); the solve then reads the one it needs.
     private nonisolated func preparedPool() -> ResolutionPool? {
-        if preflightDelay != nil, !Installer.shared.inProcessingQueue {
-            readPool()
+        DispatchQueue.main.sync {
+            if preflightDelay != nil, !Installer.shared.inProcessingQueue {
+                readPool()
+            }
         }
         return awaitedPool()
     }
@@ -577,9 +588,12 @@ final class PackageQueue {
     /// even though the catalogue has been written since, since a read in
     /// the middle of a refresh is out of date before it ends.
     private nonisolated func startingPool() -> (pool: ResolutionPool?, pinned: Bool) {
-        guard Self.isRefreshing else { return (preparedPool(), false) }
-        if pool == nil, poolRead == nil, !Installer.shared.inProcessingQueue {
-            readPool()
+        let refreshing = DispatchQueue.main.sync { Self.isRefreshing }
+        guard refreshing else { return (preparedPool(), false) }
+        DispatchQueue.main.sync {
+            if pool == nil, poolRead == nil, !Installer.shared.inProcessingQueue {
+                readPool()
+            }
         }
         return (awaitedPool(), true)
     }
@@ -594,14 +608,16 @@ final class PackageQueue {
     /// The read in flight, or else the last one read.
     private nonisolated func awaitedPool() -> ResolutionPool? {
         // a read the packages moving cancelled has a newer one after it
-        while let current = poolRead {
+        while let current = DispatchQueue.main.sync(execute: { () -> (generation: Int, task: LegacyFuture<ResolutionPool?>, awaited: Bool)? in
             poolRead?.awaited = true
+            return poolRead
+        }) {
             if let read = current.task.value {
                 return read
             }
-            guard poolRead.map({ $0.generation != current.generation }) == true else { break }
+            guard DispatchQueue.main.sync(execute: { poolRead.map { $0.generation != current.generation } }) == true else { break }
         }
-        return pool?.value
+        return DispatchQueue.main.sync { pool?.value }
     }
 
     private func adopt(_ read: ResolutionPool?, generation: Int) {
@@ -621,16 +637,16 @@ final class PackageQueue {
         RepositoryCenter.default.obtainUpdateRemain() > 0
     }
 
-    private static let busy = ResolutionFailure(
+    private nonisolated static let busy = ResolutionFailure(
         message: String(legacyLocalized: "Another operation is already running. Wait for it to finish, then try again.")
     )
 
-    private static let moved = ResolutionFailure(
+    private nonisolated static let moved = ResolutionFailure(
         message: String(legacyLocalized: "Packages changed while checking dependencies. Try again.")
     )
 
     /// The plan's own lines; held-back updates come from the request.
-    private static func notices(of plan: ResolutionPlan) -> [String] {
+    private nonisolated static func notices(of plan: ResolutionPlan) -> [String] {
         var notices = plan.diagnostics.map(\.message)
         if plan.install.contains(where: { $0.identity == Bundle.main.bundleIdentifier }) {
             notices.insert(String(legacyLocalized: "Irisin will restart when this finishes."), at: 0)
@@ -645,7 +661,6 @@ final class PackageQueue {
 
     /// The plan, and the pool this solve read when `pool` did not serve the
     /// packages as they are: the queue keeps it for the next.
-    @concurrent
     private nonisolated static func resolve(
         request: ResolutionRequest,
         index: PackageIndex,
@@ -664,7 +679,6 @@ final class PackageQueue {
     /// The pool of the packages as they are, or `previous` when it still
     /// serves them; nil when the read was cancelled or failed, and the next
     /// solve reads it then.
-    @concurrent
     private nonisolated static func readPool(
         index: PackageIndex,
         previous: ResolutionPool?
@@ -680,12 +694,10 @@ final class PackageQueue {
         }
     }
 
-    @concurrent
     nonisolated static func isCurrent(plan: ResolutionPlan, index: PackageIndex) throws -> Bool {
         try index.isCurrent(plan.snapshot)
     }
 
-    @concurrent
     private nonisolated static func changes(
         since plan: ResolutionPlan,
         index: PackageIndex
@@ -705,7 +717,6 @@ final class PackageQueue {
         case withdrawn([Package])
     }
 
-    @concurrent
     nonisolated static func currency(of plan: ResolutionPlan, index: PackageIndex) throws -> Currency {
         let changes = try index.changes(since: plan.snapshot)
         guard changes.isDisjoint(with: [.installed, .settings]) else { return .moved }
@@ -719,6 +730,7 @@ final class PackageQueue {
     /// read is a reason to solve again.
     nonisolated func currency(of proposal: Proposal) -> Currency {
         guard let plan = proposal.plan else { return .current }
-        return (try? Self.currency(of: plan, index: PackageCenter.default.index)) ?? .moved
+        let index = DispatchQueue.main.sync { PackageCenter.default.index }
+        return (try? Self.currency(of: plan, index: index)) ?? .moved
     }
 }

@@ -5,22 +5,42 @@
 
 import AptRepository
 import Foundation
-import UniformTypeIdentifiers
 
-extension UTType {
+/// The file types the app opens, as uniform type identifier strings and
+/// extensions. iOS 12 port: UTType is iOS 14; the identifiers are the same
+/// ones Info.plist declares.
+enum IrisinFileType: String {
     /// `.irisinrepos`: repository addresses and nothing else. Both Share and
     /// Export Repository List write one, so a single repository and a whole
     /// list are the same file with a different number of entries. XML, so a
     /// reader who opens it in a text editor sees what they are about to add.
-    static let irisinRepositoryList = UTType(exportedAs: "wiki.qaq.irisin.repository-list")
+    case irisinRepositoryList = "wiki.qaq.irisin.repository-list"
 
     /// `.irisinrepo`: one repository with everything this app knows about it,
     /// its Release fields and its whole package catalogue. Binary, because a
     /// large repository's catalogue is the bulk of it.
-    static let irisinRepository = UTType(exportedAs: "wiki.qaq.irisin.repository")
+    case irisinRepository = "wiki.qaq.irisin.repository"
 
     /// Debian's, not ours: the app is a viewer for it and nothing more.
-    static let debArchive = UTType(importedAs: "org.debian.deb-archive")
+    case debArchive = "org.debian.deb-archive"
+
+    var identifier: String { rawValue }
+
+    var fileExtension: String {
+        switch self {
+        case .irisinRepositoryList: "irisinrepos"
+        case .irisinRepository: "irisinrepo"
+        case .debArchive: "deb"
+        }
+    }
+
+    /// What a file is, by its extension.
+    init?(url: URL) {
+        let ext = url.pathExtension.lowercased()
+        guard let type = [Self.irisinRepositoryList, .irisinRepository, .debArchive].first(where: { $0.fileExtension == ext })
+        else { return nil }
+        self = type
+    }
 }
 
 nonisolated enum RepositoryFileFailure: Error, Equatable {

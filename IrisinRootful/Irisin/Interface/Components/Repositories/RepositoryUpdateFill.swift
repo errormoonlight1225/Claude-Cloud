@@ -42,9 +42,9 @@ final class RepositoryUpdateFill: UIView {
         // Every repository's download ticks through metadataUpdate: a row
         // moves for its own, and for the queue, which names none.
         Publishers.MergeMany([RepositoryCenter.metadataUpdate, .RepositoryQueueChanged].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
-        .receive(on: DispatchQueue.main)
+        .receive(on: DispatchQueue.main.ocombine)
         .sink { [weak self] notification in
             guard let self else { return }
             if let update = notification.object as? RepositoryCenter.UpdateNotification,

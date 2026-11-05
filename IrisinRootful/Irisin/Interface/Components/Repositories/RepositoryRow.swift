@@ -100,13 +100,13 @@ class RepositoryRow: UIView {
             x.width.equalTo(16)
         }
 
-        NotificationCenter.default.publisher(for: RepositoryCenter.metadataUpdate)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.metadataUpdate)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] notification in self?.updateRepoMetadata(withNotification: notification) }
             .store(in: &subscriptions)
 
-        NotificationCenter.default.publisher(for: .RepositoryQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .RepositoryQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.updateIndicator() }
             .store(in: &subscriptions)
     }

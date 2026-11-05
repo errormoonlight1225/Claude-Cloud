@@ -22,9 +22,7 @@ enum CommandLineChanges {
     static func observe() {
         guard token == NOTIFY_TOKEN_INVALID else { return }
         notify_register_dispatch(name, &token, .main) { _ in
-            MainActor.assumeIsolated {
-                _ = LegacyTask.detached { PackageCenter.default.reloadLocalPackages() }
-            }
+            LegacyTask.detached { PackageCenter.default.reloadLocalPackages() }
         }
     }
 }

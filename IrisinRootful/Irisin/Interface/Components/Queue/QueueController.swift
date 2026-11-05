@@ -195,8 +195,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
         navigationItem.rightBarButtonItems = [executeButton, busyItem, menuItem]
         updateBar()
 
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.reload() }
             .store(in: &subscriptions)
     }

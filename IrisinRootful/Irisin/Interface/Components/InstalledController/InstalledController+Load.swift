@@ -68,10 +68,10 @@ extension InstalledController {
             RepositoryCenter.registrationUpdate,
             PackageCenter.packageRecordChanged,
         ].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
         .sink { [weak self] _ in self?.justReload() }
         .store(in: &subscriptions)
     }

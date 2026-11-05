@@ -325,8 +325,9 @@ class RepositoryAddController: UITableViewController {
     @objc
     private func openImport() {
         let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [.irisinRepositoryList, .irisinRepository],
-            asCopy: true
+            // iOS 12 port: type identifiers where UTTypes are iOS 14
+            documentTypes: [IrisinFileType.irisinRepositoryList.identifier, IrisinFileType.irisinRepository.identifier],
+            in: .import
         )
         picker.delegate = self
         present(picker, animated: true)

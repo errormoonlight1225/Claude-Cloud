@@ -79,9 +79,10 @@ enum OperationConfirmation {
     static nonisolated func authenticate() -> Bool {
         let reason = String(legacyLocalized: "Verify that you own this device to change packages.")
         let context = LAContext()
-        let success = withCheckedContinuation { finished in
+        // iOS 12 port: blocks this (background) thread for the answer
+        let success: Bool = legacyAwait { finished in
             context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
-                finished.resume(returning: success)
+                finished(success)
             }
         }
         // a context released while it asks cancels the question

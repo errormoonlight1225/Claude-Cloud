@@ -67,8 +67,8 @@ class TabInterfaceController: UITabBarController {
             viewControllers = everyTab.compactMap { $0 as? UIViewController }
         }
 
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.updateQueueTab() }
             .store(in: &subscriptions)
 
@@ -183,8 +183,8 @@ class QueueNavigator: UINavigationController {
             tag: 0
         )
 
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .map { _ in QueueController.badge }
             .prepend(QueueController.badge)
             .removeDuplicates()

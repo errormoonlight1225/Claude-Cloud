@@ -257,8 +257,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         }
 
         // the queue or the packages moved: what the sheet shows is solved again
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.solve() }
             .store(in: &subscriptions)
 

@@ -166,8 +166,8 @@ class PackageListRow: UIView {
 
         // Whichever list holds the row, an install or a removal redraws the
         // badge of the rows whose installed version moved, and only those.
-        NotificationCenter.default.publisher(for: PackageCenter.packageRecordChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: PackageCenter.packageRecordChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .filter { [weak self] _ in
                 guard let self, represent != nil else { return false }
                 return installedVersion != badgedVersion
@@ -175,8 +175,8 @@ class PackageListRow: UIView {
             .sink { [weak self] _ in self?.updateIndicator() }
             .store(in: &subscriptions)
         // and the queue taking a package or letting it go redraws the rest
-        NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .filter { [weak self] _ in self?.represent != nil }
             .sink { [weak self] _ in self?.updateIndicator() }
             .store(in: &subscriptions)

@@ -32,8 +32,8 @@ class RepositoriesNavigator: UINavigationController {
         )
 
         tabBarItem.badgeColor = .buttonNormal
-        NotificationCenter.default.publisher(for: RepositoryCenter.metadataUpdate)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.metadataUpdate)
+            .receive(on: DispatchQueue.main.ocombine)
             .map { _ in RepositoryCenter.default.obtainUpdateRemain() }
             .removeDuplicates()
             .sink { [weak self] count in self?.setTabBadge(count > 0 ? String(count) : nil) }
@@ -121,14 +121,14 @@ class RepositoriesController: UIViewController {
         reloadDataSource(animated: false)
 
         Publishers.MergeMany([RepositoryCenter.registrationUpdate, RepositoryCenter.metadataUpdate].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
         .sink { [weak self] _ in self?.reloadDataSource() }
         .store(in: &subscriptions)
-        NotificationCenter.default.publisher(for: RepositoryCenter.metadataUpdate)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.metadataUpdate)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.settleRefreshControl() }
             .store(in: &subscriptions)
     }
@@ -404,8 +404,9 @@ class RepositoriesController: UIViewController {
     /// Only our own files: a repository list, or one repository whole.
     private func openImport() {
         let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [.irisinRepositoryList, .irisinRepository],
-            asCopy: true
+            // iOS 12 port: type identifiers where UTTypes are iOS 14
+            documentTypes: [IrisinFileType.irisinRepositoryList.identifier, IrisinFileType.irisinRepository.identifier],
+            in: .import
         )
         picker.delegate = self
         present(picker, animated: true)

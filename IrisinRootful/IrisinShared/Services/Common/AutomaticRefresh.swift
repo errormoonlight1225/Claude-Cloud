@@ -15,16 +15,14 @@ import Foundation
 /// comes back and when the setting changes. Never while an operation runs:
 /// a refresh then moves the catalogue under the plan being carried out.
 enum AutomaticRefresh {
-    private static var loop: LegacyTask?
+    private static var loop: Timer?
 
     /// Starts the minute's look, once per process, after the engines are up.
+    /// iOS 12 port: a main run loop timer, where a task slept a minute.
     static func start() {
         guard loop == nil else { return }
-        loop = LegacyTask.detached {
-            while !LegacyTask.isCancelled {
-                try? LegacyTask.sleep(continuousSeconds: 60)
-                check()
-            }
+        loop = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            DispatchQueue.main.async { check() }
         }
     }
 

@@ -313,8 +313,8 @@ class PackageController: UIViewController {
         // a page for a repository the user just deleted must not stay up
         // offering an install from a catalogue that is gone
         if let repository = packageObject.repoRef {
-            NotificationCenter.default.publisher(for: RepositoryCenter.registrationUpdate)
-                .receive(on: DispatchQueue.main)
+            NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.registrationUpdate)
+                .receive(on: DispatchQueue.main.ocombine)
                 .filter { _ in RepositoryCenter.default.obtainImmutableRepository(withUrl: repository) == nil }
                 .first()
                 .sink { [weak self] _ in self?.leaveForRemovedRepository() }
@@ -342,7 +342,7 @@ class PackageController: UIViewController {
         bannerArtwork.imageView.publisher(for: \.image)
             .map { $0?.size }
             .removeDuplicates()
-            .receive(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] size in
                 self?.bannerPhotoSize = size
                 self?.resizeBanner()

@@ -9,12 +9,18 @@ extension Downloads {
     nonisolated func awaitFiles(
         of packages: [Package],
         in plan: UUID,
-        progress: @MainActor () -> Void = {}
+        progress: @escaping () -> Void = {}
     ) -> String? {
         // ponytail: polls the statuses four times a second; a publisher on
-        // the statuses if the tick ever shows
-        while !LegacyTask.isCancelled, PackageQueue.shared.plan?.id == plan {
-            let statuses = packages.map { (package: $0, status: status(for: $0.obtainDownloadLink())) }
+        // the statuses if the tick ever shows. iOS 12 port: polls from the
+        // caller's background thread, reading the statuses on the main queue.
+        while !LegacyTask.isCancelled, DispatchQueue.main.sync(execute: { PackageQueue.shared.plan?.id }) == plan {
+            let (statuses, downloading) = DispatchQueue.main.sync { () -> ([(package: Package, status: Status?)], Set<URL>) in
+                let statuses = packages.map { (package: $0, status: status(for: $0.obtainDownloadLink())) }
+                let downloading = Set(packages.map { $0.obtainDownloadLink() }.filter { isDownloading($0) })
+                return (statuses, downloading)
+            }
+            func isDownloading(_ url: URL) -> Bool { downloading.contains(url) }
             // a retry's download keeps the old error until it first reports
             if let failed = statuses.first(where: {
                 $0.status?.errorDescription != nil && !isDownloading($0.package.obtainDownloadLink())
@@ -29,7 +35,7 @@ extension Downloads {
             if statuses.contains(where: { $0.status?.file == nil && !isDownloading($0.package.obtainDownloadLink()) }) {
                 return String(legacyLocalized: "The download was interrupted.")
             }
-            progress()
+            DispatchQueue.main.sync { progress() }
             try? LegacyTask.sleep(continuousSeconds: 0.25)
         }
         return nil

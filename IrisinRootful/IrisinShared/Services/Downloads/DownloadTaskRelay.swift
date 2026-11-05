@@ -7,56 +7,59 @@
 //
 
 import Foundation
+import LegacyCompat
 
-/// One data task's delegate callbacks as an async sequence: the response,
-/// then every chunk of the body as it arrives. `URLSession.bytes(for:)` would
-/// do the same one byte at a time, which is too slow for a .deb.
+/// One data task's delegate callbacks as a stream: the response, then
+/// every chunk of the body as it arrives.
 ///
-/// `URLSession` retains a per-task delegate until the task ends, and the
-/// continuation's termination handler holds this one for as long as anyone is
-/// reading. Dropping the reader cancels the task.
-final nonisolated class DownloadTaskRelay: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+/// iOS 12 port: a `LegacyThrowingStream` where it was an AsyncThrowingStream,
+/// and a session of its own per task (a task's own delegate is iOS 15), made
+/// from the shared session's configuration. The session keeps this relay
+/// until the task ends; the consumer going away cancels the task.
+final class DownloadTaskRelay: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     enum Chunk: Sendable {
         case response(HTTPURLResponse)
         case data(Data)
     }
 
-    private let continuation: AsyncThrowingStream<Chunk, any Error>.Continuation
+    private let continuation: LegacyThrowingStream<Chunk>.Continuation
     private var task: URLSessionDataTask?
 
-    static func stream(for request: URLRequest, in session: URLSession) -> AsyncThrowingStream<Chunk, any Error> {
-        AsyncThrowingStream { continuation in
-            _ = DownloadTaskRelay(request: request, session: session, continuation: continuation)
+    static func stream(for request: URLRequest, in session: URLSession) -> LegacyThrowingStream<Chunk> {
+        LegacyThrowingStream { continuation in
+            _ = DownloadTaskRelay(request: request, configuration: session.configuration, continuation: continuation)
         }
     }
 
     private init(
         request: URLRequest,
-        session: URLSession,
-        continuation: AsyncThrowingStream<Chunk, any Error>.Continuation
+        configuration: URLSessionConfiguration,
+        continuation: LegacyThrowingStream<Chunk>.Continuation
     ) {
         self.continuation = continuation
         super.init()
 
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         let task = session.dataTask(with: request)
-        task.delegate = self
         self.task = task
-        // Capturing self is what keeps this relay alive while anyone reads.
-        continuation.onTermination = { [self] _ in self.task?.cancel() }
+        continuation.onTermination = { [weak task] in task?.cancel() }
         task.resume()
+        session.finishTasksAndInvalidate()
     }
 
-    nonisolated func urlSession(
+    func urlSession(
         _: URLSession,
         dataTask _: URLSessionDataTask,
-        didReceive response: URLResponse
-    ) -> URLSession.ResponseDisposition {
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
         guard let response = response as? HTTPURLResponse else {
             continuation.finish(throwing: DownloadError.malformedResponse)
-            return .cancel
+            completionHandler(.cancel)
+            return
         }
         continuation.yield(.response(response))
-        return .allow
+        completionHandler(.allow)
     }
 
     func urlSession(_: URLSession, dataTask _: URLSessionDataTask, didReceive data: Data) {

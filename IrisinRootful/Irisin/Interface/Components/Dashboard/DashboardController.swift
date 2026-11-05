@@ -161,10 +161,10 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
             RepositoryCenter.registrationUpdate,
             PackageCenter.packageRecordChanged,
         ].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
         .sink { [weak self] _ in
             LegacyTask.detached {
                 // a center that announces itself mid-bootstrap is half of

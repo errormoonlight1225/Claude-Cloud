@@ -104,10 +104,10 @@ class SearchController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         Publishers.MergeMany([RepositoryCenter.registrationUpdate, PackageCenter.packageRecordChanged].map {
-            NotificationCenter.default.publisher(for: $0)
+            NotificationCenter.default.ocombine.publisher(for: $0)
         })
-        .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
-        .receive(on: DispatchQueue.main)
+        .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)
+        .receive(on: DispatchQueue.main.ocombine)
         .sink { [weak self] _ in self?.searchAgain() }
         .store(in: &subscriptions)
         title = String(legacyLocalized: "Search")

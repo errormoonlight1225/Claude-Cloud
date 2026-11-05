@@ -154,8 +154,8 @@ class RepositoryDetailController: UIViewController {
         navigationItem.rightBarButtonItems = [more]
         if paymentEndpoint != nil {
             updateAccountItem()
-            NotificationCenter.default.publisher(for: .RepositoryPaymentChanged)
-                .receive(on: DispatchQueue.main)
+            NotificationCenter.default.ocombine.publisher(for: .RepositoryPaymentChanged)
+                .receive(on: DispatchQueue.main.ocombine)
                 .sink { [weak self] _ in self?.updateAccountItem() }
                 .store(in: &subscriptions)
         }
@@ -177,16 +177,16 @@ class RepositoryDetailController: UIViewController {
 
         // the page is opened right after an add, before the refresh lands:
         // every finished refresh of this repository redraws the counts
-        NotificationCenter.default.publisher(for: RepositoryCenter.metadataUpdate)
+        NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.metadataUpdate)
             .compactMap { $0.object as? RepositoryCenter.UpdateNotification }
             .filter { [url = repo.url] in $0.repository == url && $0.complete }
-            .receive(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.reloadRepository() }
             .store(in: &subscriptions)
 
         // deleted here or anywhere else, the page has nothing left to show
-        NotificationCenter.default.publisher(for: RepositoryCenter.registrationUpdate)
-            .receive(on: DispatchQueue.main)
+        NotificationCenter.default.ocombine.publisher(for: RepositoryCenter.registrationUpdate)
+            .receive(on: DispatchQueue.main.ocombine)
             .filter { [url = repo.url] _ in RepositoryCenter.default.obtainImmutableRepository(withUrl: url) == nil }
             .first()
             .sink { [weak self] _ in self?.leaveForRemovedRepository() }

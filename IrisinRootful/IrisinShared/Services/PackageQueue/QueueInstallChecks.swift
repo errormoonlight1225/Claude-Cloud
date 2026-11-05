@@ -61,7 +61,6 @@ enum QueueInstallChecks {
         }
     }
 
-    @concurrent
     private nonisolated static func scriptedIdentities(
         files: [(identity: String, file: URL)],
         touched: [String]

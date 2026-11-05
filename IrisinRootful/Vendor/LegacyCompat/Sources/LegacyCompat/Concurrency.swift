@@ -403,3 +403,176 @@ public final class LegacyFuture<Value>: @unchecked Sendable {
         return result!
     }
 }
+
+/// Work on the main queue after a delay, or once a condition holds,
+/// cancellable: what a main-actor Task that slept between checks was.
+public final class LegacyMainDelay {
+    private var item: DispatchWorkItem?
+    public private(set) var isCancelled = false
+
+    private init() {}
+
+    /// Runs `body` on the main queue after `seconds`.
+    @discardableResult
+    public static func after(_ seconds: TimeInterval, _ body: @escaping () -> Void) -> LegacyMainDelay {
+        let delay = LegacyMainDelay()
+        delay.schedule(after: seconds, body)
+        return delay
+    }
+
+    /// Waits `initialDelay`, then checks `condition` every `interval` on the
+    /// main queue, and runs `body` once it holds.
+    @discardableResult
+    public static func poll(
+        initialDelay: TimeInterval = 0,
+        every interval: TimeInterval,
+        until condition: @escaping () -> Bool,
+        then body: @escaping () -> Void
+    ) -> LegacyMainDelay {
+        let delay = LegacyMainDelay()
+        func check() {
+            guard !delay.isCancelled else { return }
+            if condition() {
+                body()
+            } else {
+                delay.schedule(after: interval, check)
+            }
+        }
+        delay.schedule(after: initialDelay, check)
+        return delay
+    }
+
+    private func schedule(after seconds: TimeInterval, _ body: @escaping () -> Void) {
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, !self.isCancelled else { return }
+            body()
+        }
+        self.item = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0, seconds), execute: item)
+    }
+
+    public func cancel() {
+        isCancelled = true
+        item?.cancel()
+    }
+}
+
+/// `AsyncThrowingStream` for blocking code: a producer yields from any
+/// thread, one consumer reads with `next()`, which blocks until an element,
+/// the end or an error arrives. Buffered without bound. The consumer going
+/// away (`cancel()`, or the stream being released) runs `onTermination`, as
+/// dropping an async stream's iterator did.
+public final class LegacyThrowingStream<Element>: @unchecked Sendable {
+    public final class Continuation: @unchecked Sendable {
+        fileprivate weak var stream: LegacyThrowingStream?
+        private let lock = NSLock()
+        private var handler: (() -> Void)?
+
+        public var onTermination: (() -> Void)? {
+            get { lock.lock(); defer { lock.unlock() }; return handler }
+            set {
+                lock.lock()
+                handler = newValue
+                let alreadyOver = stream?.isTerminated ?? true
+                lock.unlock()
+                if alreadyOver { fireTermination() }
+            }
+        }
+
+        public func yield(_ element: Element) {
+            stream?.push(.element(element))
+        }
+
+        public func finish(throwing error: Error? = nil) {
+            stream?.push(error.map { .failure($0) } ?? .end)
+        }
+
+        fileprivate func fireTermination() {
+            lock.lock()
+            let run = handler
+            handler = nil
+            lock.unlock()
+            run?()
+        }
+    }
+
+    private enum Item {
+        case element(Element)
+        case failure(Error)
+        case end
+    }
+
+    private let condition = NSCondition()
+    private var buffer: [Item] = []
+    private var head = 0
+    private var over = false
+    private var terminated = false
+    private let continuation = Continuation()
+
+    fileprivate var isTerminated: Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        return terminated
+    }
+
+    public init(_ build: (Continuation) -> Void) {
+        continuation.stream = self
+        build(continuation)
+    }
+
+    private func push(_ item: Item) {
+        condition.lock()
+        guard !over else {
+            condition.unlock()
+            return
+        }
+        buffer.append(item)
+        if case .element = item {} else { over = true }
+        condition.broadcast()
+        condition.unlock()
+        if case .element = item {} else { terminate() }
+    }
+
+    private func terminate() {
+        condition.lock()
+        let first = !terminated
+        terminated = true
+        condition.unlock()
+        if first { continuation.fireTermination() }
+    }
+
+    /// The next element; nil at the end. Throws what the producer finished
+    /// with. Blocks; never call on the main thread.
+    public func next() throws -> Element? {
+        condition.lock()
+        while head >= buffer.count {
+            if terminated, over || buffer.isEmpty { break }
+            condition.wait()
+        }
+        guard head < buffer.count else {
+            condition.unlock()
+            return nil
+        }
+        let item = buffer[head]
+        head += 1
+        condition.unlock()
+        switch item {
+        case let .element(element): return element
+        case let .failure(error): throw error
+        case .end: return nil
+        }
+    }
+
+    /// The consumer is done: the producer's `onTermination` runs.
+    public func cancel() {
+        condition.lock()
+        over = true
+        condition.broadcast()
+        condition.unlock()
+        terminate()
+    }
+
+    deinit {
+        if !terminated { continuation.fireTermination() }
+    }
+}

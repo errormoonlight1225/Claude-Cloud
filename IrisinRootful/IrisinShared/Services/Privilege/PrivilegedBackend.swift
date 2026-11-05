@@ -38,6 +38,27 @@ nonisolated enum PrivilegedBackend {
     /// one settles on `.local` after the grace period.
     @MainActor static let backendUpdates = CurrentValueSubject<DaemonLink.Backend?, Never>(nil)
 
+    private static var waiters: [AnyCancellable] = []
+
+    /// Runs `body` on the main queue once, with the backend, as soon as one
+    /// is bound. iOS 12 port: what reading `backendUpdates.values` until a
+    /// non-nil value did.
+    static func whenBackendIsKnown(_ body: @escaping (DaemonLink.Backend) -> Void) {
+        var done = false
+        var token: AnyCancellable?
+        token = backendUpdates
+            .compactMap { $0 }
+            .first()
+            .receive(on: DispatchQueue.main.ocombine)
+            .sink { backend in
+                guard !done else { return }
+                done = true
+                body(backend)
+                waiters.removeAll { $0 === token }
+            }
+        if !done, let token { waiters.append(token) }
+    }
+
     static var localizedStatus: String {
         switch link.backend {
         case let .daemon(root):
@@ -83,7 +104,7 @@ nonisolated enum PrivilegedBackend {
                             level: .warning
                         )
                     }
-                    MainActor.run { backendUpdates.send(backend) }
+                    DispatchQueue.main.async { backendUpdates.send(backend) }
                     return
                 } catch {
                     if !reportedMiss {

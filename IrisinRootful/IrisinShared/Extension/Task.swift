@@ -12,7 +12,7 @@ import LegacyCompat
 extension LegacyTask {
     /// Sleeps for `seconds` on a clock that counts while the device sleeps:
     /// LegacyTask.sleep waits on the wall clock, which does.
-    static func sleep(continuousSeconds seconds: Double) throws {
+    nonisolated static func sleep(continuousSeconds seconds: Double) throws {
         try sleep(seconds: max(0, seconds))
     }
 }
@@ -23,7 +23,7 @@ extension LegacyTask {
 struct ContinuousDeadline: Sendable, Comparable {
     private let nanoseconds: UInt64
 
-    static var now: ContinuousDeadline {
+    nonisolated static var now: ContinuousDeadline {
         ContinuousDeadline(nanoseconds: clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW))
     }
 
@@ -36,7 +36,7 @@ struct ContinuousDeadline: Sendable, Comparable {
     }
 
     /// Sleeps until the deadline, at once when it has passed.
-    func sleep() throws {
+    nonisolated func sleep() throws {
         let now = ContinuousDeadline.now.nanoseconds
         guard nanoseconds > now else { return }
         try LegacyTask.sleep(continuousSeconds: Double(nanoseconds - now) / 1_000_000_000)

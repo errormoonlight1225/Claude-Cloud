@@ -86,11 +86,14 @@ final class Downloads {
 
     /// Repoints the completed list at this container and drops every entry
     /// whose file is gone. What is left is hashed the next time it is used.
+    /// iOS 12 port: called off the main thread; the list is the main thread's.
     nonisolated func load() {
-        completedFiles = Self.existing(in: completedFiles.mapValues {
+        let recorded = DispatchQueue.main.sync { completedFiles }
+        let found = Self.existing(in: recorded.mapValues {
             workingLocation.appendingPathComponent($0.lastPathComponent)
         })
-        Dog.shared.join(self, "reporting \(completedFiles.count) download caches")
+        DispatchQueue.main.sync { completedFiles = found }
+        Dog.shared.join(self, "reporting \(found.count) download caches")
     }
 
     /// Every download, finished or not, and the record of them.
@@ -167,14 +170,24 @@ final class Downloads {
         }
     }
 
+    /// iOS 12 port: runs on the download's background thread; what the
+    /// engine records is touched on the main queue.
     private nonisolated func download(_ package: Package, from url: URL, token: UUID) {
         defer {
-            if running[url]?.token == token {
-                running[url] = nil
+            DispatchQueue.main.sync {
+                if running[url]?.token == token {
+                    running[url] = nil
+                }
             }
         }
+        func publish(_ status: Status) {
+            DispatchQueue.main.sync { self.publish(status) }
+        }
+        func discard(_ url: URL) {
+            DispatchQueue.main.sync { self.discard(url) }
+        }
 
-        if let cached = completedFiles[url], FileManager.default.fileExists(atPath: cached.path) {
+        if let cached = DispatchQueue.main.sync(execute: { completedFiles[url] }), FileManager.default.fileExists(atPath: cached.path) {
             if Self.verify(package, at: cached) {
                 Dog.shared.join(self, "\(package.identity) is already downloaded to \(cached.path)")
                 let size = (try? FileManager.default.attributesOfItem(atPath: cached.path)[.size] as? Int64) ?? 0
@@ -193,12 +206,14 @@ final class Downloads {
 
         // Until the server says how big the file is, use the size the
         // repository published so the bar does not walk backwards.
-        var status = Status(package: package, url: url, totalBytes: publishedSize(of: package))
+        var status = Status(package: package, url: url, totalBytes: DispatchQueue.main.sync { publishedSize(of: package) })
         publish(status)
 
         do {
-            let headers = RepositoryCenter.default.networkingHeaders
-            for try event in Downloader.download(from: url, headers: headers) {
+            let headers = DispatchQueue.main.sync { RepositoryCenter.default.networkingHeaders }
+            let events = Downloader.download(from: url, headers: headers)
+            LegacyTask.current?.onCancel { events.cancel() }
+            while let event = try events.next() {
                 switch event {
                 case let .progress(completedBytes, totalBytes, bytesPerSecond):
                     status.completedBytes = completedBytes
@@ -218,7 +233,7 @@ final class Downloads {
                         return
                     }
                     Dog.shared.join(self, "\(package.identity) checked out to \(checkout.path)", level: .info)
-                    completedFiles[url] = checkout
+                    DispatchQueue.main.sync { completedFiles[url] = checkout }
                     status.file = checkout
                     publish(status)
                 }
@@ -253,13 +268,14 @@ final class Downloads {
     /// hashing to what the repository published. Anything else is thrown away
     /// so the next request downloads it again.
     nonisolated func downloadedFile(for package: Package) -> URL? {
+        // iOS 12 port: hashes on the caller's background thread
         let url = package.obtainDownloadLink()
-        guard let file = completedFiles[url] else { return nil }
+        guard let file = DispatchQueue.main.sync(execute: { completedFiles[url] }) else { return nil }
         guard FileManager.default.fileExists(atPath: file.path),
               Self.verify(package, at: file)
         else {
             Dog.shared.join(self, "dropping unusable download for \(package.identity)", level: .warning)
-            discard(url)
+            DispatchQueue.main.sync { discard(url) }
             return nil
         }
         return file
@@ -272,7 +288,6 @@ final class Downloads {
         PartialDownloads.discard(url)
     }
 
-    @concurrent
     private nonisolated static func existing(in lookup: [URL: URL]) -> [URL: URL] {
         lookup.filter { _, file in
             var isDirectory = ObjCBool(false)
@@ -288,7 +303,6 @@ final class Downloads {
     /// there is one; a repository that only publishes sha1 or md5 is checked
     /// against that instead, and one that publishes nothing has to be taken on
     /// trust.
-    @concurrent
     nonisolated static func verify(_ package: Package, at file: URL) -> Bool {
         guard let data = try? Data(contentsOf: file, options: .mappedIfSafe) else {
             Dog.shared.join("Downloads", "failed to read \(package.identity) from \(file.path)", level: .error)
@@ -323,7 +337,6 @@ final class Downloads {
 
     /// Checks the finished download and moves it next to the others, under a
     /// name that says what it is. Nil when it did not hash.
-    @concurrent
     private nonisolated static func checkout(_ package: Package, from source: URL, into directory: URL) -> URL? {
         guard verify(package, at: source) else {
             try? FileManager.default.removeItem(at: source)

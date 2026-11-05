@@ -29,7 +29,6 @@ nonisolated struct TweakInjection: Equatable, Sendable {
     private let entries: Set<Entry>
 
     /// The directories under this device's bootstrap.
-    @concurrent
     static nonisolated func read() -> TweakInjection {
         read(directories.map(JailbreakRoot.installedPath))
     }

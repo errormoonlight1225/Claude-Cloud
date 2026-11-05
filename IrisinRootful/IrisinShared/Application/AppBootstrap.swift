@@ -27,40 +27,46 @@ enum AppBootstrap {
         // never in the first count
         PackageCenter.default.restoreUpdatePreferences()
 
+        // iOS 12 port: the reads run on this background task; everything
+        // that was the main actor's between them runs on the main queue.
         task = LegacyTask.detached {
-            DeviceIdentity.applyNetworkingHeaders()
+            DispatchQueue.main.sync { DeviceIdentity.applyNetworkingHeaders() }
 
             // MARK: - CENTER
 
             PackageCenter.default.load()
             RepositoryCenter.default.load()
 
-            // the first tap on Install finds the catalogue already read
-            PackageQueue.shared.schedulePreflight()
+            DispatchQueue.main.sync {
+                // the first tap on Install finds the catalogue already read
+                PackageQueue.shared.schedulePreflight()
 
-            // MARK: - PRIVILEGED BACKEND
+                // MARK: - PRIVILEGED BACKEND
 
-            PrivilegedBackend.start()
+                PrivilegedBackend.start()
 
-            // MARK: - DOWNLOAD ENGINE
+                // MARK: - DOWNLOAD ENGINE
 
-            CellularPolicy.allowForThisApplication()
+                CellularPolicy.allowForThisApplication()
+            }
 
             Downloads.shared.load()
 
-            // MARK: - PROCESSOR
+            DispatchQueue.main.sync {
+                // MARK: - PROCESSOR
 
-            _ = Installer.shared
+                _ = Installer.shared
 
-            isFinished = true
+                isFinished = true
 
-            // MARK: - AUTOMATIC REFRESH
+                // MARK: - AUTOMATIC REFRESH
 
-            AutomaticRefresh.start()
+                AutomaticRefresh.start()
 
-            // MARK: - COMMAND LINE
+                // MARK: - COMMAND LINE
 
-            CommandLineChanges.observe()
+                CommandLineChanges.observe()
+            }
         }
     }
 
@@ -69,12 +75,13 @@ enum AppBootstrap {
     private(set) static var isFinished = false
 
     /// Returns when the engines are up; `false` where they never start.
+    /// iOS 12 port: blocks; call off the main thread.
     static nonisolated func finished() -> Bool {
-        guard let task else {
+        guard let task = DispatchQueue.main.sync(execute: { self.task }) else {
             Dog.shared.join("AppBootstrap", "asked for engines that were never started", level: .warning)
             return false
         }
-        task.value
+        task.wait()
         return true
     }
 }

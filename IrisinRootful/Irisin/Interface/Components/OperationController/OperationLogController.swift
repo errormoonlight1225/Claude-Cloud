@@ -56,7 +56,7 @@ final class OperationLogController: UIViewController {
         // Rows arrive in bursts while a script prints; the table is refreshed
         // at most ten times a second and always ends on the latest state.
         monitor.$lineCount
-            .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
+            .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main.ocombine, latest: true)
             .sink { [weak self] _ in
                 guard let self else { return }
                 apply(monitor.lines)

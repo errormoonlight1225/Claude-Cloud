@@ -114,8 +114,8 @@ class PackageBannerView: UIView {
 
         updateValues()
         // Open Queue follows the queue, whichever page changed it
-        queueSubscription = NotificationCenter.default.publisher(for: .PackageQueueChanged)
-            .receive(on: DispatchQueue.main)
+        queueSubscription = NotificationCenter.default.ocombine.publisher(for: .PackageQueueChanged)
+            .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.updateButton() }
     }
 

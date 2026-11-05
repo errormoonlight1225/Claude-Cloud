@@ -17,6 +17,7 @@ import UIKit
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var repositoryUpdateSubscription: AnyCancellable?
+    let reloadThrottle = Throttler(minimumDelay: 0.5)
 
     /// possible fix for some tweak crashing on something isn't my problem actually
     /// -[irisin.AppDelegate window]: unrecognized selector sent to instance
@@ -32,7 +33,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(
         _: UIApplication,
-        didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         observeRepositoryUpdates()
 
@@ -56,6 +57,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             AlertControllerConfiguration.alertImage = UIImage(named: name)
         }
 
+        // iOS 12 port: the window is the app delegate's (AppDelegate+Window)
+        makeWindow(launchOptions: launchOptions)
         return true
     }
 
