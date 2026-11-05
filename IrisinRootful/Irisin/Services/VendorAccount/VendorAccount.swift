@@ -145,12 +145,13 @@ final class VendorAccount {
         else {
             return nil
         }
-        return Self.logged(endpoint.appendingPathComponent("user_info")) { () throws(VendorService.Failure) in }
+        return Self.logged(endpoint.appendingPathComponent("user_info")) {
             try awaitBackground { try VendorService.purchasedIdentities(
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
             ) }
+        }
     }
 
     func purchaseStatus(for repo: URL, withPackageIdentity identity: String) -> PurchaseStatus? {
@@ -162,13 +163,14 @@ final class VendorAccount {
         else {
             return nil
         }
-        return Self.logged(VendorService.package(identity, "info", at: endpoint)) { () throws(VendorService.Failure) in }
+        return Self.logged(VendorService.package(identity, "info", at: endpoint)) {
             try awaitBackground { try VendorService.purchaseStatus(
                 of: identity,
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
             ) }
+        }
     }
 
     func initPurchase(
@@ -185,7 +187,7 @@ final class VendorAccount {
             return
         }
         // nil as well for a purchase that already went through: no page to open
-        let page = Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { () throws(VendorService.Failure) in }
+        let page = Self.logged(VendorService.package(identity, "purchase", at: endpoint)) {
             try awaitBackground { try VendorService.purchasePage(
                 for: identity,
                 architecture: PackagedArchitecture.architecture,
@@ -193,6 +195,7 @@ final class VendorAccount {
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
             ) }
+        }
         guard let url = page ?? nil else {
             return
         }
@@ -200,7 +203,7 @@ final class VendorAccount {
         let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "sileo") { _, _ in
             _ = foo
         }
-        session.presentationContextProvider = foo
+        if #available(iOS 13.0, *) { session.presentationContextProvider = foo }
         session.start()
     }
 
@@ -218,8 +221,7 @@ final class VendorAccount {
         else {
             return nil
         }
-        let link = awaitBackground { Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) { }
-            () throws(VendorService.Failure) in
+        let link = Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) {
             try awaitBackground { try VendorService.downloadLink(
                 for: package.identity,
                 version: package.latestVersion,
@@ -239,10 +241,10 @@ final class VendorAccount {
     /// a timeout, a 500 and a vendor answering with HTML.
     private static func logged<Value>(
         _ endpoint: URL,
-        _ call: () throws(VendorService.Failure) -> Value
+        _ call: () throws -> Value
     ) -> Value? {
         do {
-            return try awaitBackground { try call() }
+            return try call()
         } catch {
             Dog.shared.join("VendorAccount", "\(endpoint.absoluteString) \(error)", level: .error)
             return nil

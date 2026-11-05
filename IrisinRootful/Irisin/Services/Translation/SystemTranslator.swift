@@ -43,7 +43,7 @@ nonisolated enum SystemTranslator {
     /// Whether this device can translate into `target` at all: the engine
     /// loads, answers, and lists a pair that ends in the user's language.
     static func verify(target: Locale = preferredTarget) -> Failure? {
-        guard let pairs = awaitBackground({ availablePairs() }) else { return .unavailable }
+        guard let pairs = availablePairs() else { return .unavailable }
         return pairs.contains { matches($0.target, target) > 0 } ? nil : .unsupportedLanguage
     }
 
@@ -56,7 +56,7 @@ nonisolated enum SystemTranslator {
     /// The languages the engine reads and the ones it writes, by identifier,
     /// nil when it does not answer.
     static func languages() -> (sources: [Locale], targets: [Locale])? {
-        guard let pairs = awaitBackground({ availablePairs() }) else { return nil }
+        guard let pairs = availablePairs() else { return nil }
         func distinct(_ locales: [Locale]) -> [Locale] {
             var seen = Set<String>()
             return locales.filter { seen.insert($0.identifier).inserted }
@@ -71,10 +71,10 @@ nonisolated enum SystemTranslator {
         from source: Locale? = nil,
         to target: Locale = preferredTarget
     ) throws -> [String]? {
-        guard let pairs = awaitBackground({ availablePairs() }) else { throw Failure.unavailable }
+        guard let pairs = availablePairs() else { throw Failure.unavailable }
         let named = source
         let detected: Locale? = if named == nil {
-            awaitBackground { detectLanguage(of: texts.joined(separator: "\n")) }
+            detectLanguage(of: texts.joined(separator: "\n"))
         } else {
             nil
         }
@@ -95,13 +95,13 @@ nonisolated enum SystemTranslator {
             try LegacyTask.checkCancellation()
             var translated: String?
             if !accurateRouteFailed {
-                translated = try? awaitBackground { try request(text, pair: pair, onDeviceOnly: false) }
+                translated = try? request(text, pair: pair, onDeviceOnly: false)
                 accurateRouteFailed = translated == nil
             }
             let answer: String = if let translated {
                 translated
             } else {
-                try awaitBackground { try request(text, pair: pair, onDeviceOnly: true) }
+                try request(text, pair: pair, onDeviceOnly: true)
             }
             results.append(answer)
         }
@@ -117,7 +117,7 @@ nonisolated enum SystemTranslator {
 
     /// The engine's pairs, once it has answered with some: the list is the
     /// system's and does not change while the app runs.
-    private static let knownPairs = LockedState<[Pair]?>(initialState: nil)
+    private static let knownPairs = LegacyProtected<[Pair]?>(nil)
 
     /// How long the engine gets to answer before it counts as a failure.
     /// translationd drops a client it rejects without calling anything back.
@@ -146,29 +146,29 @@ nonisolated enum SystemTranslator {
     private static func answer<T: Sendable>(
         _ start: (@escaping @Sendable (T?) -> Void) -> Void
     ) -> T? {
-        legacyWaitOnMain { (continuation: LegacyContinuation<T?>) in
-            let answered = LockedState(initialState: false)
-            let finish: @Sendable (T?) -> Void = { value in
-                let first = answered.withLock { done in
-                    defer { done = true }
-                    return !done
-                }
-                if first {
-                    continuation.resume(returning: value)
-                }
+        // iOS 12 port: callers are off the main thread, so this blocks
+        let answered = LegacyProtected<T??>(nil)
+        let signal = DispatchSemaphore(value: 0)
+        let finish: @Sendable (T?) -> Void = { value in
+            let first = answered.withValue { stored -> Bool in
+                guard stored == nil else { return false }
+                stored = .some(value)
+                return true
             }
-            DispatchQueue.global().asyncAfter(deadline: .now() + patience) {
-                finish(nil)
+            if first {
+                signal.signal()
             }
-            start(finish)
         }
+        start(finish)
+        _ = signal.wait(timeout: .now() + patience)
+        return answered.value ?? nil
     }
 
     /// Every pair the engine translates text between, nil when it does not
     /// answer. A rejected client is answered with nothing.
     private static func availablePairs() -> [Pair]? {
         guard let engine else { return nil }
-        if let known = knownPairs.withLock({ $0 }) {
+        if let known = knownPairs.value {
             return known
         }
         let selector = NSSelectorFromString("availableLocalePairsForTask:completion:")
@@ -176,7 +176,7 @@ nonisolated enum SystemTranslator {
         typealias Call = @convention(c) (AnyClass, Selector, Int, AnyObject) -> Void
         let call = unsafeBitCast(method_getImplementation(method), to: Call.self)
         let textTask = 1
-        let pairs: [Pair]? = awaitBackground { answer { finish in }
+        let pairs: [Pair]? = answer { finish in
             let block: Block1 = { list in
                 finish((list as? [NSObject])?.compactMap { pair in
                     guard let source = pair.valueIfAnswered(forKey: "sourceLocale") as? Locale,
@@ -190,7 +190,7 @@ nonisolated enum SystemTranslator {
             call(engine.translator, selector, textTask, unsafeBitCast(block, to: AnyObject.self))
         }
         guard let pairs, !pairs.isEmpty else { return nil }
-        knownPairs.withLock { $0 = pairs }
+        knownPairs.value = pairs
         return pairs
     }
 
@@ -199,7 +199,7 @@ nonisolated enum SystemTranslator {
         guard let engine else { return nil }
         let selector = NSSelectorFromString("languageForText:completion:")
         guard engine.translator.responds(to: selector) else { return nil }
-        return awaitBackground { answer { finish in }
+        return answer { finish in
             let block: Block1 = { result in
                 guard let result = result as? NSObject,
                       result.valueIfAnswered(forKey: "isConfident") as? Bool == true
@@ -240,7 +240,7 @@ nonisolated enum SystemTranslator {
             throw Failure.unavailable
         }
 
-        let outcome: Result<String, Failure>? = awaitBackground { answer { finish in }
+        let outcome: Result<String, Failure>? = answer { finish in
             let handler: Block2 = { first, second in
                 if let error = [first, second].compactMap({ $0 as? NSError }).first {
                     return finish(.failure(.failed(error.localizedFailureReason ?? error.localizedDescription)))

@@ -58,6 +58,7 @@ class PackageCollectionCell: LegacyListCell {
     }
 
     /// The ground stays clear through every state: the page's own shows.
+    @available(iOS 14.0, *)
     override func updateConfiguration(using state: UICellConfigurationState) {
         super.updateConfiguration(using: state)
         legacyBackgroundConfiguration = .clear()

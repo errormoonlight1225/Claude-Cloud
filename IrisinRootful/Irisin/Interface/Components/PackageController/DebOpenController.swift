@@ -69,7 +69,8 @@ class DebOpenController: UIViewController {
     private func open(_ url: URL) {
         let kept: URL
         do {
-            kept = try Self.keep(url, inPlace: openedInPlace)
+            let inPlace = openedInPlace
+            kept = try awaitBackground { try Self.keep(url, inPlace: inPlace) }
         } catch {
             guard !LegacyTask.isCancelled else { return }
             Dog.shared.join(self, "can not copy \(url.path): \(error)", level: .error)
@@ -119,7 +120,7 @@ class DebOpenController: UIViewController {
     /// coordinated read, because moving it would take it out of their folder.
     ///
     /// Off the main actor: a file in iCloud Drive may have to download first.
-    private static func keep(_ url: URL, inPlace: Bool) throws -> URL {
+    private nonisolated static func keep(_ url: URL, inPlace: Bool) throws -> URL {
         let directory = documentsDirectory
             .appendingPathComponent("DirectInstallCache")
             .appendingPathComponent(UUID().uuidString)
@@ -127,7 +128,8 @@ class DebOpenController: UIViewController {
         let kept = directory.appendingPathComponent(url.lastPathComponent)
         do {
             if inPlace {
-                try awaitBackground { try url.readingCoordinated { readable in }
+                // iOS 12 port: the caller runs this off the main thread
+                try url.readingCoordinated { readable in
                     try FileManager.default.copyItem(at: readable, to: kept)
                 }
             } else {

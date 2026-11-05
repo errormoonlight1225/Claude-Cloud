@@ -64,7 +64,7 @@ class WelcomeController: UIViewController {
             $0.navigationBar.tintColor = .buttonNormal
             $0.modalTransitionStyle = .coverVertical
             $0.modalPresentationStyle = .formSheet
-            $0.isModalInPresentation = true
+            if #available(iOS 13.0, *) { $0.isModalInPresentation = true }
             $0.preferredContentSize = controller.preferredContentSize
         }
     }

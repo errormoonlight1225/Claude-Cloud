@@ -129,7 +129,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
     /// its rows in place; a slower list animates in after the push.
     func prepare(within budget: TimeInterval) {
         loadViewIfNeeded()
-        awaitBackground { reloadTask?.wait(upTo: budget) }
+        reloadTask?.wait(upTo: budget)
     }
 
     /// Pushes the page from `host` once its first list is in, or 200 ms on.

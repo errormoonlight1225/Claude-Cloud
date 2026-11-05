@@ -51,7 +51,7 @@ extension UIViewController {
             // the screen's own bar items, and a way out
             let navigator = UINavigationController(rootViewController: next)
             next.navigationItem.leftBarButtonItem = UIBarButtonItem(
-                systemItem: .close,
+                systemItem: .compatClose,
                 primaryAction: LegacyAction { [weak navigator] _ in navigator?.dismiss(animated: true) }
             )
             navigator.preferredContentSize = preferredPopOverSize
@@ -77,7 +77,9 @@ extension UINavigationController {
         if #available(iOS 26.1, *) {
             navigator.presentationController?.backgroundEffect = UIColorEffect(color: .groupedBackground)
         }
-        if UIDevice.current.userInterfaceIdiom != .pad, let sheet = navigator.sheetPresentationController {
+        if #available(iOS 15.0, *), UIDevice.current.userInterfaceIdiom != .pad,
+           let sheet = navigator.sheetPresentationController
+        {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
         }

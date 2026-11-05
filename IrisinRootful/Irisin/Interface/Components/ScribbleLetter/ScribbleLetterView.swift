@@ -347,7 +347,7 @@ final class ScribbleLetterView: UIView {
     #if !os(tvOS)
         override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
             super.traitCollectionDidChange(previousTraitCollection)
-            if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            if traitCollection.compatHasDifferentColorAppearance(comparedTo: previousTraitCollection) {
                 applyColor()
             }
         }

@@ -76,12 +76,11 @@ final class QueuePackageCell: UITableViewCell {
         // the fill keeps to the card's rounded corners
         clipsToBounds = true
         // a state update would put the opaque colour back over the fill
-        var background = standardBackground()
-        ground.backgroundColor = background.resolvedBackgroundColor(for: tintColor)
+        // iOS 12 port: the ground is the cell's background view
+        ground.backgroundColor = Self.groundColor
         ground.addSubview(progressFill)
-        background.backgroundColor = .clear
-        background.customView = ground
-        legacyBackgroundConfiguration = background
+        backgroundColor = .clear
+        backgroundView = ground
 
         // the word, then the chevron's column; a row with no download
         // narrows the status to the column alone
@@ -113,26 +112,12 @@ final class QueuePackageCell: UITableViewCell {
     /// press is shown here: the page a row opens may take a moment to come.
     override func setHighlighted(_ highlighted: Bool, animated: Bool) {
         super.setHighlighted(highlighted, animated: animated)
-        var state = configurationState
-        state.isHighlighted = highlighted
-        let color = standardBackground().updated(for: state).resolvedBackgroundColor(for: tintColor)
+        let color = highlighted ? UIColor.compatSystemGray4 : Self.groundColor
         UIView.animate(withDuration: animated ? 0.2 : 0) { self.ground.backgroundColor = color }
     }
 
-    /// The cell's stock background. iOS 15 has no
-    /// `defaultBackgroundConfiguration()`; there it is the grouped list
-    /// cell's, which the queue's inset grouped table uses, on the card
-    /// colour: a configuration with no colour resolves to the tint.
-    private func standardBackground() -> LegacyBackgroundConfiguration {
-        if #available(iOS 16, *) {
-            return defaultBackgroundConfiguration()
-        }
-        var background = LegacyBackgroundConfiguration.listGroupedCell()
-        if background.backgroundColor == nil {
-            background.backgroundColor = .cardBackground
-        }
-        return background
-    }
+    /// The card colour of the queue's grouped table.
+    private static let groundColor = UIColor.cardBackground
 
     override func layoutSubviews() {
         super.layoutSubviews()

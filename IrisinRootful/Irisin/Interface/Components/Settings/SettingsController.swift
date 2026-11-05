@@ -83,20 +83,20 @@ class SettingsController: UITableViewController {
             image: UIImage.compatSystemImage("ellipsis"),
             menu: LegacyMenu(children: [
                 LegacyAction(
-                    title: String(localized: "Welcome Page"),
+                    title: String(legacyLocalized: "Welcome Page"),
                     image: UIImage.compatSystemImage("hand.wave")
                 ) { [weak self] _ in
                     self?.present(WelcomeController.makeNavigator(), animated: true)
                 },
                 LegacyAction(
-                    title: String(localized: "System Settings"),
+                    title: String(legacyLocalized: "System Settings"),
                     image: UIImage.compatSystemImage("gear")
                 ) { _ in
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 },
                 LegacyAction(
-                    title: String(localized: "Get Test Update"),
+                    title: String(legacyLocalized: "Get Test Update"),
                     image: UIImage.compatSystemImage("shippingbox")
                 ) { [weak self] _ in
                     self?.getTestUpdate()
@@ -108,7 +108,7 @@ class SettingsController: UITableViewController {
                     },
                 ]),
             ])
-        ).then { $0.accessibilityLabel = String(localized: "More") }
+        ).then { $0.accessibilityLabel = String(legacyLocalized: "More") }
         // the grouped ground: the page and the cards match every other
         // inset grouped list in the app
         view.backgroundColor = .groupedBackground
@@ -256,8 +256,20 @@ class SettingsController: UITableViewController {
         }
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if #unavailable(iOS 13.0) { legacyIsAppearing(animated) }
+    }
+
+    @available(iOS 13.0, *)
     override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
+        legacyIsAppearing(animated)
+    }
+
+    /// iOS 12 port: `viewIsAppearing` is iOS 13; iOS 12 runs this from
+    /// `viewWillAppear`.
+    private func legacyIsAppearing(_ animated: Bool) {
         listUpdates.applyPending()
         // the sizes on the rows are read when configured; coming back to
         // this screen after a download must not show the old ones

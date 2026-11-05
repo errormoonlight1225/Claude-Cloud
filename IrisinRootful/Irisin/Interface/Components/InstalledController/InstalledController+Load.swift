@@ -33,7 +33,7 @@ extension InstalledController {
         collectionView.delegate = self
         collectionView.alwaysBounceVertical = true
         collectionView.backgroundColor = .clear
-        collectionView.allowsMultipleSelectionDuringEditing = true
+        collectionView.compatAllowsMultipleSelectionDuringEditing = true
         collectionView.register(InstalledPackageCell.self, forCellWithReuseIdentifier: cellId)
         _ = gridSwipe
         collectionView.register(

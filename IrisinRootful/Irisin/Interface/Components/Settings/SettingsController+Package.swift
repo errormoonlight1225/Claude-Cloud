@@ -18,7 +18,7 @@ extension SettingsController {
             SettingsItem(
                 id: "package.blocked",
                 icon: "hand.raised.fill",
-                title: String(localized: "Blocked Updates"),
+                title: String(legacyLocalized: "Blocked Updates"),
                 kind: .disclosure,
                 action: { [weak self] in
                     self?.present(next: BlockUpdateController())
@@ -28,7 +28,7 @@ extension SettingsController {
             SettingsItem(
                 id: "package.translate",
                 icon: "character.bubble",
-                title: String(localized: "Auto Translate"),
+                title: String(legacyLocalized: "Auto Translate"),
                 kind: .toggle,
                 isOn: { AutomaticTranslation.isEnabled },
                 setOn: { [weak self] isOn in
@@ -56,7 +56,7 @@ extension SettingsController {
             SettingsItem(
                 id: "package.systemRemoval",
                 icon: "exclamationmark.shield",
-                title: String(localized: "Power Operations"),
+                title: String(legacyLocalized: "Power Operations"),
                 kind: .toggle,
                 isOn: { PackageQueue.shared.allowSystemRemoval },
                 setOn: { [weak self] isOn in
@@ -112,7 +112,7 @@ extension SettingsController {
             SettingsItem(
                 id: "package.downloads",
                 icon: "tray.full",
-                title: String(localized: "Downloads Folder"),
+                title: String(legacyLocalized: "Downloads Folder"),
                 kind: .disclosure,
                 action: { [weak self] in
                     self?.openInFila(path: Downloads.shared.workingLocation.path)
@@ -121,7 +121,7 @@ extension SettingsController {
             SettingsItem(
                 id: "package.clean",
                 icon: "trash",
-                title: String(localized: "Clear Downloads"),
+                title: String(legacyLocalized: "Clear Downloads"),
                 kind: .value,
                 value: {
                     var compute = 0
@@ -148,7 +148,7 @@ extension SettingsController {
                 },
                 menu: { [weak self] in
                     guard let self else { return [] }
-                    return confirmMenu(String(localized: "Clear Downloads")) {
+                    return confirmMenu(String(legacyLocalized: "Clear Downloads")) {
                         Downloads.shared.clear()
                         try? FileManager.default
                             .removeItem(at: documentsDirectory.appendingPathComponent("DirectInstallCache"))

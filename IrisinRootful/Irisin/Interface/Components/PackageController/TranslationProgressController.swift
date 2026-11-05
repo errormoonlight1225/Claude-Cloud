@@ -68,19 +68,15 @@ final class TranslationProgressController: UIViewController {
 
         // a lone action is the accent one, as the library draws it; the
         // library does not export its button
-        var accent = UIButton.Configuration.filled()
+        var accent = LegacyButtonConfiguration.filled()
         accent.title = String(legacyLocalized: "Cancel")
         accent.baseForegroundColor = AlertControllerConfiguration.accentForegroundColor
         accent.baseBackgroundColor = AlertControllerConfiguration.accentColor
         accent.background.cornerRadius = 12
         accent.cornerStyle = .fixed
         accent.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8)
-        accent.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer {
-            var outgoing = $0
-            outgoing.font = .bodyEmphasized
-            return outgoing
-        }
-        cancelButton.configuration = accent
+        accent.font = .bodyEmphasized
+        cancelButton.legacyConfiguration = accent
         cancelButton.legacyAddAction(for: .touchUpInside) { [weak self] _ in
             guard let self, cancelButton.isEnabled else { return }
             // once: the card is on its way out from here

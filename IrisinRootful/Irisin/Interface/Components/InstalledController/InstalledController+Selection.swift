@@ -16,7 +16,7 @@ import UIKit
 extension InstalledController {
     override func setEditing(_ editing: Bool, animated: Bool) {
         super.setEditing(editing, animated: animated)
-        collectionView.isEditing = editing
+        collectionView.compatIsEditing = editing
         gridSwipe.close(animated: animated)
         if editing {
             // the system's Done, made for each edit: one that has left the

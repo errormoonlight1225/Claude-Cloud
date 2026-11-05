@@ -38,10 +38,10 @@ final class WelcomeActionBar: UIView {
             x.height.equalTo(48)
         }
         if let secondaryTitle {
-            var plain = UIButton.Configuration.plain()
+            var plain = LegacyButtonConfiguration.plain()
             plain.baseForegroundColor = .buttonNormal
             plain.title = secondaryTitle
-            let secondary = UIButton(configuration: plain)
+            let secondary = UIButton(legacyConfiguration: plain)
             secondary.titleLabel?.font = WelcomeStyle.subtitleFont
             secondary.legacyAddAction(for: .touchUpInside) { _ in secondaryAction() }
             addSubview(secondary)
@@ -60,12 +60,13 @@ final class WelcomeActionBar: UIView {
         button.layer.cornerRadius = 12
         button.clipsToBounds = true
         button.titleLabel?.font = WelcomeStyle.buttonFont
-        var configuration = UIButton.Configuration.filled()
+        var configuration = LegacyButtonConfiguration.filled()
         configuration.cornerStyle = .large
         configuration.baseBackgroundColor = .buttonNormal
         configuration.baseForegroundColor = .onAccent
         configuration.title = title
-        button.configuration = configuration
+        configuration.font = WelcomeStyle.buttonFont
+        button.legacyConfiguration = configuration
         button.legacyAddAction(for: .touchUpInside) { _ in action() }
     }
 

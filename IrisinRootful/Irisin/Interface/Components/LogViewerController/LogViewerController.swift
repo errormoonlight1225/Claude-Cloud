@@ -62,7 +62,7 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
     /// it. A page pushed after this shows its rows at once when the parse
     /// made it in time; otherwise the rows land when it does.
     func prepare(within budget: TimeInterval) {
-        awaitBackground { work?.wait(upTo: budget) }
+        work?.wait(upTo: budget)
         loadViewIfNeeded()
         view.layoutIfNeeded()
     }
@@ -130,7 +130,7 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
         // disappearing it: the previous timer goes first.
         tail?.invalidate()
         tail = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reloadIfFileGrew() }
+            self?.reloadIfFileGrew()
         }
     }
 

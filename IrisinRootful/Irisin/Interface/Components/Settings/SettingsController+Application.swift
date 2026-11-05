@@ -17,7 +17,7 @@ extension SettingsController {
             SettingsItem(
                 id: "app.uicache",
                 icon: "square.grid.2x2",
-                title: String(localized: "Rebuild Icons"),
+                title: String(legacyLocalized: "Rebuild Icons"),
                 kind: .disclosure,
                 action: { [weak self] in
                     let alert = progressAlert(
@@ -37,7 +37,7 @@ extension SettingsController {
             SettingsItem(
                 id: "app.respring",
                 icon: "rays",
-                title: String(localized: "Reload Home Screen"),
+                title: String(legacyLocalized: "Reload Home Screen"),
                 kind: .disclosure,
                 action: { [weak self] in
                     self?.presentConfirmation(
@@ -64,11 +64,12 @@ extension SettingsController {
             legacyWaitOnMain { shown in
                 present(alert, animated: true) { shown.resume() }
             }
-            let result: Result<URL, TestUpdate.Failure>
-            do throws(TestUpdate.Failure) {
-                result = try awaitBackground { try .success(TestUpdate.download(architecture: PackagedArchitecture.architecture)) }
-            } catch {
-                result = .failure(error)
+            let result: Result<URL, TestUpdate.Failure> = awaitBackground {
+                do throws(TestUpdate.Failure) {
+                    return try .success(TestUpdate.download(architecture: PackagedArchitecture.architecture))
+                } catch {
+                    return .failure(error)
+                }
             }
             alert.dismissFinishing(animated: true)
             switch result {
@@ -90,7 +91,7 @@ extension SettingsController {
             SettingsItem(
                 id: "app.logs",
                 icon: "doc.richtext",
-                title: String(localized: "View Logs"),
+                title: String(legacyLocalized: "View Logs"),
                 kind: .disclosure,
                 action: { [weak self] in
                     self?.presentLogViewer()
@@ -99,7 +100,7 @@ extension SettingsController {
             SettingsItem(
                 id: "app.manual",
                 icon: "book",
-                title: String(localized: "User Manual"),
+                title: String(legacyLocalized: "User Manual"),
                 kind: .disclosure,
                 action: {
                     guard let url = URL(string: "https://lakr233.github.io/Irisin/manual/") else { return }
@@ -109,7 +110,7 @@ extension SettingsController {
             SettingsItem(
                 id: "app.report",
                 icon: "exclamationmark.bubble",
-                title: String(localized: "Report Issue"),
+                title: String(legacyLocalized: "Report Issue"),
                 kind: .disclosure,
                 action: {
                     guard let url = URL(string: "https://github.com/Lakr233/Irisin/issues/new") else { return }

@@ -69,7 +69,7 @@ extension UIFont {
     static func rounded(_ size: TypeSize, emphasized: Bool = false) -> UIFont {
         let weight: UIFont.Weight = emphasized ? .semibold : .regular
         var font = systemFont(ofSize: size.rawValue, weight: weight)
-        if let descriptor = font.fontDescriptor.compatWithDesign(.rounded) {
+        if let descriptor = font.fontDescriptor.compatRounded() {
             font = UIFont(descriptor: descriptor, size: size.rawValue)
         }
         return size.metrics.scaledFont(for: font)
@@ -89,8 +89,8 @@ extension UIFont {
 
     /// The same face with tabular digits, for counters that must not jitter.
     var monospacedDigitFont: UIFont {
-        let settings = [[UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
-                         UIFontDescriptor.FeatureKey.selector: kMonospacedNumbersSelector]]
+        let settings = [[UIFontDescriptor.FeatureKey.featureIdentifier: kNumberSpacingType,
+                         UIFontDescriptor.FeatureKey.typeIdentifier: kMonospacedNumbersSelector]]
         let descriptor = fontDescriptor.addingAttributes([.featureSettings: settings])
         return UIFont(descriptor: descriptor, size: 0)
     }
@@ -144,7 +144,7 @@ extension UIFont {
 }
 
 extension LegacySymbolConfiguration {
-    convenience init(_ size: TypeSize, emphasized: Bool = false) {
+    init(_ size: TypeSize, emphasized: Bool = false) {
         self.init(pointSize: size.scaled, weight: emphasized ? .semibold : .regular)
     }
 }

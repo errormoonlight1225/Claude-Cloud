@@ -152,10 +152,7 @@ enum ShareSheet {
         if canPresent(over: presenter) {
             return presenter
         }
-        let window = presenter.viewIfLoaded?.window ?? anchor?.view?.window ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }?
-            .keyWindow
+        let window = presenter.viewIfLoaded?.window ?? anchor?.view?.window ?? UIApplication.shared.keyWindow
         guard var top = window?.rootViewController else { return nil }
         while let next = top.presentedViewController, !next.isBeingDismissed {
             top = next

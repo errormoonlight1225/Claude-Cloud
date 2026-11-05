@@ -328,6 +328,9 @@
                         completion(current.makeNativeMenu(sender: self).children)
                     }])
                     showsMenuAsPrimaryAction = true
+                } else {
+                    self.menu = nil
+                    showsMenuAsPrimaryAction = false
                 }
                 return
             }

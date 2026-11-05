@@ -62,7 +62,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
         navigationItem.rightBarButtonItem = share
         if closesSheet {
             navigationItem.leftBarButtonItem = UIBarButtonItem(
-                systemItem: .close,
+                systemItem: .compatClose,
                 primaryAction: LegacyAction { [weak self] _ in self?.dismiss(animated: true) }
             )
         }

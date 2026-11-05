@@ -56,7 +56,7 @@ extension UIColor {
     private static func ground(light: UIColor) -> UIColor {
         UIColor.compatDynamic { trait in
             guard trait.userInterfaceStyle == .dark else { return light.compatResolvedColor(with: trait) }
-            return trait.userInterfaceLevel == .elevated ? elevatedGround : .black
+            return trait.compatIsElevated ? elevatedGround : .black
         }
     }
 }

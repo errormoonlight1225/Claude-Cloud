@@ -50,7 +50,7 @@ final class TranslationStatusView: UIView {
 
     private let symbol = UIImageView().then {
         $0.tintColor = .textSubtitle
-        $0.preferredSymbolConfiguration = LegacySymbolConfiguration(font: .footnote)
+        $0.compatPreferredSymbolConfiguration = LegacySymbolConfiguration(font: .footnote)
     }
 
     private let caption = UILabel().then {

@@ -39,7 +39,7 @@ struct SettingsItem {
 class SettingsCell: UITableViewCell {
     let iconView = UIImageView().then {
         $0.contentMode = .scaleAspectFit
-        $0.preferredSymbolConfiguration = LegacySymbolConfiguration(.body)
+        $0.compatPreferredSymbolConfiguration = LegacySymbolConfiguration(.body)
     }
 
     let titleLabel = UILabel().then {
@@ -107,7 +107,7 @@ class SettingsCell: UITableViewCell {
             ]))
         } else {
             menuButton.isHidden = true
-            menuButton.menu = nil
+            menuButton.legacySetMenu(nil as LegacyMenu?)
         }
         refresh()
     }

@@ -61,7 +61,11 @@ final class LicenseController: UITableViewController {
         super.viewDidLoad()
         title = String(legacyLocalized: "License")
         navigationItem.largeTitleDisplayMode = .never
-        navigationItem.backButtonDisplayMode = .minimal
+        if #available(iOS 14.0, *) {
+            navigationItem.backButtonDisplayMode = .minimal
+        } else {
+            navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
+        }
         view.backgroundColor = .groupedBackground
 
         if let url = Bundle.main.url(forResource: "Licenses", withExtension: "json"),

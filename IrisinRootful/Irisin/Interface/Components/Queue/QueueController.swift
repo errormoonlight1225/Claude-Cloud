@@ -206,8 +206,20 @@ final class QueueController: UIViewController, UITableViewDelegate {
             .store(in: &subscriptions)
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if #unavailable(iOS 13.0) { legacyIsAppearing(animated) }
+    }
+
+    @available(iOS 13.0, *)
     override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
+        legacyIsAppearing(animated)
+    }
+
+    /// iOS 12 port: `viewIsAppearing` is iOS 13; iOS 12 runs this from
+    /// `viewWillAppear`.
+    private func legacyIsAppearing(_ animated: Bool) {
         reload()
         listUpdates.applyPending()
     }
@@ -563,9 +575,9 @@ final class QueueController: UIViewController, UITableViewDelegate {
         stage = .downloading
         refreshVisibleProgress()
         watch = LegacyMainTask { [weak self] in
-            let failure = awaitBackground { Downloads.shared.awaitFiles(of: pending, in: plan.id) { [weak self] in }
+            let failure = awaitBackground { Downloads.shared.awaitFiles(of: pending, in: plan.id) { [weak self] in
                 self?.refreshVisibleProgress()
-            }
+            } }
             // a plan that replaced this one has a watch of its own
             guard !LegacyTask.isCancelled, let self, PackageQueue.shared.plan?.id == plan.id else { return }
             watch = nil
@@ -574,7 +586,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
                 Dog.shared.join("Queue", "download failed: \(failure)", level: .error)
                 let purchased = pending.contains { $0.latestMetadata?["tag"]?.contains("cydia::commercial") ?? false }
                 self.failure = purchased
-                    ? failure + "\n" + String(localized: "A purchased package's download link expires. Remove it from the queue and add it again.")
+                    ? failure + "\n" + String(legacyLocalized: "A purchased package's download link expires. Remove it from the queue and add it again.")
                     : failure
                 committed = false
                 stage = .downloadFailed

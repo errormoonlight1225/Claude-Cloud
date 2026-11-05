@@ -73,6 +73,7 @@ final class InstalledPackageCell: LegacyListCell {
     /// The ground stays clear through every state: the page's own shows. The
     /// mark comes and goes with the list's editing, and says whether the row
     /// is one of the selected.
+    @available(iOS 14.0, *)
     override func updateConfiguration(using state: UICellConfigurationState) {
         super.updateConfiguration(using: state)
         legacyBackgroundConfiguration = .clear()

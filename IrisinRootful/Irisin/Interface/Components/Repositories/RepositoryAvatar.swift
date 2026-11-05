@@ -27,7 +27,7 @@ enum RepositoryAvatar {
     /// One small picture per repository: a hundred of them are a few
     /// megabytes, so nothing is ever let go.
     private static var entries: [URL: Entry] = [:]
-    private static var decoding: [URL: (data: Data, task: LegacyMainTask)] = [:]
+    private static var decoding: [URL: (data: Data, task: LegacyFuture<UIImage?>)] = [:]
 
     /// The icon made from `data` if it has been made; `.some(nil)` when the
     /// data is no picture.
@@ -44,7 +44,8 @@ enum RepositoryAvatar {
         if let pending = decoding[url], pending.data == data {
             return awaitBackground { pending.task.value }
         }
-        let task = LegacyMainTask { awaitBackground { downsample(data, to: pixelSize) } }
+        let size = pixelSize
+        let task = LegacyFuture { downsample(data, to: size) }
         decoding[url] = (data, task)
         let image = awaitBackground { task.value }
         entries[url] = Entry(data: data, image: image)

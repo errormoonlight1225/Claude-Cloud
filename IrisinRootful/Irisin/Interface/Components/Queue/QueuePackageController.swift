@@ -79,7 +79,7 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
     /// arrives with the page and only a slow one fades in after it. A large
     /// package takes seconds to read; the page does not wait for that.
     func prepare(within budget: TimeInterval) {
-        awaitBackground { work?.wait(upTo: budget) }
+        work?.wait(upTo: budget)
     }
 
     override func viewDidLoad() {
@@ -187,7 +187,7 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         case .added, .replaced, .deleted:
             let count = paths(for: row).count
             content.text = title(of: row)
-            content.secondaryText = count.formatted()
+            content.secondaryText = NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal)
             // something already there goes: the one count worth a second look
             if row == .replaced, count > 0 {
                 content.textProperties.color = .diffReplacement

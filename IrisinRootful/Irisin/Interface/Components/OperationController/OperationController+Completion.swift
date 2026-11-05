@@ -84,12 +84,12 @@ extension OperationController {
     private func reloadButton() -> UIBarButtonItem {
         let reason = String(legacyLocalized: "Changed tweaks take effect after the home screen reloads.")
         let button = UIBarButtonItem(
-            title: String(localized: "Reload Home Screen"),
+            title: String(legacyLocalized: "Reload Home Screen"),
             image: nil,
             primaryAction: LegacyAction { [weak self] _ in self?.reloadHomeScreen() },
             menu: LegacyMenu(title: reason, children: [
                 LegacyAction(
-                    title: String(localized: "Skip for Now"),
+                    title: String(legacyLocalized: "Skip for Now"),
                     image: UIImage.compatSystemImage("xmark")
                 ) { [weak self] _ in self?.dismiss(animated: true) },
             ])
@@ -102,7 +102,7 @@ extension OperationController {
     private func reloadHomeScreen() {
         dismiss(animated: true) {
             UIApplication.prepareForExitAndSuspend()
-            LegacyMainTask { awaitBackground { PrivilegedBackend.run(.respring) } }
+            LegacyMainTask { _ = awaitBackground { PrivilegedBackend.run(.respring) } }
         }
     }
 

@@ -32,12 +32,6 @@ class TabInterfaceController: UITabBarController {
 
         if #available(iOS 18.0, *) {
             let searchTab = UISearchTab { _ in search }
-            // iOS 26 set the search tab apart on its own; from iOS 27 that
-            // place is the prominent tab's, and a search tab only takes it
-            // unasked when it activates search by itself, which ours does not.
-            if #available(iOS 27.0, *) {
-                prominentTabIdentifier = searchTab.identifier
-            }
             everyTab = [
                 UITab(
                     title: dashboard.tabBarItem.title ?? "",

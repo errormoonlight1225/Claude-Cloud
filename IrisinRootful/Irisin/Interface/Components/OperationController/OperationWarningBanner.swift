@@ -21,7 +21,7 @@ final class OperationWarningBanner: UIView {
         banner.backgroundColor = .operationFailed
 
         icon.tintColor = .onAccent
-        icon.preferredSymbolConfiguration = .init(.body, emphasized: true)
+        icon.compatPreferredSymbolConfiguration = LegacySymbolConfiguration(.body, emphasized: true)
         icon.setContentHuggingPriority(.required, for: .horizontal)
 
         label.font = .bodyEmphasized

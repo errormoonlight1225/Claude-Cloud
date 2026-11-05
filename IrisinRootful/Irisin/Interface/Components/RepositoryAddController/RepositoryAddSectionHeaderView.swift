@@ -22,19 +22,19 @@ final class RepositoryAddSectionHeaderView: UITableViewHeaderFooterView {
     private let label = UILabel().then {
         let properties = RepositoryAddSectionHeaderView.style.textProperties
         $0.font = properties.font
-        $0.textColor = properties.resolvedColor()
+        $0.textColor = properties.color
         $0.adjustsFontForContentSizeCategory = true
         $0.numberOfLines = 0
     }
 
     private let button = UIButton().then {
         // text alone, ending where the rows' own buttons end
-        var configuration = UIButton.Configuration.plain()
+        var configuration = LegacyButtonConfiguration.plain()
         configuration.buttonSize = .small
         configuration.contentInsets = .init(top: 6, leading: 12, bottom: 6, trailing: 0)
         configuration.baseForegroundColor = .buttonNormal
         configuration.title = String(legacyLocalized: "Add All")
-        $0.configuration = configuration
+        $0.legacyConfiguration = configuration
     }
 
     var onAddAll: (() -> Void)?

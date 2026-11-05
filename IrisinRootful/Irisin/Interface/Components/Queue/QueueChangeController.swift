@@ -129,7 +129,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// row the user swiped is all they saw, so an answer that changes the
     /// queue by that package alone joins it without the sheet, and one
     /// that brings anything along still shows it (`takeIfPlain`).
-    @TaskLocal static var takesPlainChanges = false
+    static let plainChanges = LegacyTaskLocal(wrappedValue: false)
+    static var takesPlainChanges: Bool { plainChanges.value }
 
     /// Presents the sheet, after waiting a moment for the solver so a quick
     /// answer lands with it. A request that cannot be met has no changes to
@@ -207,7 +208,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     }
 
     private func prepare(within budget: TimeInterval) {
-        awaitBackground { work?.wait(upTo: budget) }
+        work?.wait(upTo: budget)
     }
 
     override func viewDidLoad() {
@@ -370,10 +371,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         guard confirming == nil else { return }
         if let work {
             // a tick is still being solved: Confirm takes its answer
-            LegacyMainTask { [weak self] in
-                awaitBackground { work.value }
-                self?.commit()
-            }
+            work.whenFinished { [weak self] in self?.commit() }
             return
         }
         guard let proposal else { return }

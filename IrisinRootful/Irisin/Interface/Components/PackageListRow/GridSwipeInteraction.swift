@@ -208,7 +208,7 @@ final class GridSwipeTray: UIView {
             button.tintColor = .swipeGlyph
             button.setImage(
                 action.image?.withRenderingMode(.alwaysTemplate)
-                    .applyingSymbolConfiguration(.init(font: .type(.title))),
+                    .compatWithConfiguration(LegacySymbolConfiguration(font: .type(.title))),
                 for: .normal
             )
             button.accessibilityLabel = action.accessibilityLabel ?? action.title

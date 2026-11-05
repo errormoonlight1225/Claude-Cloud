@@ -50,7 +50,7 @@ final class WelcomeFeatureRow: UIView {
         detailLabel.numberOfLines = 0
 
         iconView.image = UIImage.compatSystemImage(feature.symbol)?
-            .applyingSymbolConfiguration(WelcomeStyle.featureSymbol)
+            .compatWithConfiguration(WelcomeStyle.featureSymbol)
         iconView.tintColor = .buttonNormal
         titleLabel.text = String(resolving: feature.title)
         detailLabel.text = String(resolving: feature.detail)

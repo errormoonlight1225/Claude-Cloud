@@ -13,7 +13,12 @@ extension UIColor {
     /// A dynamic color that follows the interface style. Either side may be
     /// dynamic itself (a system color that follows the level).
     convenience init(light: UIColor, dark: UIColor) {
-        self.init { ($0.userInterfaceStyle == .dark ? dark : light).compatResolvedColor(with: $0) }
+        if #available(iOS 13.0, *) {
+            self.init { ($0.userInterfaceStyle == .dark ? dark : light).compatResolvedColor(with: $0) }
+        } else {
+            // iOS 12 port: one appearance
+            self.init(cgColor: light.cgColor)
+        }
     }
 
     /// An opaque color from a `0xRRGGBB` value.

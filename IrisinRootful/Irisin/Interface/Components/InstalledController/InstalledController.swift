@@ -394,11 +394,11 @@ class InstalledController: UICollectionViewController {
 
         var top: [LegacyMenuElement] = [
             LegacyAction(
-                title: String(localized: "Refresh"),
+                title: String(legacyLocalized: "Refresh"),
                 image: UIImage.compatSystemImage("arrow.clockwise")
             ) { [weak self] _ in self?.refresh() },
             LegacyAction(
-                title: String(localized: "Select"),
+                title: String(legacyLocalized: "Select"),
                 image: UIImage.compatSystemImage("checkmark.circle")
             ) { [weak self] _ in self?.setEditing(true, animated: true) },
         ]

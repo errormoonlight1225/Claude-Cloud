@@ -21,6 +21,8 @@ import WebKit
 class PackageController: UIViewController {
     var packageObject = Package(identity: "")
     private var subscriptions = Set<AnyCancellable>()
+    private var bannerImageObservation: NSKeyValueObservation?
+    private var lastBannerImageSize: CGSize??
 
     convenience init(package: Package) {
         self.init(nibName: nil, bundle: nil)
@@ -70,7 +72,7 @@ class PackageController: UIViewController {
         if #available(iOS 16, *) {
             $0.selfSizingInvalidation = .enabledIncludingConstraints
         }
-        $0.sectionHeaderTopPadding = 0
+        if #available(iOS 15.0, *) { $0.sectionHeaderTopPadding = 0 }
         for row in Row.allCases {
             $0.register(PackageRowCell.self, forCellReuseIdentifier: row.rawValue)
         }
@@ -339,15 +341,16 @@ class PackageController: UIViewController {
             artworkHeight = x.height.equalTo(preferredBannerHeight).constraint
         }
 
-        bannerArtwork.imageView.publisher(for: \.image)
-            .map { $0?.size }
-            .removeDuplicates()
-            .receive(on: DispatchQueue.main.ocombine)
-            .sink { [weak self] size in
-                self?.bannerPhotoSize = size
-                self?.resizeBanner()
+        // iOS 12 port: key-value observation in place of its Combine publisher
+        bannerImageObservation = bannerArtwork.imageView.observe(\.image, options: [.initial, .new]) { [weak self] view, _ in
+            let size = view.image?.size
+            DispatchQueue.main.async {
+                guard let self, self.lastBannerImageSize != .some(size) else { return }
+                self.lastBannerImageSize = .some(size)
+                self.bannerPhotoSize = size
+                self.resizeBanner()
             }
-            .store(in: &subscriptions)
+        }
 
         depictionView = defaultDepiction()
 
@@ -385,6 +388,7 @@ class PackageController: UIViewController {
     /// package keeps its version, source and metadata while this page lives.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if #unavailable(iOS 13.0) { legacyIsAppearing(animated) }
         if showsInstalledRow,
            let fresh = PackageCenter.default.obtainPackageInstallationInfo(with: packageObject.identity)?.representObject
         {
@@ -396,8 +400,15 @@ class PackageController: UIViewController {
     /// happens inside an animation block slides every view in from zero.
     /// Not before the page is in the window, whose sizes the table lays
     /// out against.
+    @available(iOS 13.0, *)
     override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
+        legacyIsAppearing(animated)
+    }
+
+    /// iOS 12 port: `viewIsAppearing` is iOS 13; iOS 12 runs this from
+    /// `viewWillAppear`.
+    private func legacyIsAppearing(_ animated: Bool) {
         UIView.performWithoutAnimation {
             view.layoutIfNeeded()
             listUpdates.applyPending()

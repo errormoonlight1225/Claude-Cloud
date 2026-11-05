@@ -21,8 +21,8 @@ extension QueueController {
         }
         return legacyWaitOnMain { continuation in
             let alert = AlertViewController(
-                title: String.LocalizationValue(String(localized: "dpkg Is Not Installed")),
-                message: String.LocalizationValue(message)
+                title: LegacyLocalizationValue(String(legacyLocalized: "dpkg Is Not Installed")),
+                message: LegacyLocalizationValue(message)
             ) { context in
                 if offersBootstrap {
                     context.addAction(title: "Bootstrap Install", attribute: .accent) {

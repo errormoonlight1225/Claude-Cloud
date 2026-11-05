@@ -369,27 +369,27 @@ class RepositoriesController: UIViewController {
         LegacyMenu(children: [
             LegacyMenu(options: .displayInline, children: [
                 LegacyAction(
-                    title: String(localized: "Refresh"),
+                    title: String(legacyLocalized: "Refresh"),
                     image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.refreshAll() },
             ]),
             LegacyMenu(options: .displayInline, children: [
                 LegacyAction(
-                    title: String(localized: "Select"),
+                    title: String(legacyLocalized: "Select"),
                     image: UIImage.compatSystemImage("checkmark.circle")
                 ) { [weak self] _ in self?.setEditing(true, animated: true) },
                 LegacyAction(
-                    title: String(localized: "Import Repository List…"),
+                    title: String(legacyLocalized: "Import Repository List…"),
                     image: UIImage.compatSystemImage("square.and.arrow.down")
                 ) { [weak self] _ in self?.openImport() },
                 LegacyAction(
-                    title: String(localized: "Export Repository List"),
+                    title: String(legacyLocalized: "Export Repository List"),
                     image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.exportList() },
             ]),
             LegacyMenu(options: .displayInline, children: [
                 LegacyAction(
-                    title: String(localized: "Remove Broken Repositories"),
+                    title: String(legacyLocalized: "Remove Broken Repositories"),
                     image: UIImage.compatSystemImage("wand.and.rays"),
                     attributes: .destructive
                 ) { [weak self] _ in self?.clean() },

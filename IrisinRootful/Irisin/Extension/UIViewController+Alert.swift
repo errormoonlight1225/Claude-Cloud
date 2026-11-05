@@ -94,7 +94,7 @@ extension UIViewController {
         // out: nothing would come up, and nothing would ever answer
         guard presentedViewController == nil, view.window != nil else { return .cancel }
         return legacyWaitOnMain { continuation in
-            let alert = AlertViewController(title: title, message: String.LocalizationValue(message)) { context in
+            let alert = AlertViewController(title: title, message: LegacyLocalizationValue(message)) { context in
                 context.addAction(title: "Select Recommended", attribute: .accent) {
                     context.dispose { continuation.resume(returning: .recommended) }
                 }

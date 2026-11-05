@@ -141,7 +141,7 @@ class SearchController: UITableViewController {
         guider.snp.makeConstraints { x in
             x.top.equalTo(view.safeAreaLayoutGuide)
             x.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(32)
-            x.bottom.equalTo(view.keyboardLayoutGuide.snp.top)
+            x.bottom.equalTo(view.compatKeyboardLayoutGuide.snp.top)
         }
     }
 

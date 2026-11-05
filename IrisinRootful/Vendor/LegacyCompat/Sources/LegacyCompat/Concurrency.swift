@@ -597,8 +597,9 @@ public final class LegacyMainTask: @unchecked Sendable {
     @discardableResult
     public init(@_implicitSelfCapture _ body: @escaping () -> Void) {
         let cancellation = cancellation
+        let locals = LegacyTaskLocals.current.value
         CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [self] in
-            LegacyTask.withCurrent(cancellation, body)
+            LegacyTaskLocals.with(locals) { LegacyTask.withCurrent(cancellation, body) }
             finished = true
             let run = completions
             completions.removeAll()
@@ -621,9 +622,50 @@ public final class LegacyMainTask: @unchecked Sendable {
         }
     }
 
+    /// Waits at most `budget` seconds for the body, turning the main run
+    /// loop: a page's first load lands with the page when it is quick.
+    public func wait(upTo budget: TimeInterval) {
+        guard Thread.isMainThread else { return }
+        let deadline = Date(timeIntervalSinceNow: budget)
+        while !finished, Date() < deadline { LegacyRunLoop.turn() }
+    }
+
     /// Runs `handler` on the main thread once the body has returned.
     public func whenFinished(_ handler: @escaping () -> Void) {
         if finished { handler() } else { completions.append(handler) }
+    }
+}
+
+/// The values `LegacyTaskLocal`s hold for the main-thread work running now;
+/// a `LegacyMainTask` takes the ones current where it was made, as a task
+/// inherited its task-local values.
+enum LegacyTaskLocals {
+    static let current = LegacyProtected<[ObjectIdentifier: Any]>([:])
+
+    static func with<T>(_ values: [ObjectIdentifier: Any], _ body: () throws -> T) rethrows -> T {
+        let saved = current.value
+        current.value = values
+        defer { current.value = saved }
+        return try body()
+    }
+}
+
+/// `@TaskLocal` for main-thread work.
+public final class LegacyTaskLocal<Value>: @unchecked Sendable {
+    private let defaultValue: Value
+
+    public init(wrappedValue: Value) {
+        defaultValue = wrappedValue
+    }
+
+    public var value: Value {
+        LegacyTaskLocals.current.value[ObjectIdentifier(self)] as? Value ?? defaultValue
+    }
+
+    public func withValue<T>(_ value: Value, _ body: () throws -> T) rethrows -> T {
+        var values = LegacyTaskLocals.current.value
+        values[ObjectIdentifier(self)] = value
+        return try LegacyTaskLocals.with(values, body)
     }
 }
 
@@ -651,7 +693,8 @@ public func awaitBackground<T>(@_implicitSelfCapture _ body: @escaping @Sendable
         DispatchQueue.main.async {}
         CFRunLoopWakeUp(CFRunLoopGetMain())
     }
-    while !done.value { LegacyRunLoop.turn() }
+    // what runs while this waits is not this task: it sees no task-local values
+    LegacyTaskLocals.with([:]) { while !done.value { LegacyRunLoop.turn() } }
     return box.value!
 }
 
@@ -688,7 +731,7 @@ public func legacyWaitOnMain<T>(_ start: (LegacyContinuation<T>) -> Void) -> T {
     let continuation = LegacyContinuation<T>()
     start(continuation)
     if Thread.isMainThread {
-        while continuation.result.value == nil { LegacyRunLoop.turn() }
+        LegacyTaskLocals.with([:]) { while continuation.result.value == nil { LegacyRunLoop.turn() } }
     } else {
         while continuation.result.value == nil { Thread.sleep(forTimeInterval: 0.01) }
     }
@@ -701,7 +744,7 @@ public func legacyWaitOnMainThrowing<T>(_ start: (LegacyContinuation<T>) -> Void
     let continuation = LegacyContinuation<T>()
     start(continuation)
     if Thread.isMainThread {
-        while continuation.result.value == nil { LegacyRunLoop.turn() }
+        LegacyTaskLocals.with([:]) { while continuation.result.value == nil { LegacyRunLoop.turn() } }
     } else {
         while continuation.result.value == nil { Thread.sleep(forTimeInterval: 0.01) }
     }

@@ -46,7 +46,7 @@ final class RepositoryAddCandidateCell: UITableViewCell {
         $0.lineBreakMode = .byTruncatingMiddle
     }
 
-    private let button = UIButton(configuration: .tinted())
+    private let button = UIButton(legacyConfiguration: .tinted())
     private let text = UIStackView().then {
         $0.axis = .vertical
         $0.spacing = 2
@@ -133,7 +133,7 @@ final class RepositoryAddCandidateCell: UITableViewCell {
             title.text = String(legacyLocalized: "Repository Unreachable")
         }
 
-        var configuration: UIButton.Configuration = added ? .plain() : .tinted()
+        var configuration: LegacyButtonConfiguration = added ? .plain() : .tinted()
         configuration.buttonSize = .small
         configuration.cornerStyle = .capsule
         configuration.baseForegroundColor = .buttonNormal
@@ -146,7 +146,7 @@ final class RepositoryAddCandidateCell: UITableViewCell {
         button.accessibilityLabel = added
             ? String(legacyLocalized: "Already Added")
             : String(legacyLocalized: "Add")
-        button.configuration = configuration
+        button.legacyConfiguration = configuration
         button.isUserInteractionEnabled = !added
     }
 
