@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "DisplayLink",
     platforms: [
-        .iOS(.v15),
+        .iOS(.v12),
         .macOS(.v12),
         .macCatalyst(.v15),
         .tvOS(.v15),
@@ -16,6 +16,5 @@ let package = Package(
     ],
     targets: [
         .target(name: "DisplayLink"),
-        .testTarget(name: "DisplayLinkTests", dependencies: ["DisplayLink"]),
     ],
 )

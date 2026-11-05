@@ -8,7 +8,6 @@ import Foundation
 /// One system link per display and frame rate, shared by every
 /// ``DisplayLink`` that asks for that rate on that display. Its system link
 /// exists exactly while it has subscribers and the app is not suspended.
-@MainActor
 final class SharedDisplayLink {
     struct Key: Hashable {
         let display: Display

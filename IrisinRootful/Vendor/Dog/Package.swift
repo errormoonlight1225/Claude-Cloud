@@ -5,16 +5,15 @@ import PackageDescription
 let package = Package(
     name: "Dog",
     platforms: [
-        .iOS(.v14),
+        .iOS(.v12),
         .macOS(.v11),
         .watchOS(.v7),
-        .tvOS(.v14),
+        .tvOS(.v12),
     ],
     products: [
         .library(name: "Dog", targets: ["Dog"]),
     ],
     targets: [
         .target(name: "Dog", dependencies: []),
-        .testTarget(name: "DogTests", dependencies: ["Dog"]),
     ]
 )

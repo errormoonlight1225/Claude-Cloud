@@ -14,7 +14,6 @@
 /// Bind to the view you draw into: the link then ticks with whichever display
 /// shows that view, follows it when its window moves to another display, and
 /// stays quiet while the view is not in a window.
-@MainActor
 public struct DisplayLinkContext {
     private enum Source {
         case main

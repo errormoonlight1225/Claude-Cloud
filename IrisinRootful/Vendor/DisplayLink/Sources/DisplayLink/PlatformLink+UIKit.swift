@@ -16,8 +16,6 @@
             var isConnected: Bool {
                 true
             }
-
-            @MainActor
             static func showing(_ view: UIView) -> Display? {
                 (view as? UIWindow ?? view.window) == nil ? nil : primary
             }
@@ -42,11 +40,10 @@
 
     /// The system link for one display, ticking on the main run loop until
     /// released.
-    @MainActor
     final class PlatformLink {
         private let link: CADisplayLink
 
-        init?(display: Display, frameRateRange: DisplayLinkFrameRateRange, onFrame: @escaping @MainActor (DisplayLinkFrame) -> Void) {
+        init?(display: Display, frameRateRange: DisplayLinkFrameRateRange, onFrame: @escaping (DisplayLinkFrame) -> Void) {
             // CADisplayLink retains its target, so the target must not own us.
             let target = FrameTarget(onFrame: onFrame)
             let selector = #selector(FrameTarget.tick(_:))
@@ -56,24 +53,20 @@
                 guard let link = display.displayLink(withTarget: target, selector: selector) else { return nil }
                 self.link = link
             #endif
-            link.preferredFrameRateRange = CAFrameRateRange(
-                minimum: frameRateRange.minimum,
-                maximum: frameRateRange.maximum,
-                preferred: frameRateRange.preferred,
-            )
+            // iOS 12 port: CAFrameRateRange is iOS 15; the preferred rate
+            // is what preferredFramesPerSecond can express.
+            link.preferredFramesPerSecond = Int(frameRateRange.preferred.rounded())
             link.add(to: .main, forMode: .common)
         }
 
         deinit {
-            MainActor.assumeIsolated { link.invalidate() }
+            link.invalidate()
         }
     }
-
-    @MainActor
     private final class FrameTarget: NSObject {
-        let onFrame: @MainActor (DisplayLinkFrame) -> Void
+        let onFrame: (DisplayLinkFrame) -> Void
 
-        init(onFrame: @escaping @MainActor (DisplayLinkFrame) -> Void) {
+        init(onFrame: @escaping (DisplayLinkFrame) -> Void) {
             self.onFrame = onFrame
         }
 
@@ -88,15 +81,15 @@
         static func observeSystemEvents() {
             let center = NotificationCenter.default
             center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { isSuspended = true }
+                isSuspended = true
             }
             center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { isSuspended = false }
+                isSuspended = false
             }
             #if !os(visionOS)
                 for name in [UIScreen.didConnectNotification, UIScreen.didDisconnectNotification] {
                     center.addObserver(forName: name, object: nil, queue: .main) { _ in
-                        MainActor.assumeIsolated { displaysDidChange() }
+                        displaysDidChange()
                     }
                 }
             #endif

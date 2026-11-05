@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import OSLog
+import os.log
 
-internal let dogLogger = Logger(subsystem: "com.lakr233.dog", category: "Dog")
+internal let dogLogger = LegacyLogger(subsystem: "com.lakr233.dog", category: "Dog")
 
 // MARK: - CHANGE ME IF NEEDED
 

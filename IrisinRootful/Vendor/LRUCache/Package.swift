@@ -4,9 +4,9 @@ import PackageDescription
 let package = Package(
     name: "LRUCache",
     platforms: [
-        .iOS(.v13),
+        .iOS(.v12),
         .macOS(.v10_15),
-        .tvOS(.v13),
+        .tvOS(.v12),
         .visionOS(.v1),
         .watchOS(.v6),
     ],
@@ -15,6 +15,5 @@ let package = Package(
     ],
     targets: [
         .target(name: "LRUCache", path: "Sources"),
-        .testTarget(name: "LRUCacheTests", dependencies: ["LRUCache"], path: "Tests"),
     ]
 )

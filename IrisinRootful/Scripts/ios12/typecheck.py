@@ -9,6 +9,8 @@ reported without a Mac.
 
 Environment:
   SWIFTC      swiftc wrapper that already passes -target/-sdk/-resource-dir
+              (the wrapper used here: Swift 6.3.3 for Linux, iPhoneOS26.5.sdk,
+              -target arm64e-apple-ios12.0)
               (default /opt/ios/swiftc-ios)
   IOS_DEPS    checkouts of the unmodified third-party packages
               (default /opt/ios/deps)

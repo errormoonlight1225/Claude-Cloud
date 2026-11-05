@@ -154,12 +154,12 @@ public extension LRUCache {
     }
 
     /// All keys currently stored in memory, in no particular order.
-    var keys: some Collection<Key> {
-        atomic { _values.keys }
+    var keys: [Key] {
+        atomic { Array(_values.keys) }
     }
 
     /// All values currently stored in memory, in no particular order.
-    var values: some Collection<Value> {
+    var values: [Value] {
         atomic { _values.values.map(\.value) }
     }
 

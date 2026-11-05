@@ -15,11 +15,10 @@
 ///
 /// It covers the host's bounds and resizes with it, so layout code that
 /// measures or positions subviews never meets a zero-size view.
-@MainActor
 final class WindowAnchor: PlatformView {
-    private let onWindowChange: @MainActor () -> Void
+    private let onWindowChange: () -> Void
 
-    init(attachingTo host: PlatformView, onWindowChange: @escaping @MainActor () -> Void) {
+    init(attachingTo host: PlatformView, onWindowChange: @escaping () -> Void) {
         self.onWindowChange = onWindowChange
         super.init(frame: host.bounds)
         isHidden = true

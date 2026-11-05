@@ -62,10 +62,11 @@ public extension Dog {
             dogLogger.error("failed to create log data using utf8")
             return
         }
-        // the throwing write, a full disk or a closed file must never take
-        // the process down; the legacy write(_:) raises an ObjC exception
+        // a full disk or a closed file must never take the process down;
+        // FileHandle's write(_:) raises an ObjC exception and the throwing
+        // write(contentsOf:) is iOS 13.4, so write(2) on the descriptor
         do {
-            try handler.write(contentsOf: data)
+            try handler.legacyWrite(data)
             if failedWriteCount > 0 {
                 dogLogger.info("log writes recovered after \(self.failedWriteCount, privacy: .public) failure(s)")
                 failedWriteCount = 0
@@ -186,7 +187,7 @@ public extension Dog {
         if previous != nil {
             dogLogger.info("initialization ran again, closing the previous log file")
         }
-        try? previous?.close()
+        previous?.closeFile()
         dogLogger.info("log file: \(logFileLocation.path, privacy: .public)")
     }
 

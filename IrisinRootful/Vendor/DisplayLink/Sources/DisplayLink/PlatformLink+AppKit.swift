@@ -25,8 +25,6 @@
         @MainActor private static var cachedPrimary: Display?
         @MainActor private static var cachedConnected: Set<Display>?
         @MainActor private static var cachedScreens: [ObjectIdentifier: Display] = [:]
-
-        @MainActor
         static var primary: Display {
             if let cachedPrimary {
                 return cachedPrimary
@@ -35,8 +33,6 @@
             cachedPrimary = primary
             return primary
         }
-
-        @MainActor
         var isConnected: Bool {
             if let cachedConnected = Self.cachedConnected {
                 return cachedConnected.contains(self)
@@ -45,15 +41,11 @@
             Self.cachedConnected = connected
             return connected.contains(self)
         }
-
-        @MainActor
         static func displaysDidChange() {
             cachedPrimary = nil
             cachedConnected = nil
             cachedScreens = [:]
         }
-
-        @MainActor
         static func showing(_ view: NSView) -> Display? {
             guard let screen = view.window?.screen else { return nil }
             if let display = cachedScreens[ObjectIdentifier(screen)] {
@@ -69,11 +61,10 @@
     /// at the display's rate; frames are skipped down to the preferred rate and
     /// handed to the main thread one at a time, dropping any that arrive while
     /// the last is still queued, as CADisplayLink does.
-    @MainActor
     final class PlatformLink {
         private let link: CVDisplayLink
 
-        init?(display: Display, frameRateRange: DisplayLinkFrameRateRange, onFrame: @escaping @MainActor (DisplayLinkFrame) -> Void) {
+        init?(display: Display, frameRateRange: DisplayLinkFrameRateRange, onFrame: @escaping (DisplayLinkFrame) -> Void) {
             var created: CVDisplayLink?
             // Fails while every display is asleep; displaysDidChange() retries.
             guard CVDisplayLinkCreateWithCGDisplay(display.id, &created) == kCVReturnSuccess,
@@ -103,7 +94,7 @@
 
     /// Carries frames from the CVDisplayLink thread to the main thread.
     private final class FrameDelivery: @unchecked Sendable {
-        private let onFrame: @MainActor (DisplayLinkFrame) -> Void
+        private let onFrame: (DisplayLinkFrame) -> Void
         /// Seconds between delivered frames; zero delivers every refresh.
         private let interval: TimeInterval
         private let lock = NSLock()
@@ -111,7 +102,7 @@
         /// Only touched from the CVDisplayLink thread, which calls serially.
         private var lastDelivered: TimeInterval = 0
 
-        init(frameRateRange: DisplayLinkFrameRateRange, onFrame: @escaping @MainActor (DisplayLinkFrame) -> Void) {
+        init(frameRateRange: DisplayLinkFrameRateRange, onFrame: @escaping (DisplayLinkFrame) -> Void) {
             let rate = frameRateRange.preferred > 0 ? frameRateRange.preferred : frameRateRange.maximum
             interval = rate > 0 ? 1 / TimeInterval(rate) : 0
             self.onFrame = onFrame
