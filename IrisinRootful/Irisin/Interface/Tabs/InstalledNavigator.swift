@@ -46,7 +46,6 @@ class InstalledNavigator: UINavigationController {
 
     /// A walk of the whole installed list, so it runs off the main actor on
     /// a copy of the index.
-    @concurrent
     private nonisolated static func updateCount(in index: PackageIndex) -> Int {
         index.updateCandidates().count
     }

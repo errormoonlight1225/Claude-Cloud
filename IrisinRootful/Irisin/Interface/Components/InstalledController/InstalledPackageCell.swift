@@ -17,7 +17,7 @@ import UIKit
 /// with it; this one starts on the row's leading edge, where the icon is
 /// when nothing is edited and the date above the row begins, and stands as
 /// far from the icon as the icon does from the text.
-final class InstalledPackageCell: UICollectionViewListCell {
+final class InstalledPackageCell: LegacyListCell {
     let originalCell = PackageListRow()
     private let selectionMark = SelectionMarkView()
 

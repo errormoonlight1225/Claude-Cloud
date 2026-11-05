@@ -106,7 +106,6 @@ extension InstalledController {
 
     /// Two index lookups per package and the list runs into the thousands,
     /// so the page asks once and reads the answer per row.
-    @concurrent
     private nonisolated static func identitiesWithUpdate(in index: PackageIndex) -> Set<String> {
         Set(index.updateCandidates().map(\.installed.identity))
     }

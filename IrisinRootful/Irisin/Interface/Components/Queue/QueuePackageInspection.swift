@@ -44,7 +44,6 @@ nonisolated struct QueuePackageInspection: Sendable {
 
     /// Reads `archive` for an install, and nothing but the info directory
     /// for a removal.
-    @concurrent
     static func inspect(_ change: QueueChange, archive: URL?) throws -> QueuePackageInspection {
         let identity = change.package.identity.lowercased()
         let info = JailbreakRoot.installedPath("/Library/dpkg/info")

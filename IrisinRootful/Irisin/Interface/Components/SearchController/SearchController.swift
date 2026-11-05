@@ -108,7 +108,7 @@ class SearchController: UITableViewController {
             guard let self, let tableView, let indexPath = tableView.indexPathForRow(at: point) else { return nil }
             return self.legacyContextMenu(tableView, at: indexPath)
         }
-        Publishers.MergeMany([RepositoryCenter.registrationUpdate, PackageCenter.packageRecordChanged].map {
+        mergeMany([RepositoryCenter.registrationUpdate, PackageCenter.packageRecordChanged].map {
             NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .throttle(for: .seconds(1), scheduler: DispatchQueue.main.ocombine, latest: true)

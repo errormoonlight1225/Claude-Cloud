@@ -58,9 +58,9 @@ class RepositoryDetailController: UIViewController {
         $0.contentInset.bottom = 128
         $0.delegate = self
         $0.register(RepositoryDetailHostCell.self, forCellWithReuseIdentifier: "host")
-        $0.register(UICollectionViewListCell.self, forCellWithReuseIdentifier: "filter")
+        $0.register(LegacyListCell.self, forCellWithReuseIdentifier: "filter")
         for kind in [UICollectionView.elementKindSectionHeader, UICollectionView.elementKindSectionFooter] {
-            $0.register(UICollectionViewListCell.self, forSupplementaryViewOfKind: kind, withReuseIdentifier: kind)
+            $0.register(LegacyListCell.self, forSupplementaryViewOfKind: kind, withReuseIdentifier: kind)
         }
     }
 
@@ -78,7 +78,7 @@ class RepositoryDetailController: UIViewController {
             return cell
         case let .filter(filter):
             let cell = collectionView
-                .dequeueReusableCell(withReuseIdentifier: "filter", for: indexPath) as! UICollectionViewListCell
+                .dequeueReusableCell(withReuseIdentifier: "filter", for: indexPath) as! LegacyListCell
             var content = LegacyListContentConfiguration.valueCell()
             switch filter {
             case .all:
@@ -98,14 +98,14 @@ class RepositoryDetailController: UIViewController {
                 ofKind: kind,
                 withReuseIdentifier: kind,
                 for: indexPath
-            ) as! UICollectionViewListCell
+            ) as! LegacyListCell
             configure(cell, ofKind: kind, for: dataSource.sectionIdentifier(for: indexPath.section))
             return cell
         }
     }
 
     /// The system's grouped header or footer text for a section.
-    private func configure(_ cell: UICollectionViewListCell, ofKind kind: String, for section: Section?) {
+    private func configure(_ cell: LegacyListCell, ofKind kind: String, for section: Section?) {
         if kind == UICollectionView.elementKindSectionHeader {
             var content = LegacyListContentConfiguration.groupedHeader()
             content.text = headerText(for: section)
@@ -241,7 +241,7 @@ class RepositoryDetailController: UIViewController {
         snapshot.reconfigureItems([.filter(.all)] + current.filter { previous.contains($0) })
         dataSource.apply(snapshot, animatingDifferences: true)
         for kind in [UICollectionView.elementKindSectionHeader, UICollectionView.elementKindSectionFooter] {
-            for case let cell as UICollectionViewListCell in collectionView.visibleSupplementaryViews(ofKind: kind) {
+            for case let cell as LegacyListCell in collectionView.visibleSupplementaryViews(ofKind: kind) {
                 let index = collectionView.indexPath(forSupplementaryView: cell)?.section
                 configure(cell, ofKind: kind, for: index.flatMap(dataSource.sectionIdentifier(for:)))
             }
@@ -253,29 +253,30 @@ class RepositoryDetailController: UIViewController {
 
     // MARK: - LAYOUT
 
+    /// iOS 12 port: LegacySectionLayout; the featured banners wrap into
+    /// lines where they scrolled sideways (orthogonal scrolling is iOS 13).
     private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { [unowned self] index, environment in
+        LegacySectionLayout { [unowned self] index, _ in
             let section = dataSource.snapshot().sectionIdentifiers[index]
-            // 20 on each side: the edge the inset grouped rows below sit on
-            let inset = NSDirectionalEdgeInsets(top: 10, leading: 20, bottom: 0, trailing: 20)
             switch section {
             case .featured:
-                let size = NSCollectionLayoutSize(widthDimension: .absolute(300), heightDimension: .absolute(170))
-                let group = NSCollectionLayoutGroup.horizontal(
-                    layoutSize: size,
-                    subitems: [NSCollectionLayoutItem(layoutSize: size)]
+                // 20 on each side: the edge the grouped rows below sit on
+                return LegacyLayoutSection(
+                    items: .grid(CGSize(width: 300, height: 170)),
+                    insets: UIEdgeInsets(top: 10, left: 20, bottom: 0, right: 20),
+                    lineSpacing: 10
                 )
-                let layout = NSCollectionLayoutSection(group: group)
-                layout.orthogonalScrollingBehavior = .continuous
-                layout.interGroupSpacing = 10
-                layout.contentInsets = inset
-                return layout
             case .all, .sections:
-                // the system's inset grouped list: one full-width row per section
-                var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-                configuration.headerMode = .supplementary
-                configuration.footerMode = .supplementary
-                return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+                // a grouped list: one full-width row per item, the grouped
+                // header and footer around it
+                return LegacyLayoutSection(
+                    items: .rows(.estimated(44)),
+                    insets: UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16),
+                    lineSpacing: 1,
+                    header: .estimated(38),
+                    footer: .estimated(30),
+                    supplementariesIgnoreInsets: false
+                )
             }
         }
     }
@@ -284,7 +285,6 @@ class RepositoryDetailController: UIViewController {
 
     /// The row's packages in name order, from a copy of the index: a large
     /// repository is a query and a sort that do not belong on the main actor.
-    @concurrent
     private nonisolated static func packages(for filter: Filter, in url: URL, index: PackageIndex) -> [Package] {
         let list = switch filter {
         case let .section(key): index.obtainPackageList(in: url, section: key)

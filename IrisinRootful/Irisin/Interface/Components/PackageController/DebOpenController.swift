@@ -119,7 +119,6 @@ class DebOpenController: UIViewController {
     /// coordinated read, because moving it would take it out of their folder.
     ///
     /// Off the main actor: a file in iCloud Drive may have to download first.
-    @concurrent
     private static func keep(_ url: URL, inPlace: Bool) throws -> URL {
         let directory = documentsDirectory
             .appendingPathComponent("DirectInstallCache")
@@ -143,7 +142,6 @@ class DebOpenController: UIViewController {
 
     /// The control file and the digest of the whole archive, off the main
     /// actor: a large package takes a moment to hash.
-    @concurrent
     private static func read(_ kept: URL) throws -> Package {
         try Package(debianPackageAt: kept)
     }

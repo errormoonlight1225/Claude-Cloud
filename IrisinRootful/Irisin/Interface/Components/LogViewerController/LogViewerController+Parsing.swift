@@ -35,7 +35,6 @@ extension LogViewerController {
     }
 
     /// The first parse, off the main actor.
-    @concurrent
     nonisolated static func parse(_ text: String) -> [LogLine] {
         parseLogLines(text)
     }

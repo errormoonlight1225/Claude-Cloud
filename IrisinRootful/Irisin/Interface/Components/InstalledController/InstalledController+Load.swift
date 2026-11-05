@@ -68,7 +68,7 @@ extension InstalledController {
         justReload()
 
         // Finished refreshes and package records share one rebuild per second.
-        Publishers.MergeMany([
+        mergeMany([
             RepositoryCenter.metadataUpdate,
             RepositoryCenter.registrationUpdate,
             PackageCenter.packageRecordChanged,

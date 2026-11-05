@@ -56,7 +56,6 @@ enum RepositoryAvatar {
 
     /// Decodes only as many pixels as the icon shows: a JPEG is read at a
     /// fraction of its size, and nothing full size stays in memory.
-    @concurrent
     private nonisolated static func downsample(_ data: Data, to pixelSize: Int) -> UIImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [

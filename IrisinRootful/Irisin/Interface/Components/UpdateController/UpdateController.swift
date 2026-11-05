@@ -99,7 +99,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
         reload()
 
         // Finished refreshes and package records share one rebuild per second.
-        Publishers.MergeMany([
+        mergeMany([
             RepositoryCenter.metadataUpdate,
             RepositoryCenter.registrationUpdate,
             PackageCenter.packageRecordChanged,
@@ -191,7 +191,6 @@ class UpdateController: UIViewController, UITableViewDelegate {
     }
 
     /// The whole installed list, walked off the main actor.
-    @concurrent
     private nonisolated static func rows(in index: PackageIndex) -> [Row] {
         index.updateCandidates().map { Row(installed: $0.installed, candidate: $0.candidate) }.uniqued()
     }

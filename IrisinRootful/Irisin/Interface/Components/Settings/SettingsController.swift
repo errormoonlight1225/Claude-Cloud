@@ -148,7 +148,7 @@ class SettingsController: UITableViewController {
             .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] _ in self?.footer.refresh() }
             .store(in: &subscriptions)
-        Publishers.MergeMany([
+        mergeMany([
             RepositoryCenter.registrationUpdate,
             RepositoryCenter.metadataUpdate,
             .RepositoryPaymentChanged,

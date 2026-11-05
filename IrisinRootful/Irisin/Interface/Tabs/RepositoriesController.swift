@@ -125,7 +125,7 @@ class RepositoriesController: UIViewController {
 
         reloadDataSource(animated: false)
 
-        Publishers.MergeMany([RepositoryCenter.registrationUpdate, RepositoryCenter.metadataUpdate].map {
+        mergeMany([RepositoryCenter.registrationUpdate, RepositoryCenter.metadataUpdate].map {
             NotificationCenter.default.ocombine.publisher(for: $0)
         })
         .filter { !$0.isRepositoryProgress }

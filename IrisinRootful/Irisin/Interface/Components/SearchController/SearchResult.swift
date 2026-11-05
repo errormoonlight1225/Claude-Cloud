@@ -52,7 +52,6 @@ nonisolated struct SearchResult: Hashable, Sendable {
 /// the concurrent pool and stops as soon as the task that asked is cancelled,
 /// which a newer keystroke does.
 nonisolated extension SearchResult {
-    @concurrent
     static func search(
         key: String,
         in index: PackageIndex,

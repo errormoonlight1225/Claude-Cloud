@@ -13,7 +13,7 @@ import UIKit
 
 /// `PackageListRow` in a list cell, which is what slides aside for a swipe
 /// in a list section. It draws no ground of its own, selected or not.
-class PackageCollectionCell: UICollectionViewListCell {
+class PackageCollectionCell: LegacyListCell {
     let originalCell = PackageListRow()
 
     var horizontalPadding: CGFloat {

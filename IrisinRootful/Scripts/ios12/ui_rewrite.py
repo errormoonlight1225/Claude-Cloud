@@ -37,6 +37,7 @@ RULES = [
     (re.compile(r"\.dequeueConfiguredReusableCell\(using:"), ".legacyDequeueConfiguredReusableCell(using:"),
     (re.compile(r"\.dequeueConfiguredReusableSupplementary\("), ".legacyDequeueConfiguredReusableSupplementary("),
     (re.compile(r"\bUIListContentConfiguration\b"), "LegacyListContentConfiguration"),
+    (re.compile(r"\bUICollectionViewListCell\b"), "LegacyListCell"),
     (re.compile(r"\bUIBackgroundConfiguration\b"), "LegacyBackgroundConfiguration"),
     (re.compile(r"(?<![\w])defaultContentConfiguration\(\)"), "legacyDefaultContentConfiguration()"),
     (re.compile(r"(?<![\w])contentConfiguration\b"), "legacyContentConfiguration"),

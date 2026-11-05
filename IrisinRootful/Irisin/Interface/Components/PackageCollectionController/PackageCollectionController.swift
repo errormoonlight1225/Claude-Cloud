@@ -101,62 +101,26 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
     /// One column is a list, whose rows swipe; a width that fits more is
     /// the grid, where a long press has the same actions. As the Installed
     /// page lays out.
+    ///
+    /// iOS 12 port: LegacySectionLayout, as the Installed page.
     private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { [weak self] index, environment in
-            self?.makeSection(at: index, in: environment)
+        LegacySectionLayout { [weak self] index, width in
+            self?.makeSection(at: index, width: width)
         }
     }
 
-    private func makeSection(
-        at index: Int,
-        in environment: NSCollectionLayoutEnvironment
-    ) -> NSCollectionLayoutSection {
-        let width = environment.container.effectiveContentSize.width - Self.horizontalInset * 2
+    private func makeSection(at index: Int, width containerWidth: CGFloat) -> LegacyLayoutSection {
+        let width = containerWidth - Self.horizontalInset * 2
         let (cellSize, itemsPerRow) = PackageListRow.layout(inWidth: width)
         laysOutGrid = itemsPerRow > 1
-        let section: NSCollectionLayoutSection
-        if itemsPerRow < 2 {
-            var list = UICollectionLayoutListConfiguration(appearance: .plain)
-            list.showsSeparators = false
-            list.backgroundColor = .clear
-            list.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-                self?.swipeActions(at: indexPath)
-            }
-            section = .list(using: list, layoutEnvironment: environment)
-        } else {
-            let item = NSCollectionLayoutItem(layoutSize: NSCollectionLayoutSize(
-                widthDimension: .absolute(cellSize.width),
-                heightDimension: .fractionalHeight(1)
-            ))
-            let group = NSCollectionLayoutGroup.horizontal(
-                layoutSize: NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .absolute(cellSize.height)
-                ),
-                subitems: [item]
-            )
-            // what is left of the width goes between the columns
-            group.interItemSpacing = .flexible(0)
-            section = NSCollectionLayoutSection(group: group)
-        }
-        section.interGroupSpacing = Self.rowSpacing
-        section.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
-            leading: Self.horizontalInset,
-            bottom: 0,
-            trailing: Self.horizontalInset
+        let titled = diffableDataSource.sectionIdentifier(for: index).map { !$0.isEmpty } ?? false
+        return LegacyLayoutSection(
+            items: itemsPerRow < 2 ? .rows(.absolute(cellSize.height)) : .grid(cellSize),
+            insets: UIEdgeInsets(top: 0, left: Self.horizontalInset, bottom: 0, right: Self.horizontalInset),
+            lineSpacing: Self.rowSpacing,
+            header: titled ? .absolute(20) : nil,
+            supplementariesIgnoreInsets: false
         )
-        if let title = diffableDataSource.sectionIdentifier(for: index), !title.isEmpty {
-            section.boundarySupplementaryItems = [NSCollectionLayoutBoundarySupplementaryItem(
-                layoutSize: NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .absolute(20)
-                ),
-                elementKind: UICollectionView.elementKindSectionHeader,
-                alignment: .top
-            )]
-        }
-        return section
     }
 
     /// Install or Update first, Remove last: the package menu's own

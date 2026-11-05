@@ -17,96 +17,40 @@ extension InstalledController {
     /// the grid every package page lays out, where a long press has the
     /// same actions. The count is the layout's own footer, after the last
     /// section whichever that is, as tall as its lines: a search adds one.
+    ///
+    /// iOS 12 port: LegacySectionLayout (compositional layouts are iOS 13,
+    /// list sections iOS 14); the list's rows swipe through the grid's own
+    /// swipe interaction.
     func makeLayout() -> UICollectionViewLayout {
-        let configuration = UICollectionViewCompositionalLayoutConfiguration()
-        configuration.boundarySupplementaryItems = [
-            NSCollectionLayoutBoundarySupplementaryItem(
-                layoutSize: NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .estimated(ListFootnoteView.height)
-                ),
-                elementKind: UICollectionView.elementKindSectionFooter,
-                alignment: .bottom
-            ),
-        ]
-        return UICollectionViewCompositionalLayout(
-            sectionProvider: { [weak self] index, environment in
-                self?.makeSection(at: index, in: environment)
-            },
-            configuration: configuration
-        )
+        LegacySectionLayout { [weak self] index, width in
+            self?.makeSection(at: index, width: width)
+        }
     }
 
-    private func makeSection(
-        at index: Int,
-        in environment: NSCollectionLayoutEnvironment
-    ) -> NSCollectionLayoutSection {
-        let width = environment.container.effectiveContentSize.width - Self.horizontalInset * 2
+    private func makeSection(at index: Int, width containerWidth: CGFloat) -> LegacyLayoutSection {
+        let width = containerWidth - Self.horizontalInset * 2
         let (cellSize, itemsPerRow) = PackageListRow.layout(inWidth: width)
         let rowHeight = InstalledPackageCell.rowHeight
-
         laysOutGrid = itemsPerRow > 1
-        let section: NSCollectionLayoutSection
-        if itemsPerRow < 2 {
-            var list = UICollectionLayoutListConfiguration(appearance: .plain)
-            list.showsSeparators = false
-            list.backgroundColor = .clear
-            list.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-                self?.swipeActions(at: indexPath)
-            }
-            section = .list(using: list, layoutEnvironment: environment)
-        } else {
-            let item = NSCollectionLayoutItem(layoutSize: NSCollectionLayoutSize(
-                widthDimension: .absolute(cellSize.width),
-                heightDimension: .fractionalHeight(1)
-            ))
-            let group = NSCollectionLayoutGroup.horizontal(
-                layoutSize: NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .absolute(rowHeight)
-                ),
-                subitems: [item]
-            )
-            // what is left of the width goes between the columns
-            group.interItemSpacing = .flexible(0)
-            section = NSCollectionLayoutSection(group: group)
-        }
-        section.interGroupSpacing = Self.rowSpacing
-        section.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
-            leading: Self.horizontalInset,
-            // the next date stands off these rows as far as they stand off
-            // each other; after the last of them comes the footer
-            bottom: showsHeaders && index < dataSource.count - 1
-                ? Self.rowSpacing : 0,
-            trailing: Self.horizontalInset
-        )
-        if showsHeaders {
-            let header = NSCollectionLayoutBoundarySupplementaryItem(
-                layoutSize: NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .absolute(20)
-                ),
-                elementKind: UICollectionView.elementKindSectionHeader,
-                alignment: .top
-            )
-            // list and grid alike: the date is measured from the page's edge
-            // and starts where the rows do, whatever either kind of section
-            // would make of its own insets
-            if #available(iOS 16, *) {
-                section.supplementaryContentInsetsReference = .none
-            } else {
-                if #available(iOS 13.0, *) { section.supplementariesFollowContentInsets = false }
-            }
-            header.contentInsets = NSDirectionalEdgeInsets(
+        let isLast = index == collectionView.numberOfSections - 1
+        return LegacyLayoutSection(
+            items: itemsPerRow < 2 ? .rows(.absolute(rowHeight)) : .grid(CGSize(width: cellSize.width, height: rowHeight)),
+            insets: UIEdgeInsets(
                 top: 0,
-                leading: Self.horizontalInset,
-                bottom: 0,
-                trailing: Self.horizontalInset
-            )
-            section.boundarySupplementaryItems = [header]
-        }
-        return section
+                left: Self.horizontalInset,
+                // the next date stands off these rows as far as they stand
+                // off each other; after the last of them comes the footer
+                bottom: showsHeaders && index < dataSource.count - 1 ? Self.rowSpacing : 0,
+                right: Self.horizontalInset
+            ),
+            lineSpacing: Self.rowSpacing,
+            // the date is measured from the page's edge and starts where the
+            // rows do
+            header: showsHeaders ? .absolute(20) : nil,
+            // the count, after the last section
+            footer: isLast ? .estimated(ListFootnoteView.height) : nil,
+            supplementariesIgnoreInsets: false
+        )
     }
 
     // MARK: - SWIPE
@@ -123,8 +67,9 @@ extension InstalledController {
     }
 
     /// The same swipe in a grid, where the list's is not drawn.
+    /// iOS 12 port: the list's swipe as well, which a list section drew.
     func gridSwipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        laysOutGrid ? swipeActions(at: indexPath) : nil
+        swipeActions(at: indexPath)
     }
 
     // MARK: - TEXT SIZE

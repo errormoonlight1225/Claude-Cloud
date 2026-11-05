@@ -367,7 +367,6 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
     }
 
-    @concurrent
     private nonisolated static func namedCopies(of files: [(Package, URL)]) -> [URL]? {
         try? files.map { try DownloadArchiveController.namedCopy(of: $1, for: $0) }
     }

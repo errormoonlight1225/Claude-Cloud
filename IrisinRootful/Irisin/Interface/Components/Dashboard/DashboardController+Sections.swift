@@ -27,7 +27,6 @@ extension DashboardController {
         ) }
     }
 
-    @concurrent
     private nonisolated static func build(
         index: PackageIndex,
         repositories: [URL: Repository]

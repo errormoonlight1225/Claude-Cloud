@@ -71,7 +71,6 @@ enum ExportFile {
         }
     }
 
-    @concurrent
     private static func encodeRepository(_ repository: Repository, from index: PackageIndex) -> Data? {
         let packages = index.obtainPackageList(in: repository.url)
         return try? RepositoryFile(repository: repository, packages: packages).encoded()

@@ -133,7 +133,7 @@ public final class LegacyTask: @unchecked Sendable {
     @discardableResult
     public static func detached(
         qos: DispatchQoS.QoSClass = .userInitiated,
-        _ body: @escaping @Sendable () -> Void
+        _ body: @escaping @Sendable @_implicitSelfCapture () -> Void
     ) -> LegacyTask {
         let task = LegacyTask()
         task.group.enter()
@@ -595,7 +595,7 @@ public final class LegacyMainTask: @unchecked Sendable {
     private var completions: [() -> Void] = []
 
     @discardableResult
-    public init(_ body: @escaping () -> Void) {
+    public init(_ body: @escaping @_implicitSelfCapture () -> Void) {
         let cancellation = cancellation
         CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [self] in
             LegacyTask.withCurrent(cancellation, body)
