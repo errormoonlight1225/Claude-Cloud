@@ -1,3 +1,4 @@
+import LegacyCompat
 import LegacyCrypto
 import Foundation
 
@@ -62,9 +63,9 @@ public extension Package {
 
     static func archiveDigest(at url: URL) throws -> String {
         let file = try FileHandle(forReadingFrom: url)
-        defer { try? file.close() }
+        defer { try? file.compatClose() }
         var hash = SHA256()
-        while let data = try file.read(upToCount: 1024 * 1024), !data.isEmpty {
+        while let data = try file.compatRead(upToCount: 1024 * 1024), !data.isEmpty {
             hash.update(data: data)
         }
         return hash.finalize().map { String(format: "%02x", $0) }.joined()

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 extension RepositoryCenter {
@@ -88,7 +89,7 @@ extension RepositoryCenter {
     func updateRequest(for url: URL) -> UpdateRequest? {
         guard let repo = repositories[url] else { return nil }
         var networking = networkingConfiguration
-        networking.activity = { Task { @MainActor in self.noteActivity(of: url) } }
+        networking.activity = { DispatchQueue.main.async { self.noteActivity(of: url) } }
         var request = UpdateRequest(
             url: url,
             avatarUrls: repo.avatarUrls,
@@ -257,20 +258,11 @@ extension RepositoryCenter {
         _ bases: [URL],
         suffix: String,
         networking: NetworkingConfiguration
-    ) async -> [URL: Download] {
-        await withTaskGroup(of: (URL, Download).self, returning: [URL: Download].self) { group in
-            for base in bases {
-                let url = base.appendingPathExtension(suffix)
-                group.addTask {
-                    await (url, download(fromUrl: url, networking: networking))
-                }
-            }
-            var downloads = [URL: Download]()
-            for await (url, download) in group {
-                downloads[url] = download
-            }
-            return downloads
-        }
+    ) -> [URL: Download] {
+        // iOS 12 port: a concurrent map in place of the task group
+        let urls = bases.map { $0.appendingPathExtension(suffix) }
+        let results = legacyConcurrentMap(urls) { download(fromUrl: $0, networking: networking) }
+        return Dictionary(zip(urls, results), uniquingKeysWith: { first, _ in first })
     }
 
     /// The indexes that arrived, as served; the rest are left out.
@@ -313,7 +305,7 @@ extension RepositoryCenter {
             } else if digests?.lists(url) == true {
                 // a spelling called off once another was read never came,
                 // and that says nothing about the repository
-                if index != nil || !Task.isCancelled {
+                if index != nil || !LegacyTask.isCancelled {
                     aptLog(Self.self, "\(url.absoluteString) is in the Release and could not be had", level: .error)
                 }
                 return nil
@@ -378,14 +370,12 @@ extension RepositoryCenter {
         fromRepo: URL,
         digests: IndexDigests?,
         networking: NetworkingConfiguration
-    ) async -> SearchPathProbe? {
-        await withTaskGroup(
-            of: SearchPathProbe?.self,
-            returning: SearchPathProbe?.self
-        ) { group in
-            for searchPath in searchPaths {
-                group.addTask {
-                    let indexes = await fetchedIndexes(downloadPackageIndexes(
+    ) -> SearchPathProbe? {
+        // iOS 12 port: legacyFirstResult in place of the task group read
+        // to its first result
+        legacyFirstResult(searchPaths.map { searchPath in
+            { () -> SearchPathProbe? in
+                    let indexes = fetchedIndexes(downloadPackageIndexes(
                         baseUrls,
                         suffix: searchPath,
                         networking: networking
@@ -400,16 +390,8 @@ extension RepositoryCenter {
                     )
                     else { return nil }
                     return SearchPathProbe(suffix: searchPath, packages: packages, read: indexes.map(\.url))
-                }
             }
-            for await result in group {
-                if let result {
-                    group.cancelAll()
-                    return result
-                }
-            }
-            return nil
-        }
+        })
     }
 
     /// The icon from the first address in `urls` that has one, all asked at
@@ -419,25 +401,11 @@ extension RepositoryCenter {
     nonisolated static func downloadAvatar(
         from urls: [URL],
         networking: NetworkingConfiguration
-    ) async -> Data? {
-        await withTaskGroup(of: (Int, Data?).self, returning: Data?.self) { group in
-            for (position, url) in urls.enumerated() {
-                group.addTask { await (position, downloadData(fromUrl: url, networking: networking)) }
-            }
-            var answers = [Int: Data?]()
-            for await (position, data) in group {
-                answers[position] = data
-                // the earliest address not yet known to have none
-                for earlier in urls.indices {
-                    guard let answer = answers[earlier] else { break }
-                    if let answer {
-                        group.cancelAll()
-                        return answer
-                    }
-                }
-            }
-            return nil
-        }
+    ) -> Data? {
+        // iOS 12 port: legacyFirstInOrder in place of the task group
+        legacyFirstInOrder(urls.map { url in
+            { downloadData(fromUrl: url, networking: networking) }
+        })
     }
 
     /// What a repository offers besides its catalogue.
@@ -452,77 +420,85 @@ extension RepositoryCenter {
     /// catalogue's own files are in and its grace has run out; what was not
     /// in by then is `unanswered`, and what the repository had stays.
     /// - Parameter cutoff: yields once, the grace to allow from then on
+    ///
+    /// iOS 12 port: the three parts run on global queues and the call
+    /// returns at the cutoff or when all three are in, as the task group did;
+    /// the cutoff is a `LegacySignal` where it was a one-value AsyncStream.
     nonisolated static func fetchOptionalParts(
         _ request: UpdateRequest,
-        cutoff: AsyncStream<TimeInterval>,
-        progress: @escaping @Sendable (Int64, Int64?) async -> Void
-    ) async -> OptionalParts {
-        enum Part: Sendable {
-            case avatar(Data?)
-            case paymentEndpoint(Detected<URL>)
-            case featured(Detected<String>)
-            case cutoff
-        }
+        cutoff: LegacySignal<TimeInterval>,
+        progress: @escaping @Sendable (Int64, Int64?) -> Void
+    ) -> OptionalParts {
         let networking = request.networking
         let started = Date()
-        return await withTaskGroup(of: Part.self, returning: OptionalParts.self) { group in
-            group.addTask {
-                let value = await downloadAvatar(from: request.avatarUrls, networking: networking)
-                await progress(10, nil)
-                return .avatar(value)
-            }
-            group.addTask {
-                let value = await detectPaymentEndpoint(withUrl: request.url, networking: networking)
-                await progress(10, nil)
-                return .paymentEndpoint(value)
-            }
-            group.addTask {
-                let value = await detectFeaturedMetadata(withUrl: request.url, networking: networking)
-                await progress(10, nil)
-                return .featured(value)
-            }
-            group.addTask {
-                try? await sleepCountingWhileAsleep(request.optionalBudget)
-                return .cutoff
-            }
-            group.addTask {
-                for await grace in cutoff {
-                    try? await sleepCountingWhileAsleep(grace)
-                    return .cutoff
-                }
-                // the catalogue's files never came: the budget decides
-                try? await sleepCountingWhileAsleep(request.optionalBudget)
-                return .cutoff
-            }
-            var parts = OptionalParts()
-            var waiting: Set = ["avatar", "payment_endpoint", "sileo-featured"]
-            for await part in group {
-                switch part {
-                case let .avatar(value):
-                    parts.avatar = value
-                    waiting.remove("avatar")
-                case let .paymentEndpoint(value):
-                    parts.paymentEndpoint = value
-                    waiting.remove("payment_endpoint")
-                case let .featured(value):
-                    parts.featured = value
-                    waiting.remove("sileo-featured")
-                case .cutoff:
-                    let waited = String(format: "%.1f", Date().timeIntervalSince(started))
-                    aptLog(
-                        Self.self,
-                        "update \(request.url.absoluteString) gave up waiting for \(waiting.sorted().joined(separator: ", ")) after \(waited)s; keeping the old ones",
-                        level: .verbose
-                    )
-                    waiting.removeAll()
-                }
-                if waiting.isEmpty {
-                    group.cancelAll()
-                    break
-                }
-            }
-            return parts
+        let cancellation = (LegacyTask.current ?? LegacyCancellation()).child()
+        let condition = NSCondition()
+        var parts = OptionalParts()
+        var waiting: Set = ["avatar", "payment_endpoint", "sileo-featured"]
+        var cutOff = false
+
+        func arrive(_ name: String, _ apply: (inout OptionalParts) -> Void) {
+            condition.lock()
+            defer { condition.unlock() }
+            guard !cutOff else { return }
+            apply(&parts)
+            waiting.remove(name)
+            condition.broadcast()
         }
+        func run(_ body: @escaping () -> Void) {
+            DispatchQueue.global(qos: .utility).async {
+                LegacyTask.withCurrent(cancellation, body)
+            }
+        }
+        run {
+            let value = downloadAvatar(from: request.avatarUrls, networking: networking)
+            progress(10, nil)
+            arrive("avatar") { $0.avatar = value }
+        }
+        run {
+            let value = detectPaymentEndpoint(withUrl: request.url, networking: networking)
+            progress(10, nil)
+            arrive("payment_endpoint") { $0.paymentEndpoint = value }
+        }
+        run {
+            let value = detectFeaturedMetadata(withUrl: request.url, networking: networking)
+            progress(10, nil)
+            arrive("sileo-featured") { $0.featured = value }
+        }
+        // The cutoff: the budget, or the grace once the catalogue's files
+        // are in, whichever comes first.
+        run {
+            let budgetEnds = started.addingTimeInterval(request.optionalBudget)
+            var deadline = budgetEnds
+            if let grace = cutoff.wait(until: budgetEnds) {
+                deadline = min(budgetEnds, Date().addingTimeInterval(grace))
+            }
+            condition.lock()
+            while !waiting.isEmpty, !cutOff, condition.wait(until: deadline) {}
+            if !waiting.isEmpty, !cutOff {
+                let waited = String(format: "%.1f", Date().timeIntervalSince(started))
+                aptLog(
+                    Self.self,
+                    "update \(request.url.absoluteString) gave up waiting for \(waiting.sorted().joined(separator: ", ")) after \(waited)s; keeping the old ones",
+                    level: .verbose
+                )
+            }
+            cutOff = true
+            condition.broadcast()
+            condition.unlock()
+        }
+
+        condition.lock()
+        while !waiting.isEmpty, !cutOff {
+            condition.wait()
+        }
+        cutOff = true
+        let result = parts
+        condition.broadcast()
+        condition.unlock()
+        cancellation.cancel()
+        cutoff.close()
+        return result
     }
 
     /// Downloads and compiles one repository. Off the main actor throughout;
@@ -535,8 +511,8 @@ extension RepositoryCenter {
     /// - Returns: what was fetched
     nonisolated static func performUpdate(
         _ request: UpdateRequest,
-        progress: @escaping @Sendable (Int64, Int64?) async -> Void
-    ) async -> UpdateOutcome {
+        progress: @escaping @Sendable (Int64, Int64?) -> Void
+    ) -> UpdateOutcome {
         let id = request.url.absoluteString
         let networking = request.networking
         var outcome = UpdateOutcome(url: request.url)
@@ -555,31 +531,33 @@ extension RepositoryCenter {
         // whole update sooner when nothing arrives at all.
         aptLog(Self.self, "update \(id) enter stage 1", level: .verbose)
 
-        let (catalogueArrived, announceCatalogue) = AsyncStream<TimeInterval>.makeStream()
-        async let optionalTask = fetchOptionalParts(request, cutoff: catalogueArrived, progress: progress)
-        async let releaseTask: Download = {
-            let value = await download(fromUrl: request.releaseUrl, networking: networking)
-            await progress(10, nil)
+        // iOS 12 port: LegacyFutures where `async let` ran the three at once
+        let catalogueArrived = LegacySignal<TimeInterval>()
+        let optionalTask = LegacyFuture(qos: .utility) {
+            fetchOptionalParts(request, cutoff: catalogueArrived, progress: progress)
+        }
+        let releaseTask = LegacyFuture(qos: .utility) { () -> Download in
+            let value = download(fromUrl: request.releaseUrl, networking: networking)
+            progress(10, nil)
             return value
-        }()
-        async let packageTask: [URL: Download] = {
-            let value = await downloadPackageIndexes(
+        }
+        let packageTask = LegacyFuture(qos: .utility) { () -> [URL: Download] in
+            let value = downloadPackageIndexes(
                 request.packageCandidates.first ?? [],
                 suffix: request.preferredSearchPath,
                 networking: networking
             )
-            await progress(10, nil)
+            progress(10, nil)
             return value
-        }()
+        }
 
-        let releaseDownload = await releaseTask
-        let preferredDownloads = await packageTask
+        let releaseDownload = releaseTask.value
+        let preferredDownloads = packageTask.value
         // Neither the Release nor the index had any answer: the host is
         // down, or the path to it is. Every other spelling in stage 3 would
         // wait out the same silence, once per entry.
         let noAnswer = !releaseDownload.reachedServer && !preferredDownloads.values.contains { $0.reachedServer }
-        announceCatalogue.yield(noAnswer ? 0 : request.optionalGrace)
-        announceCatalogue.finish()
+        catalogueArrived.send(noAnswer ? 0 : request.optionalGrace)
         networking.activity()
 
         // MARK: - STAGE 2
@@ -657,7 +635,7 @@ extension RepositoryCenter {
             aptLog(Self.self, "\(id) complete compiler invoke in \(put) second", level: .info)
         }
 
-        await progress(20, nil)
+        progress(20, nil)
         networking.activity()
 
         // MARK: - STAGE 3
@@ -673,21 +651,21 @@ extension RepositoryCenter {
         aptLog(Self.self, "update \(id) enter stage 3", level: .verbose)
 
         if outcome.packages == nil {
-            if noAnswer, !Task.isCancelled {
+            if noAnswer, !LegacyTask.isCancelled {
                 let index = preferredDownloads.values.first?.summary ?? "none"
                 aptLog(
                     Self.self,
                     "update \(id) skips probing: Release \(releaseDownload.summary), index \(index)",
                     level: .error
                 )
-            } else if !Task.isCancelled {
+            } else if !LegacyTask.isCancelled {
                 // a Release fetched just now may name other index directories
                 // than the stored one did (or an empty one, on a repository
                 // added a moment ago): the probes read the fresh one
                 let candidates = outcome.release.map { request.packageCandidates(release: $0) }
                     ?? request.packageCandidates
                 for baseUrls in candidates {
-                    if Task.isCancelled {
+                    if LegacyTask.isCancelled {
                         break
                     }
                     // the spellings the Release lists first, so what is read
@@ -695,9 +673,9 @@ extension RepositoryCenter {
                     let listed = listedSearchPaths(request.availableSearchPath, of: baseUrls, digests: digests)
                     var winner: SearchPathProbe?
                     for searchPaths in [listed, request.availableSearchPath.filter { !listed.contains($0) }]
-                        where winner == nil && !searchPaths.isEmpty && !Task.isCancelled
+                        where winner == nil && !searchPaths.isEmpty && !LegacyTask.isCancelled
                     {
-                        winner = await probeSearchPaths(
+                        winner = probeSearchPaths(
                             searchPaths,
                             of: baseUrls,
                             fromRepo: request.url,
@@ -726,7 +704,7 @@ extension RepositoryCenter {
         }
 
         if !outcome.succeeded {
-            if Task.isCancelled {
+            if LegacyTask.isCancelled {
                 // given up by the refresh queue for making no progress
                 issues = [.stalled]
             } else if noAnswer {
@@ -765,12 +743,12 @@ extension RepositoryCenter {
             issues.append(.indexUnverified)
         }
 
-        let optional = await optionalTask
+        let optional = optionalTask.value
         outcome.avatar = optional.avatar
         outcome.paymentEndpoint = optional.paymentEndpoint
         outcome.featured = optional.featured
 
-        await progress(0, 90)
+        progress(0, 90)
 
         let completeInterval = Date().timeIntervalSince(updateStart)
         var unique = [RefreshReport.Issue]()
@@ -802,10 +780,8 @@ private struct SearchPathProbe: Sendable {
 /// `Task.sleep(for: .seconds(seconds))` on iOS 16 and later, which counts
 /// while the device sleeps; iOS 15 has no `Duration`, and there the uptime
 /// clock's nanoseconds stand in.
-private func sleepCountingWhileAsleep(_ seconds: TimeInterval) async throws {
-    if #available(iOS 16, macOS 13, *) {
-        try await Task.sleep(for: .seconds(seconds))
-    } else {
-        try await Task.sleep(nanoseconds: UInt64(max(0, seconds) * 1_000_000_000))
-    }
+private nonisolated func sleepCountingWhileAsleep(_ seconds: TimeInterval) throws {
+    // iOS 12 port: LegacyTask.sleep waits on the wall clock, which counts
+    // the time the device sleeps, as the continuous clock did.
+    try LegacyTask.sleep(seconds: max(0, seconds))
 }

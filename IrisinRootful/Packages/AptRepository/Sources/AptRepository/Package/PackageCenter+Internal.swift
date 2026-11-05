@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 extension PackageCenter {
@@ -36,13 +37,13 @@ extension PackageCenter {
         from path: String,
         into db: AptDatabase,
         installedFrom sources: [Package] = []
-    ) async -> InstalledSnapshot {
-        guard let packages = await readInstalled(at: path) else { return InstalledSnapshot(reading: db) }
+    ) -> InstalledSnapshot {
+        guard let packages = readInstalled(at: path) else { return InstalledSnapshot(reading: db) }
         db.replaceInstalled(packages, installedFrom: sources)
         return InstalledSnapshot(packages: Array(packages.values), origins: db.installOriginPackages())
     }
 
-    nonisolated static func readInstalled(at path: String) async -> [String: Package]? {
+    nonisolated static func readInstalled(at path: String) -> [String: Package]? {
         do {
             return try DpkgStatus.packages(in: Data(contentsOf: URL(fileURLWithPath: path)))
         } catch {
@@ -69,29 +70,41 @@ extension PackageCenter {
         if !disableTableTrace {
             traceWantsTable = true
         }
-        traceTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: Self.traceQuietPeriod)
-            guard let self, !Task.isCancelled else { return }
-            let table = traceWantsTable
-            traceWantsTable = false
+        traceTask = LegacyTask.detached { [weak self] in
+            try? LegacyTask.sleep(seconds: Double(Self.traceQuietPeriod) / 1_000_000_000)
+            guard let self, !LegacyTask.isCancelled else { return }
+            // iOS 12 port: the center's state on the main queue, the walk here
+            let (table, db, initialInstall, installed) = DispatchQueue.main.sync {
+                () -> (Bool, AptDatabase, [URL: Bool], [String: String]?) in
+                let table = self.traceWantsTable
+                self.traceWantsTable = false
+                return (
+                    table,
+                    self.index.db,
+                    RepositoryCenter.default.repositories.mapValues {
+                        ($0.attachment[.initialInstall] ?? "YES") == "YES"
+                    },
+                    self.index.installedSnapshot.map { $0.packages.compactMapValues(\.latestVersion) }
+                )
+            }
             let date = Date()
-            let traced = await Self.trace(
-                index.db,
+            let traced = Self.trace(
+                db,
                 disableTableTrace: !table,
-                initialInstall: RepositoryCenter.default.repositories.mapValues {
-                    ($0.attachment[.initialInstall] ?? "YES") == "YES"
-                },
-                installed: index.installedSnapshot.map { $0.packages.compactMapValues(\.latestVersion) },
+                initialInstall: initialInstall,
+                installed: installed,
                 date: date
             )
-            guard traced else {
-                // cancelled: the call that did it runs what this one did not
-                traceWantsTable = traceWantsTable || table
-                return
+            DispatchQueue.main.sync {
+                guard traced else {
+                    // cancelled: the call that did it runs what this one did not
+                    self.traceWantsTable = self.traceWantsTable || table
+                    return
+                }
+                let interval = Date().timeIntervalSince(date)
+                aptLog(self, String(format: "package tracing database updated in %.2fs", interval), level: .info)
+                self.dispatchNotification()
             }
-            let interval = Date().timeIntervalSince(date)
-            aptLog(self, String(format: "package tracing database updated in %.2fs", interval), level: .info)
-            dispatchNotification()
         }
     }
 
@@ -107,7 +120,7 @@ extension PackageCenter {
         initialInstall: [URL: Bool],
         installed: [String: String]? = nil,
         date: Date
-    ) async -> Bool {
+    ) -> Bool {
         // MARK: - INSTALL TRACE
 
         // identities and versions, never the payload: nothing here reads it
@@ -117,7 +130,7 @@ extension PackageCenter {
             installTraceBuilder[row.identity] = row
         }
         for (identity, version) in installed {
-            if Task.isCancelled {
+            if LegacyTask.isCancelled {
                 return false
             }
             guard installTraceBuilder[identity]?.version != version else { continue }
@@ -138,7 +151,7 @@ extension PackageCenter {
         // newest version of every identity across the repositories, from a
         // projection of three columns: version order is not SQL's to decide
         let offered = db.newestVersions()
-        if Task.isCancelled {
+        if LegacyTask.isCancelled {
             return false
         }
         var newest = [String: (repo: String, version: String)]()
@@ -154,7 +167,7 @@ extension PackageCenter {
             newest[identity] = (repo, version)
         }
 
-        if Task.isCancelled {
+        if LegacyTask.isCancelled {
             return false
         }
         var tableTraceBuilder = [String: TraceRow]()
@@ -163,7 +176,7 @@ extension PackageCenter {
             tableTraceBuilder[row.identity] = row
         }
         for (item, found) in newest {
-            if Task.isCancelled {
+            if LegacyTask.isCancelled {
                 return false
             }
             let newestVersion = found.version
@@ -187,7 +200,7 @@ extension PackageCenter {
                 lastModification: lastModification
             )
         }
-        if Task.isCancelled {
+        if LegacyTask.isCancelled {
             return false
         }
         db.replaceTraces(.install, with: [TraceRow](installTraceBuilder.values))

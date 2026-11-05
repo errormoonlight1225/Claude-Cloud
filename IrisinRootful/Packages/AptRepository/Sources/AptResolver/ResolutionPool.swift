@@ -1,3 +1,4 @@
+import LegacyCompat
 import AptRepository
 import Foundation
 import LibSolv
@@ -97,7 +98,7 @@ public struct ResolutionPool: Sendable {
             }
             for (step, package) in available.enumerated() {
                 if step % 1024 == 0 {
-                    try Task.checkCancellation()
+                    try LegacyTask.checkCancellation()
                 }
                 for version in package.payload.keys.sorted(by: { DebianVersion.compare($0, $1) > 0 }) {
                     let record = Package(
@@ -115,7 +116,7 @@ public struct ResolutionPool: Sendable {
             recordOfCandidate.reserveCapacity(candidates.count)
             for (step, record) in candidates.enumerated() {
                 if step % 1024 == 0 {
-                    try Task.checkCancellation()
+                    try LegacyTask.checkCancellation()
                 }
                 do {
                     try records.append(PoolPackage(reading: record, installed: false, in: snapshot))
@@ -248,7 +249,7 @@ public struct ResolutionPool: Sendable {
             conflictEnds.reserveCapacity(records.count)
             for (index, record) in records.enumerated() {
                 if index % 1024 == 0 {
-                    try Task.checkCancellation()
+                    try LegacyTask.checkCancellation()
                 }
                 for kind in [PoolPackage.Group.Kind.depends, .preDepends] {
                     for relation in record.relations[kind] ?? [] {

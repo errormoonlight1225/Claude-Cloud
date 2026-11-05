@@ -15,19 +15,25 @@ public extension PackageCenter {
     /// the one asked for last is the one the center keeps.
     /// - Parameter sources: the packages a transaction just installed; each
     ///   repository package dpkg now reports becomes its identity's origin
-    func reloadLocalPackages(installedFrom sources: [Package] = []) async {
-        installedReloads += 1
-        let reload = installedReloads
-        let snapshot = await Self.storeInstalled(
+    ///
+    /// iOS 12 port: blocks; call off the main thread.
+    nonisolated func reloadLocalPackages(installedFrom sources: [Package] = []) {
+        let (reload, db) = DispatchQueue.main.sync { () -> (Int, AptDatabase) in
+            installedReloads += 1
+            return (installedReloads, index.db)
+        }
+        let snapshot = Self.storeInstalled(
             from: AptEnvironment.current.dpkgStatusLocation,
-            into: index.db,
+            into: db,
             installedFrom: sources
         )
-        guard reload == installedReloads else { return }
-        index.installedSnapshot = snapshot
-        aptLog(self, "updating installation info reported \(snapshot.list.count) packages")
-        dispatchNotification()
-        updatePackageTracking(disableTableTrace: true)
+        DispatchQueue.main.sync {
+            guard reload == installedReloads else { return }
+            index.installedSnapshot = snapshot
+            aptLog(self, "updating installation info reported \(snapshot.list.count) packages")
+            dispatchNotification()
+            updatePackageTracking(disableTableTrace: true)
+        }
     }
 
     /// The repository package an installed identity came from, as the

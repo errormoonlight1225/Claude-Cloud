@@ -115,6 +115,16 @@ public final class LegacyTask: @unchecked Sendable {
 
     private static let currentKey = "LegacyCompat.LegacyTask.current"
 
+    /// Runs `body` with `cancellation` as this thread's current one: how
+    /// work fanned out to other threads stays cancellable with its task.
+    public static func withCurrent<T>(_ cancellation: LegacyCancellation?, _ body: () throws -> T) rethrows -> T {
+        let thread = Thread.current
+        let previous = thread.threadDictionary[currentKey]
+        thread.threadDictionary[currentKey] = cancellation
+        defer { thread.threadDictionary[currentKey] = previous }
+        return try body()
+    }
+
     private init() {}
 
     /// Runs `body` on a global queue at `qos`. The body is `@Sendable`, so
@@ -213,13 +223,152 @@ public func legacyConcurrentMap<Element, Result>(
     guard !elements.isEmpty else { return [] }
     let results = LegacyProtected<[Result?]>(Array(repeating: nil, count: elements.count))
     let semaphore = DispatchSemaphore(value: max(1, maxConcurrency))
+    let parent = LegacyTask.current
     withoutActuallyEscaping(body) { body in
         DispatchQueue.concurrentPerform(iterations: elements.count) { index in
             semaphore.wait()
             defer { semaphore.signal() }
-            let value = body(elements[index])
+            let value = LegacyTask.withCurrent(parent) { body(elements[index]) }
             results.withValue { $0[index] = value }
         }
     }
     return results.value.map { $0! }
+}
+
+extension LegacyCancellation {
+    /// A cancellation that follows this one and can also be cancelled on
+    /// its own: what a task group's child tasks had.
+    public func child() -> LegacyCancellation {
+        let child = LegacyCancellation()
+        onCancel { child.cancel() }
+        return child
+    }
+}
+
+/// A value sent once and waited for: what an AsyncStream that yields once
+/// was used for.
+public final class LegacySignal<Value>: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var value: Value?
+    private var closed = false
+
+    public init() {}
+
+    /// The first value sent wins; later ones are dropped.
+    public func send(_ newValue: Value) {
+        condition.lock()
+        if value == nil, !closed {
+            value = newValue
+        }
+        closed = true
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    /// Ends the signal without a value.
+    public func close() {
+        condition.lock()
+        closed = true
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    /// The value, nil when closed without one or when `deadline` passes.
+    public func wait(until deadline: Date = .distantFuture) -> Value? {
+        condition.lock()
+        defer { condition.unlock() }
+        while !closed {
+            if !condition.wait(until: deadline) { break }
+        }
+        return value
+    }
+}
+
+/// Runs every job at once and returns the first non-nil answer to arrive,
+/// cancelling the rest: a task group read until its first result.
+public func legacyFirstResult<T>(
+    qos: DispatchQoS.QoSClass = .utility,
+    _ jobs: [@Sendable () -> T?]
+) -> T? {
+    guard !jobs.isEmpty else { return nil }
+    let cancellation = (LegacyTask.current ?? LegacyCancellation()).child()
+    let condition = NSCondition()
+    var result: T?
+    var remaining = jobs.count
+    for job in jobs {
+        DispatchQueue.global(qos: qos).async {
+            let value = LegacyTask.withCurrent(cancellation) { cancellation.isCancelled ? nil : job() }
+            condition.lock()
+            remaining -= 1
+            if result == nil, let value { result = value }
+            condition.broadcast()
+            condition.unlock()
+        }
+    }
+    condition.lock()
+    while result == nil, remaining > 0 {
+        condition.wait()
+    }
+    let answer = result
+    condition.unlock()
+    cancellation.cancel()
+    return answer
+}
+
+/// Runs every job at once and returns the answer of the earliest job that
+/// has one, as soon as every job before it has answered nil: which answer
+/// wins depends on the order, never on which job was quicker.
+public func legacyFirstInOrder<T>(
+    qos: DispatchQoS.QoSClass = .utility,
+    _ jobs: [@Sendable () -> T?]
+) -> T? {
+    guard !jobs.isEmpty else { return nil }
+    let cancellation = (LegacyTask.current ?? LegacyCancellation()).child()
+    let condition = NSCondition()
+    var answers = [Int: T?]()
+    for (position, job) in jobs.enumerated() {
+        DispatchQueue.global(qos: qos).async {
+            let value = LegacyTask.withCurrent(cancellation) { cancellation.isCancelled ? nil : job() }
+            condition.lock()
+            answers[position] = value
+            condition.broadcast()
+            condition.unlock()
+        }
+    }
+    condition.lock()
+    defer {
+        condition.unlock()
+        cancellation.cancel()
+    }
+    while true {
+        for position in jobs.indices {
+            guard let answer = answers[position] else { break }
+            if let answer { return answer }
+            if position == jobs.count - 1 { return nil }
+        }
+        condition.wait()
+    }
+}
+
+/// `async let`: the body starts now on a global queue and `value` waits for
+/// it. It runs under the starting task's cancellation.
+public final class LegacyFuture<Value>: @unchecked Sendable {
+    private let group = DispatchGroup()
+    private var result: Value?
+
+    public init(qos: DispatchQoS.QoSClass = .userInitiated, _ body: @escaping @Sendable () -> Value) {
+        let parent = LegacyTask.current
+        group.enter()
+        DispatchQueue.global(qos: qos).async {
+            let value = LegacyTask.withCurrent(parent, body)
+            self.result = value
+            self.group.leave()
+        }
+    }
+
+    /// Blocks until the body has returned. Never call on the main thread.
+    public var value: Value {
+        group.wait()
+        return result!
+    }
 }

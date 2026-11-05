@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 let kRepositoryCenterIdentity = "wiki.qaq.irisin.RepositoryCenter"
@@ -86,11 +87,11 @@ public final class RepositoryCenter {
     var pendingUpdateRequest: Set<URL> = []
     var currentlyInUpdate: Set<URL> = []
     var currentUpdateProgress: [URL: Progress] = [:]
-    private var updateLoop: Task<Void, Never>?
+    private var updateLoop: Timer?
 
     /// Each update in flight: its task, to give it up by, when it started,
     /// and when it last heard from the server.
-    var updateTasks: [URL: Task<Void, Never>] = [:]
+    var updateTasks: [URL: LegacyTask] = [:]
     var updateStarted: [URL: Date] = [:]
     var lastActivity: [URL: Date] = [:]
     /// in flight and out of their slots for making no progress
@@ -108,7 +109,7 @@ public final class RepositoryCenter {
     var refreshRound: RefreshRound?
     /// The last database write asked for on the main actor; each one runs
     /// after the one before it, off the main actor (`write(_:then:)`).
-    var lastWrite: Task<Void, Never>?
+    var lastWrite: LegacyTask?
 
     /// when updating repository property, set by application to user default, not here
     @AptSetting(key: "\(kRepositoryCenterIdentity).networkingHeaders", defaultValue: [:])
@@ -151,32 +152,42 @@ public final class RepositoryCenter {
 
     /// Reads the repositories and starts the update engine. Once per
     /// process, after `PackageCenter.load()`.
-    public func load() async {
-        guard !isLoading else { return }
-        isLoading = true
+    ///
+    /// iOS 12 port: called off the main thread (it reads the database);
+    /// the center's state is touched on the main queue.
+    public nonisolated func load() {
+        let proceed: Bool = DispatchQueue.main.sync {
+            guard !isLoading else { return false }
+            isLoading = true
+            return true
+        }
+        guard proceed else { return }
 
         aptLog(self, "initializing manager")
 
-        repositories = await Self.readRepositories(from: AptDatabase.shared)
-        isLoaded = true
-        aptLog(self, "database reported \(repositories.keys.count) repository", level: .info)
-        // a page built before this read has an empty list to replace
-        NotificationCenter.default.post(name: RepositoryCenter.registrationUpdate, object: nil)
+        let read = Self.readRepositories(from: AptDatabase.shared)
+        DispatchQueue.main.sync {
+            repositories = read
+            isLoaded = true
+            aptLog(self, "database reported \(read.keys.count) repository", level: .info)
+            // a page built before this read has an empty list to replace
+            NotificationCenter.default.post(name: RepositoryCenter.registrationUpdate, object: nil)
 
-        // Give the app a moment to finish booting, then look over the
-        // update queue once a second: the watchdog runs on this tick.
-        updateLoop = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 3 * NSEC_PER_SEC)
-            self?.dispatchAutomaticRefresh()
-            self?.hasQueuedLaunchRefresh = true
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: NSEC_PER_SEC)
-                self?.dispatchUpdateOnCurrentCenter()
+            // Give the app a moment to finish booting, then look over the
+            // update queue once a second: the watchdog runs on this tick.
+            // A main run loop timer, where the task's loop used to sleep.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                guard let self else { return }
+                dispatchAutomaticRefresh()
+                hasQueuedLaunchRefresh = true
+                updateLoop = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                    DispatchQueue.main.async { self?.dispatchUpdateOnCurrentCenter() }
+                }
             }
         }
     }
 
-    nonisolated static func readRepositories(from db: AptDatabase) async -> [URL: Repository] {
+    nonisolated static func readRepositories(from db: AptDatabase) -> [URL: Repository] {
         var build = [URL: Repository]()
         for repository in db.repositories() {
             build[repository.url] = repository

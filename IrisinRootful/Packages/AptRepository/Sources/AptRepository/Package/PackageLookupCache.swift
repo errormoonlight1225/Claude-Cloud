@@ -3,6 +3,7 @@
 //  AptRepository
 //
 
+import LegacyCompat
 import Foundation
 import LRUCache
 
@@ -87,14 +88,22 @@ public final class PackageLookupCache {
         guard queued.count == 1 else { return }
         // every row of a layout pass asks before this runs, and one read
         // answers them all
-        Task { await load() }
+        LegacyTask.detached { self.load() }
     }
 
-    private func load() async {
-        let keys = queued
-        queued.removeAll()
-        let read = generation
-        let found = await Self.read(keys, from: PackageCenter.default.index)
+    /// iOS 12 port: the read runs on the background thread this is called
+    /// on; what the cache holds is the main thread's.
+    private nonisolated func load() {
+        let (keys, read, index) = DispatchQueue.main.sync { () -> (Set<Key>, Int, PackageIndex) in
+            let keys = queued
+            queued.removeAll()
+            return (keys, generation, PackageCenter.default.index)
+        }
+        let found = Self.read(keys, from: index)
+        DispatchQueue.main.sync { commit(keys, found, read) }
+    }
+
+    private func commit(_ keys: Set<Key>, _ found: [Key: Package], _ read: Int) {
         for key in keys {
             // an older read never replaces a newer one
             if let held = entries.value(forKey: key), held.generation >= read {
@@ -111,7 +120,7 @@ public final class PackageLookupCache {
     }
 
     /// one statement per repository asked about
-    private nonisolated static func read(_ keys: Set<Key>, from index: PackageIndex) async -> [Key: Package] {
+    private nonisolated static func read(_ keys: Set<Key>, from index: PackageIndex) -> [Key: Package] {
         var found = [Key: Package]()
         for (repository, keys) in Dictionary(grouping: keys, by: \.repository) {
             for package in index.db.packages(identities: keys.map(\.identity), in: repository) {

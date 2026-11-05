@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 public extension RepositoryCenter {
@@ -280,9 +281,11 @@ extension RepositoryCenter {
         write { $0.save(repository) }
     }
 
-    /// Returns once every write asked for so far has run.
-    public func writesLanded() async {
-        await lastWrite?.value
+    /// Returns once every write asked for so far has run. Blocks; call off
+    /// the main thread.
+    public nonisolated func writesLanded() {
+        let pending = DispatchQueue.main.sync { lastWrite }
+        pending?.wait()
     }
 
     /// Runs `body` off the main actor once every write asked for before it
@@ -295,11 +298,11 @@ extension RepositoryCenter {
     ) {
         let before = lastWrite
         let db = AptDatabase.shared
-        lastWrite = Task.detached(priority: .userInitiated) {
-            await before?.value
+        lastWrite = LegacyTask.detached(qos: .userInitiated) {
+            before?.wait()
             body(db)
             if let landed {
-                await landed()
+                DispatchQueue.main.sync { landed() }
             }
         }
     }

@@ -1,3 +1,4 @@
+import LegacyCompat
 import AptRepository
 import Foundation
 import IrisinProtocol
@@ -15,9 +16,9 @@ public enum PackageResolver {
     ) throws -> ResolutionPlan {
         do {
             return try solve(request: request, snapshot: snapshot, pool: pool)
-        } catch is CancellationError {
+        } catch is LegacyCancellationError {
             // no one is waiting for this plan, nor for why it failed
-            throw CancellationError()
+            throw LegacyCancellationError()
         } catch {
             // the failure's own evidence first: it names what went wrong
             let checks = ((error as? ResolutionFailure)?.checks ?? [])
@@ -410,7 +411,7 @@ public enum PackageResolver {
         var pending = newest.values.sorted().map { records[$0] }
         var moving: [String: [Package]] = [:]
         while let record = pending.popLast() {
-            try Task.checkCancellation()
+            try LegacyTask.checkCancellation()
             for kind in [PoolPackage.Group.Kind.depends, .preDepends] {
                 for clause in record.relations[kind] ?? [] {
                     let witnesses = universe.witnesses(clause)
@@ -438,8 +439,8 @@ public enum PackageResolver {
         do {
             let wider = try ResolutionPool(snapshot: snapshot, requested: moving.keys.sorted().flatMap { moving[$0]! })
             probe = try solve(request: request, snapshot: snapshot, in: wider)
-        } catch is CancellationError {
-            throw CancellationError()
+        } catch is LegacyCancellationError {
+            throw LegacyCancellationError()
         } catch {
             // the held-back updates say why on their own
             return nil

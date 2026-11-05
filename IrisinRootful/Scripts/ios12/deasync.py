@@ -43,7 +43,6 @@ RULES = [
     (r"(\bURLSession(?:\.shared)?|\bsession|\b[a-zA-Z_]+Session)\.data\(for:", r"\1.compatData(for:"),
     (r"(\bURLSession(?:\.shared)?|\bsession|\b[a-zA-Z_]+Session)\.data\(from:", r"\1.compatData(from:"),
     (r"(\bURLSession(?:\.shared)?|\bsession|\b[a-zA-Z_]+Session)\.download\(for:", r"\1.compatDownload(for:"),
-    (r"\bTask\.sleep\(nanoseconds:\s*([^)]+)\)", r"LegacyTask.sleep(seconds: Double(\1) / 1_000_000_000)"),
     (r"\bTask\.sleep\(for:\s*\.seconds\(([^)]+)\)\)", r"LegacyTask.sleep(seconds: TimeInterval(\1))"),
     (r"\bTask\.sleep\(for:\s*\.milliseconds\(([^)]+)\)\)", r"LegacyTask.sleep(seconds: TimeInterval(\1) / 1000)"),
     (r"\bTask\.detached\(priority:\s*\.(\w+)\)\s*\{", lambda m: f"LegacyTask.detached(qos: .{QOS.get(m.group(1), m.group(1))}) {{"),
@@ -149,8 +148,27 @@ def add_import(text):
     return "\n".join(lines)
 
 
+def rewrite_sleeps(text):
+    """`Task.sleep(nanoseconds: e)` with `e` read to its balanced paren."""
+    out, i = [], 0
+    pattern = re.compile(r"\bTask\.sleep\(nanoseconds:\s*")
+    while True:
+        m = pattern.search(text, i)
+        if not m:
+            out.append(text[i:])
+            return "".join(out)
+        depth, j = 1, m.end()
+        while j < len(text) and depth:
+            depth += {"(": 1, ")": -1}.get(text[j], 0)
+            j += 1
+        expr = text[m.end():j - 1].strip()
+        out.append(text[i:m.start()] + f"LegacyTask.sleep(seconds: Double({expr}) / 1_000_000_000)")
+        i = j
+
+
 def rewrite(text):
     text = drop_async(text)
+    text = rewrite_sleeps(text)
     out = []
     for line in text.split("\n"):
         stripped = line.lstrip()

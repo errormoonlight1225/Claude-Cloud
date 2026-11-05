@@ -3,7 +3,8 @@
 //  AptRepository
 //
 
-import Combine
+import OpenCombine
+import OpenCombineDispatch
 import Foundation
 
 /// Coalesces bursts of work on the main actor. The first job runs straight
@@ -16,8 +17,8 @@ public final class Throttler {
 
     public init(minimumDelay: TimeInterval) {
         cancellable = subject
-            .throttle(for: .seconds(minimumDelay), scheduler: DispatchQueue.main, latest: true)
-            .sink { job in MainActor.assumeIsolated { job() } }
+            .throttle(for: .seconds(minimumDelay), scheduler: DispatchQueue.main.ocombine, latest: true)
+            .sink { job in job() }
     }
 
     public func throttle(_ job: @escaping @MainActor () -> Void) {

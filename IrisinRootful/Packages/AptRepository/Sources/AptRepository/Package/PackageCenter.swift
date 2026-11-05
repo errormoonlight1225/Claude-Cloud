@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 let kPackageCenterIdentity = "wiki.qaq.irisin.PackageCenter"
@@ -44,7 +45,7 @@ public final class PackageCenter {
     // MARK: - RECORDS
 
     /// a newer trace cancels the one in flight
-    var traceTask: Task<Void, Never>?
+    var traceTask: LegacyTask?
     /// a repository trace was asked for and has not run yet
     var traceWantsTable = false
 
@@ -84,16 +85,23 @@ public final class PackageCenter {
 
     /// Reads the dpkg status file. Once per process, before
     /// `RepositoryCenter.load()`.
-    public func load() async {
-        guard !isLoading else { return }
-        isLoading = true
+    ///
+    /// iOS 12 port: called off the main thread; the state is touched on the
+    /// main queue.
+    public nonisolated func load() {
+        let proceed: Bool = DispatchQueue.main.sync {
+            guard !isLoading else { return false }
+            isLoading = true
+            return true
+        }
+        guard proceed else { return }
 
         aptLog(self, "tracing package status with \(AptEnvironment.current.dpkgStatusLocation)", level: .info)
 
-        restoreUpdatePreferences()
+        DispatchQueue.main.sync { restoreUpdatePreferences() }
 
-        await reloadLocalPackages()
-        isLoaded = true
+        reloadLocalPackages()
+        DispatchQueue.main.sync { isLoaded = true }
     }
 
     /// What the user said about updates, read into `index`. `load()` does

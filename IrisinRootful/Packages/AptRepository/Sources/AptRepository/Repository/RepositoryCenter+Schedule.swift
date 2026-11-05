@@ -3,6 +3,7 @@
 //  AptRepository
 //
 
+import LegacyCompat
 import Foundation
 
 /// One refresh of the queue, from its first dispatch until nothing is
@@ -148,25 +149,25 @@ extension RepositoryCenter {
         // the writes asked for before this began, a delete of the
         // repository it refreshes again among them
         let written = lastWrite
-        updateTasks[url] = Task.detached(priority: .utility) {
-            var outcome = await Self.performUpdate(request) { units, absolute in
-                await self.advanceUpdate(of: url, by: units, to: absolute)
+        updateTasks[url] = LegacyTask.detached(qos: .utility) {
+            var outcome = Self.performUpdate(request) { units, absolute in
+                DispatchQueue.main.sync { self.advanceUpdate(of: url, by: units, to: absolute) }
             }
             // given up or deleted: whatever arrived anyway is not written,
             // and the packages that are there stay
-            if Task.isCancelled {
+            if LegacyTask.isCancelled {
                 outcome.packages = nil
             }
             // the heavy write, still off the main actor and still progress
             // to the watchdog; an update that read nothing leaves the rows
             // that are there
             if outcome.succeeded, let packages = outcome.packages {
-                await written?.value
+                written?.wait()
                 Self.beating(request.networking.activity) {
                     db.replacePackages(of: url, with: packages)
                 }
             }
-            await self.finishUpdate(outcome)
+            DispatchQueue.main.sync { self.finishUpdate(outcome) }
         }
     }
 

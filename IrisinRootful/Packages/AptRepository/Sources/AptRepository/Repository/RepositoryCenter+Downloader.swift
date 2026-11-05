@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 /// The headers, timeout and logging switch a repository download runs with.
@@ -100,14 +101,14 @@ extension RepositoryCenter {
     /// download data, header is injected from networkingHeaders, timeout is used with networkingTimeout
     /// - Parameter fromUrl: data url
     /// - Returns: data if success
-    nonisolated static func downloadData(fromUrl: URL, networking: NetworkingConfiguration) async -> Data? {
-        await download(fromUrl: fromUrl, networking: networking).data
+    nonisolated static func downloadData(fromUrl: URL, networking: NetworkingConfiguration) -> Data? {
+        download(fromUrl: fromUrl, networking: networking).data
     }
 
     /// `downloadData`, saying why there is none. The body is read as it
     /// arrives, so `networking.activity` hears of a slow server that is
     /// still sending and not of one that went quiet.
-    nonisolated static func download(fromUrl: URL, networking: NetworkingConfiguration) async -> Download {
+    nonisolated static func download(fromUrl: URL, networking: NetworkingConfiguration) -> Download {
         var request = URLRequest(
             url: fromUrl,
             cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
@@ -120,10 +121,12 @@ extension RepositoryCenter {
             aptLog(Self.self, "requesting \(fromUrl.absoluteString)", level: .verbose)
         }
         do {
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
-            networking.activity()
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                bytes.task.cancel()
+            // iOS 12 port: a delegate-driven fetch in place of
+            // URLSession.bytes(for:) (iOS 15); it reports activity on the
+            // response and then once a second while the body arrives.
+            let fetched = try LegacyStreamingFetch.fetch(request, activity: networking.activity)
+            let response = fetched.response
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200, let body = fetched.data else {
                 // A repository that answers 404 for its Packages index looks
                 // exactly like one that is merely empty unless this says so.
                 let code = (response as? HTTPURLResponse)?.statusCode
@@ -135,9 +138,10 @@ extension RepositoryCenter {
                 guard let code else { return .serverError(0) }
                 return (400 ..< 500).contains(code) ? .absent : .serverError(code)
             }
-            return try await .data(read(bytes, expected: response.expectedContentLength, activity: networking.activity))
+            _ = http
+            return .data(body)
         } catch {
-            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+            if LegacyTask.isCancelled || error is LegacyCancellationError || (error as? URLError)?.code == .cancelled {
                 return .stalled
             }
             let code = (error as? URLError)?.code
@@ -145,37 +149,6 @@ extension RepositoryCenter {
             aptLog(Self.self, "request to \(fromUrl.absoluteString) failed: \(reason)", level: .error)
             return .unreachable(code)
         }
-    }
-
-    /// The body, collected in blocks. The clock is read every 512 bytes, so
-    /// a trickle is heard of and a byte costs no clock read.
-    private nonisolated static func read(
-        _ bytes: URLSession.AsyncBytes,
-        expected: Int64,
-        activity: @Sendable () -> Void
-    ) async throws -> Data {
-        var data = Data()
-        if expected > 0 {
-            data.reserveCapacity(Int(min(expected, 64 << 20)))
-        }
-        var block = [UInt8]()
-        block.reserveCapacity(1 << 16)
-        var reported = Date()
-        for try await byte in bytes {
-            block.append(byte)
-            guard block.count & 0x1FF == 0 else { continue }
-            let now = Date()
-            if now.timeIntervalSince(reported) >= 1 {
-                activity()
-                reported = now
-            }
-            if block.count == 1 << 16 {
-                data.append(contentsOf: block)
-                block.removeAll(keepingCapacity: true)
-            }
-        }
-        data.append(contentsOf: block)
-        return data
     }
 
     /// A few words on why a request got no answer, for the log.
@@ -200,8 +173,8 @@ extension RepositoryCenter {
     nonisolated static func detectPaymentEndpoint(
         withUrl: URL,
         networking: NetworkingConfiguration
-    ) async -> Detected<URL> {
-        switch await download(fromUrl: withUrl.appendingPathComponent("payment_endpoint"), networking: networking) {
+    ) -> Detected<URL> {
+        switch download(fromUrl: withUrl.appendingPathComponent("payment_endpoint"), networking: networking) {
         case let .data(data):
             String(data: data, encoding: .utf8).flatMap { URL(string: $0) }.map { .found($0) } ?? .absent
         case .absent:
@@ -217,8 +190,8 @@ extension RepositoryCenter {
     nonisolated static func detectFeaturedMetadata(
         withUrl: URL,
         networking: NetworkingConfiguration
-    ) async -> Detected<String> {
-        switch await download(fromUrl: withUrl.appendingPathComponent("sileo-featured.json"), networking: networking) {
+    ) -> Detected<String> {
+        switch download(fromUrl: withUrl.appendingPathComponent("sileo-featured.json"), networking: networking) {
         case let .data(data):
             if let str = String(data: data, encoding: .utf8), str.contains("FeaturedBannersView") {
                 .found(str)

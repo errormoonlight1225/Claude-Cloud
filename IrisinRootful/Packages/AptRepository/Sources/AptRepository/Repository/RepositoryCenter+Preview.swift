@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import LegacyCompat
 
 /// What a repository looks like before it is registered: the label and
 /// description from its Release file, and its icon.
@@ -19,16 +20,17 @@ public struct RepositoryPreview: Sendable {
 public extension RepositoryCenter {
     /// Fetches the Release file and the icon of a source that is not
     /// registered. Nil when the address does not answer as a repository.
-    func preview(of source: RepositorySource) async -> RepositoryPreview? {
+    nonisolated func preview(of source: RepositorySource) -> RepositoryPreview? {
         let repository = Repository(source: source)
         // no watchdog here to tell slow from dead, and the user is waiting
         // on this one address: the minute a slow server may need
+        let (headers, verbose) = DispatchQueue.main.sync { (networkingHeaders, networkingVerboseLogging) }
         let networking = NetworkingConfiguration(
-            headers: networkingHeaders,
+            headers: headers,
             timeout: 60,
-            verboseLogging: networkingVerboseLogging
+            verboseLogging: verbose
         )
-        return await Self.fetchPreview(
+        return Self.fetchPreview(
             releaseUrl: repository.metaReleaseUrl,
             avatarUrls: repository.avatarUrls,
             networking: networking
@@ -39,17 +41,19 @@ public extension RepositoryCenter {
         releaseUrl: URL,
         avatarUrls: [URL],
         networking: NetworkingConfiguration
-    ) async -> RepositoryPreview? {
-        async let avatar = downloadAvatar(from: avatarUrls, networking: networking)
-        guard let release = await downloadData(fromUrl: releaseUrl, networking: networking),
+    ) -> RepositoryPreview? {
+        // iOS 12 port: a LegacyFuture where `async let` fetched the icon
+        // beside the Release
+        let avatar = LegacyFuture { downloadAvatar(from: avatarUrls, networking: networking) }
+        guard let release = downloadData(fromUrl: releaseUrl, networking: networking),
               let meta = ReleaseFile.read(IndexText.decode(release))?.fields
         else {
             return nil
         }
-        return await RepositoryPreview(
+        return RepositoryPreview(
             name: meta["label"] ?? meta["origin"] ?? releaseUrl.host ?? "repo",
             description: meta["description"] ?? meta["version"],
-            avatar: avatar
+            avatar: avatar.value
         )
     }
 }
