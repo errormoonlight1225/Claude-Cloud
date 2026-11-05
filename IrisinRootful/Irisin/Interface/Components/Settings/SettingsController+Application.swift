@@ -61,7 +61,7 @@ extension SettingsController {
         )
         LegacyMainTask { [weak self] in
             guard let self else { return }
-            awaitBackground { withCheckedContinuation { shown in }
+            legacyWaitOnMain { shown in
                 present(alert, animated: true) { shown.resume() }
             }
             let result: Result<URL, TestUpdate.Failure>

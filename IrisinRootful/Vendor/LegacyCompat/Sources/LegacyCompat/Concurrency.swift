@@ -133,7 +133,7 @@ public final class LegacyTask: @unchecked Sendable {
     @discardableResult
     public static func detached(
         qos: DispatchQoS.QoSClass = .userInitiated,
-        _ body: @escaping @Sendable @_implicitSelfCapture () -> Void
+        @_implicitSelfCapture _ body: @escaping @Sendable () -> Void
     ) -> LegacyTask {
         let task = LegacyTask()
         task.group.enter()
@@ -367,7 +367,7 @@ public final class LegacyFuture<Value>: @unchecked Sendable {
     /// The body's own cancellation, following the starting task's.
     public let cancellation: LegacyCancellation
 
-    public init(qos: DispatchQoS.QoSClass = .userInitiated, _ body: @escaping @Sendable () -> Value) {
+    public init(qos: DispatchQoS.QoSClass = .userInitiated, @_implicitSelfCapture _ body: @escaping @Sendable () -> Value) {
         let cancellation = (LegacyTask.current ?? LegacyCancellation()).child()
         self.cancellation = cancellation
         group.enter()
@@ -595,7 +595,7 @@ public final class LegacyMainTask: @unchecked Sendable {
     private var completions: [() -> Void] = []
 
     @discardableResult
-    public init(_ body: @escaping @_implicitSelfCapture () -> Void) {
+    public init(@_implicitSelfCapture _ body: @escaping () -> Void) {
         let cancellation = cancellation
         CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [self] in
             LegacyTask.withCurrent(cancellation, body)
@@ -639,7 +639,7 @@ public enum LegacyRunLoop {
 /// until it returns. Off the main thread the body simply runs. `body` is
 /// @Sendable, so the compiler reports main-thread state it touches: such a
 /// call belongs outside `awaitBackground`.
-public func awaitBackground<T>(_ body: @escaping @Sendable () -> T) -> T {
+public func awaitBackground<T>(@_implicitSelfCapture _ body: @escaping @Sendable () -> T) -> T {
     guard Thread.isMainThread else { return body() }
     let box = LegacyProtected<T?>(nil)
     let done = LegacyProtected(false)
@@ -656,7 +656,54 @@ public func awaitBackground<T>(_ body: @escaping @Sendable () -> T) -> T {
 }
 
 /// The throwing form.
-public func awaitBackground<T>(_ body: @escaping @Sendable () throws -> T) throws -> T {
+public func awaitBackground<T>(@_implicitSelfCapture _ body: @escaping @Sendable () throws -> T) throws -> T {
     let result: Result<T, Error> = awaitBackground { Result { try body() } }
     return try result.get()
+}
+
+/// `CheckedContinuation` for main-thread waits: resumed once, from anywhere.
+public final class LegacyContinuation<T>: @unchecked Sendable {
+    fileprivate let result = LegacyProtected<Result<T, Error>?>(nil)
+
+    public func resume(returning value: T) { set(.success(value)) }
+    public func resume(throwing error: Error) { set(.failure(error)) }
+    public func resume(with result: Result<T, Error>) { set(result) }
+
+    private func set(_ value: Result<T, Error>) {
+        result.withValue { if $0 == nil { $0 = value } }
+        DispatchQueue.main.async {}
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+}
+
+extension LegacyContinuation where T == Void {
+    public func resume() { resume(returning: ()) }
+}
+
+/// A former `await withCheckedContinuation` on the main thread: `start`
+/// runs now, and the main run loop turns until it resumes the continuation
+/// (an alert's button, a dismissal's completion). Off the main thread the
+/// caller blocks instead.
+public func legacyWaitOnMain<T>(_ start: (LegacyContinuation<T>) -> Void) -> T {
+    let continuation = LegacyContinuation<T>()
+    start(continuation)
+    if Thread.isMainThread {
+        while continuation.result.value == nil { LegacyRunLoop.turn() }
+    } else {
+        while continuation.result.value == nil { Thread.sleep(forTimeInterval: 0.01) }
+    }
+    // only the throwing form is ever resumed with an error
+    return try! continuation.result.value!.get()
+}
+
+/// `await withCheckedThrowingContinuation` on the main thread.
+public func legacyWaitOnMainThrowing<T>(_ start: (LegacyContinuation<T>) -> Void) throws -> T {
+    let continuation = LegacyContinuation<T>()
+    start(continuation)
+    if Thread.isMainThread {
+        while continuation.result.value == nil { LegacyRunLoop.turn() }
+    } else {
+        while continuation.result.value == nil { Thread.sleep(forTimeInterval: 0.01) }
+    }
+    return try continuation.result.value!.get()
 }

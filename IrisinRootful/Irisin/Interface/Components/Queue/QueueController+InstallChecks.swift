@@ -19,7 +19,7 @@ extension QueueController {
         if offersBootstrap {
             message += "\n\n" + String(legacyLocalized: "Bootstrap Install places every package's files before any script runs.")
         }
-        return awaitBackground { withCheckedContinuation { continuation in }
+        return legacyWaitOnMain { continuation in
             let alert = AlertViewController(
                 title: String.LocalizationValue(String(localized: "dpkg Is Not Installed")),
                 message: String.LocalizationValue(message)

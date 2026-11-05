@@ -146,7 +146,7 @@ nonisolated enum SystemTranslator {
     private static func answer<T: Sendable>(
         _ start: (@escaping @Sendable (T?) -> Void) -> Void
     ) -> T? {
-        awaitBackground { withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in }
+        legacyWaitOnMain { (continuation: LegacyContinuation<T?>) in
             let answered = LockedState(initialState: false)
             let finish: @Sendable (T?) -> Void = { value in
                 let first = answered.withLock { done in

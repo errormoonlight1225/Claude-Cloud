@@ -58,7 +58,7 @@ extension PackageMenu {
         )
         // on screen before the check: a quick answer would dismiss it while
         // it is still coming in, which UIKit ignores
-        awaitBackground { withCheckedContinuation { done in }
+        legacyWaitOnMain { done in
             host.present(alert, animated: true) { done.resume() }
         }
         // the requests time out on their own; nothing waits forever

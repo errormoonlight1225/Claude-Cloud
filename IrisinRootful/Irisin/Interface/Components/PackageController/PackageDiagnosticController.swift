@@ -231,7 +231,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
         )
         LegacyMainTask { [weak self] in
             guard awaitBackground({ OperationConfirmation.confirm() }), let self else { return }
-            awaitBackground { withCheckedContinuation { ready in }
+            legacyWaitOnMain { ready in
                 present(progress, animated: true) { ready.resume() }
             }
             let payload: Installer.OperationPayload? = if removing, let recoveryRemoval {
@@ -247,7 +247,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
                 presentNotice(
                     title: "Unable to Prepare Installation",
                     message: report.isEmpty
-                        ? String(localized: "Unable to prepare the installation. Try again.")
+                        ? String(legacyLocalized: "Unable to prepare the installation. Try again.")
                         : report
                 )
                 return

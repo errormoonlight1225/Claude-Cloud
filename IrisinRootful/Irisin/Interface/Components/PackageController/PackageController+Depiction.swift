@@ -238,7 +238,7 @@ extension PackageController {
             // on screen before the answer: a quick one would dismiss it
             // while it is still coming in, which UIKit ignores
             if let alert, let self {
-                awaitBackground { withCheckedContinuation { done in }
+                legacyWaitOnMain { done in
                     self.present(alert, animated: true) { done.resume() }
                 }
             }

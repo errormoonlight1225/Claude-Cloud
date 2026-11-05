@@ -93,7 +93,7 @@ extension UIViewController {
         // a second tap while the first alert is up, or a page on its way
         // out: nothing would come up, and nothing would ever answer
         guard presentedViewController == nil, view.window != nil else { return .cancel }
-        return awaitBackground { withCheckedContinuation { continuation in }
+        return legacyWaitOnMain { continuation in
             let alert = AlertViewController(title: title, message: String.LocalizationValue(message)) { context in
                 context.addAction(title: "Select Recommended", attribute: .accent) {
                     context.dispose { continuation.resume(returning: .recommended) }
@@ -115,7 +115,7 @@ extension UIViewController {
     /// the next `present` would be refused.
     func dismissFinishing(animated: Bool) {
         guard presentingViewController != nil else { return }
-        awaitBackground { withCheckedContinuation { continuation in }
+        legacyWaitOnMain { continuation in
             dismiss(animated: animated) { continuation.resume() }
         }
     }
