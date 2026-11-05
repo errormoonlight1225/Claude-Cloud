@@ -1,3 +1,4 @@
+import LegacyCompat
 import IrisinProtocol
 import UIKit
 
@@ -85,7 +86,7 @@ final class OperationProblemController: UIViewController {
             x.edges.equalToSuperview()
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         snapshot.appendSections([.package, .happened, .next])
         snapshot.appendItems([.package], toSection: .package)
         snapshot.appendItems([.text(happened)], toSection: .happened)

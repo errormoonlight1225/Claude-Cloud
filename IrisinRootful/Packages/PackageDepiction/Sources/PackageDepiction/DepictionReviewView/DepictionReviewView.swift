@@ -6,6 +6,7 @@
 //  Copyright © 2019 CoolStar. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -49,7 +50,7 @@ final class DepictionReviewView: DepictionView {
         )
 
         let background = UIView().then {
-            $0.backgroundColor = .systemBackground
+            $0.backgroundColor = .compatSystemBackground
             $0.layer.cornerRadius = 10
         }
         addSubview(background)

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AlertController
 import AptRepository
 import Dog
@@ -21,7 +22,7 @@ extension VendorAccount {
         guard storedToken(for: repo) != nil else {
             return [UIAction(
                 title: String(localized: "Sign In"),
-                image: UIImage(systemName: "person.crop.circle")
+                image: UIImage.compatSystemImage("person.crop.circle")
             ) { _ in
                 let host = controller()
                 VendorAccount.shared.startUserAuthenticate(
@@ -32,7 +33,7 @@ extension VendorAccount {
             }]
         }
         return [
-            UIAction(title: String(localized: "Purchased"), image: UIImage(systemName: "bag")) { _ in
+            UIAction(title: String(localized: "Purchased"), image: UIImage.compatSystemImage("bag")) { _ in
                 guard let host = controller() else { return }
                 let alert = progressAlert(
                     title: "Loading Purchases…",
@@ -76,7 +77,7 @@ extension VendorAccount {
             },
             UIAction(
                 title: String(localized: "Sign Out"),
-                image: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
+                image: UIImage.compatSystemImage("rectangle.portrait.and.arrow.right"),
                 attributes: .destructive
             ) { _ in
                 VendorAccount.shared.deleteSignInRecord(for: repo.url)

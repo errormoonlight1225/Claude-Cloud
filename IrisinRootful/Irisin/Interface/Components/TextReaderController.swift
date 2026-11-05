@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Runestone
 import RunestoneThemeSupport
 import SnapKit
@@ -37,7 +38,7 @@ final class TextReaderController: UIViewController {
         super.viewDidLoad()
         navigationItem.largeTitleDisplayMode = .never
         let wrap = UIBarButtonItem().then {
-            $0.image = UIImage(systemName: "arrow.turn.down.left")
+            $0.image = UIImage.compatSystemImage("arrow.turn.down.left")
             $0.accessibilityLabel = String(localized: "Wrap Lines")
         }
         wrap.primaryAction = UIAction(image: wrap.image) { [weak self, weak wrap] _ in
@@ -47,7 +48,7 @@ final class TextReaderController: UIViewController {
         }
         navigationItem.rightBarButtonItems = [
             UIBarButtonItem(
-                image: UIImage(systemName: "square.and.arrow.up"),
+                image: UIImage.compatSystemImage("square.and.arrow.up"),
                 primaryAction: UIAction { [weak self] _ in self?.share() }
             ).then { $0.accessibilityLabel = String(localized: "Share") },
             wrap,

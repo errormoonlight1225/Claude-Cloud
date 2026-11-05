@@ -3,7 +3,8 @@
 //  Copyright (c) 2025 ktiays. All rights reserved.
 //
 
-import Combine
+import OpenCombine
+import OpenCombineDispatch
 import CoreText
 import Litext
 import MarkdownParser
@@ -249,6 +250,7 @@ open class MarkdownTextView: UIView {
     }
 
     /// Returns `nil`, the system's menu.
+    @available(iOS 16.0, *)
     open func textLabelView(
         _: TextLabelView,
         editMenuForSelection _: NSRange,

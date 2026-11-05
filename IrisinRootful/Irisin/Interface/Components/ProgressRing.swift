@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 /// A small ring for one item's progress, the App Store's download ring
@@ -114,7 +115,7 @@ final class ProgressRing: UIView {
             spins = true
         case let .glyph(name):
             showsRing = false
-            glyph.image = UIImage(systemName: name)
+            glyph.image = UIImage.compatSystemImage(name)
         }
         track.lineDashPattern = next == .skipped ? [2, 4] : nil
 

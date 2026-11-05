@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import UIKit
 
 /// FlowDown's welcome typography and system colors, kept separate from
@@ -36,7 +37,7 @@ enum WelcomeStyle {
     }
 
     /// FlowDown's fixed-size, medium-weight feature symbols.
-    static var featureSymbol: UIImage.SymbolConfiguration {
+    static var featureSymbol: LegacySymbolConfiguration {
         .init(pointSize: 16, weight: .medium)
     }
 

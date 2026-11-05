@@ -10,7 +10,6 @@ import MarkdownParser
 /// The full table's cells, styled as the table in the document styles them
 /// and measured once when the sheet opens; sorting and resizing only move
 /// what is measured here.
-@MainActor
 struct TableSheetModel {
     /// One cell's styled text and the room it needs.
     struct Cell {

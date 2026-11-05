@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -96,11 +97,11 @@ extension RepositoriesController: UITableViewDelegate {
                 UIMenu(options: .displayInline, children: [
                     UIAction(
                         title: String(localized: "Refresh"),
-                        image: UIImage(systemName: "arrow.clockwise")
+                        image: UIImage.compatSystemImage("arrow.clockwise")
                     ) { _ in self?.refreshRepository(url) },
                     UIAction(
                         title: String(localized: "Share"),
-                        image: UIImage(systemName: "square.and.arrow.up")
+                        image: UIImage.compatSystemImage("square.and.arrow.up")
                     ) { _ in self?.share(url, from: tableView.cellForRow(at: indexPath)) },
                     ExportFile.exportRepositoryAction(
                         url,
@@ -110,7 +111,7 @@ extension RepositoriesController: UITableViewDelegate {
                 ]),
                 UIAction(
                     title: String(localized: "Delete"),
-                    image: UIImage(systemName: "trash"),
+                    image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in self?.delete([url]) },
             ])

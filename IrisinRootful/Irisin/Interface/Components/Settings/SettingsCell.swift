@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -38,7 +39,7 @@ struct SettingsItem {
 class SettingsCell: UITableViewCell {
     let iconView = UIImageView().then {
         $0.contentMode = .scaleAspectFit
-        $0.preferredSymbolConfiguration = UIImage.SymbolConfiguration(.body)
+        $0.preferredSymbolConfiguration = LegacySymbolConfiguration(.body)
     }
 
     let titleLabel = UILabel().then {
@@ -95,7 +96,7 @@ class SettingsCell: UITableViewCell {
 
     func configure(with item: SettingsItem) {
         self.item = item
-        iconView.image = UIImage(systemName: item.icon)
+        iconView.image = UIImage.compatSystemImage(item.icon)
         titleLabel.text = item.title
         // the button covering the row is the control a reader lands on, and
         // it draws nothing of its own to be named by

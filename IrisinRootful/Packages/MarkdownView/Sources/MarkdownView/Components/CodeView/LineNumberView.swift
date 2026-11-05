@@ -3,12 +3,13 @@
 //  Copyright (c) 2025 MarkdownView. All rights reserved.
 //
 
+import LegacyCompat
 import Litext
 
 final class LineNumberView: UIView {
     typealias EdgeInsets = UIEdgeInsets
     private static var defaultTextColor: UIColor {
-        .secondaryLabel
+        .compatSecondaryLabel
     }
 
     var lineCount: Int = 1 {
@@ -19,7 +20,7 @@ final class LineNumberView: UIView {
         }
     }
 
-    var font: UIFont = .monospacedSystemFont(ofSize: 12, weight: .regular) {
+    var font: UIFont = .compatMonospacedSystemFont(ofSize: 12, weight: .regular) {
         didSet {
             guard oldValue != font else { return }
             markNeedsDisplay()

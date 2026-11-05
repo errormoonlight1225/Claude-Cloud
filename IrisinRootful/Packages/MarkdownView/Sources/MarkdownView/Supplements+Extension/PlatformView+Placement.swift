@@ -10,7 +10,6 @@ import UIKit
 /// A host often updates the document inside an animation block, and a view
 /// placed for the first time there would grow out of a zero frame — and its
 /// subviews with it — instead of appearing where it belongs.
-@MainActor
 func withoutAnimation(_ changes: () -> Void) {
     CATransaction.begin()
     CATransaction.setDisableActions(true)

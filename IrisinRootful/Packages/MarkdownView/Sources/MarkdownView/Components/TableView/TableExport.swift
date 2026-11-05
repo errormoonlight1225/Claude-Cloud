@@ -8,7 +8,6 @@ import Litext
 import MarkdownParser
 
 /// A table's rows as text to copy or save: a Markdown table, or CSV.
-@MainActor
 enum TableExport {
     /// A cell's text, with each attachment in it — the spacers around
     /// inline code, a rendered formula — replaced by its text form.

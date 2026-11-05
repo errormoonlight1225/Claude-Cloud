@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Foundation
 import UIKit
 
@@ -28,7 +29,7 @@ final class TableTapControl: UIControl {
         super.init(frame: frame)
         backgroundColor = .clear
         imageView.contentMode = .center
-        imageView.tintColor = .label
+        imageView.tintColor = .compatLabel
         imageView.isUserInteractionEnabled = false
         addSubview(imageView)
         isAccessibilityElement = true
@@ -47,11 +48,11 @@ final class TableTapControl: UIControl {
             imageView.image = nil
             return
         }
-        let configuration = UIImage.SymbolConfiguration(
+        let configuration = LegacySymbolConfiguration(
             pointSize: TableHeaderAccessory.glyphSize - 2,
             weight: .medium
         )
-        imageView.image = UIImage(systemName: name, withConfiguration: configuration)
+        imageView.image = UIImage.compatSystemImage(name, withConfiguration: configuration)
     }
 
     var symbolImage: UIImage? {

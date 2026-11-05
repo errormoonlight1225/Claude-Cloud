@@ -10,7 +10,6 @@ import UIKit
 /// How a table cell's text is styled from the theme: the header bold, text
 /// without a colour in the body colour, and the column's alignment. The
 /// table in the document and the full table in the sheet style alike.
-@MainActor
 struct TableCellStyle {
     let theme: MarkdownTheme
 

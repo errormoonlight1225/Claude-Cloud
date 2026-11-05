@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 enum MarkdownContentLocale {
     private final class CachedLanguageRuns: NSObject {
         let runs: [(NSRange, String)]

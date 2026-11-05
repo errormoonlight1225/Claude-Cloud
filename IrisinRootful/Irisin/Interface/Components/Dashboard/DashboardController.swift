@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import UIKit
@@ -45,8 +46,8 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
         case package(section: String, Package)
     }
 
-    private(set) lazy var diffableDataSource: UICollectionViewDiffableDataSource<String, Item> = {
-        let source = UICollectionViewDiffableDataSource<String, Item>(
+    private(set) lazy var diffableDataSource: LegacyCollectionViewDiffableDataSource<String, Item> = {
+        let source = LegacyCollectionViewDiffableDataSource<String, Item>(
             collectionView: collectionView
         ) { [unowned self] collectionView, indexPath, item in
             configureCell(collectionView, at: indexPath, for: item)

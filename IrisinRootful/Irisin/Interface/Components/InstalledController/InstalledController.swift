@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import SPIndicator
@@ -115,8 +116,8 @@ class InstalledController: UICollectionViewController {
         !identitiesWithUpdate.isEmpty
     }
 
-    private(set) lazy var diffableDataSource: UICollectionViewDiffableDataSource<Date?, Package> = {
-        let source = UICollectionViewDiffableDataSource<Date?, Package>(
+    private(set) lazy var diffableDataSource: LegacyCollectionViewDiffableDataSource<Date?, Package> = {
+        let source = LegacyCollectionViewDiffableDataSource<Date?, Package>(
             collectionView: collectionView
         ) { [unowned self] collectionView, indexPath, package in
             configureCell(collectionView, at: indexPath, for: package)
@@ -166,7 +167,7 @@ class InstalledController: UICollectionViewController {
     }
 
     func applySnapshot() {
-        var snapshot = NSDiffableDataSourceSnapshot<Date?, Package>()
+        var snapshot = LegacyDiffableSnapshot<Date?, Package>()
         var seen = Set<Package>()
         for section in dataSource {
             snapshot.appendSections([section.key])
@@ -308,7 +309,7 @@ class InstalledController: UICollectionViewController {
     /// toggled with `keepsMenuPresented` ticks at once. `applySnapshot`
     /// rebuilds it, and every change to the list goes through there.
     private let moreButton = UIButton(type: .system).then {
-        $0.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        $0.setImage(UIImage.compatSystemImage("ellipsis"), for: .normal)
         $0.tintColor = .textTitle
         $0.showsMenuAsPrimaryAction = true
         $0.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
@@ -332,7 +333,7 @@ class InstalledController: UICollectionViewController {
         let sort = UIMenu(
             title: String(localized: "Sort By"),
             subtitle: sortOption.convertToInterfaceString(),
-            image: UIImage(systemName: "arrow.up.arrow.down"),
+            image: UIImage.compatSystemImage("arrow.up.arrow.down"),
             identifier: .init("installed.sort"),
             children: SortOption.allCases.map { option in
                 let ascendingIsReversed = option == .lastModification
@@ -342,13 +343,13 @@ class InstalledController: UICollectionViewController {
                 ]
                 return UIMenu(
                     title: option.convertToInterfaceString(),
-                    image: UIImage(systemName: option == .name ? "textformat" : "clock"),
+                    image: UIImage.compatSystemImage(option == .name ? "textformat" : "clock"),
                     identifier: .init("installed.sort.\(option.rawValue)"),
                     children: directions.map { ascending, title, icon in
                         let reversed = ascending == ascendingIsReversed
                         return UIAction(
                             title: title,
-                            image: UIImage(systemName: icon),
+                            image: UIImage.compatSystemImage(icon),
                             state: sortOption == option && sortReversed == reversed ? .on : .off
                         ) { [weak self] _ in
                             guard let self else { return }
@@ -365,8 +366,7 @@ class InstalledController: UICollectionViewController {
         let filter = UIMenu(
             title: String(localized: "Filter"),
             subtitle: filtering ? nil : String(localized: "\(total) Packages"),
-            image: UIImage(
-                systemName: filtering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle"
+            image: UIImage.compatSystemImage(filtering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle"
             ),
             identifier: .init("installed.filter"),
             children: [
@@ -394,17 +394,17 @@ class InstalledController: UICollectionViewController {
         var top: [UIMenuElement] = [
             UIAction(
                 title: String(localized: "Refresh"),
-                image: UIImage(systemName: "arrow.clockwise")
+                image: UIImage.compatSystemImage("arrow.clockwise")
             ) { [weak self] _ in self?.refresh() },
             UIAction(
                 title: String(localized: "Select"),
-                image: UIImage(systemName: "checkmark.circle")
+                image: UIImage.compatSystemImage("checkmark.circle")
             ) { [weak self] _ in self?.setEditing(true, animated: true) },
         ]
         if updateFound {
             top.append(UIAction(
                 title: String(localized: "Block All Updates"),
-                image: UIImage(systemName: "hand.raised"),
+                image: UIImage.compatSystemImage("hand.raised"),
                 attributes: .destructive
             ) { [weak self] _ in self?.blockUpdateAll() })
         }
@@ -414,11 +414,11 @@ class InstalledController: UICollectionViewController {
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Export Package List"),
-                    image: UIImage(systemName: "square.and.arrow.up")
+                    image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.exportPackageList() },
                 UIAction(
                     title: String(localized: "Export dpkg Status"),
-                    image: UIImage(systemName: "doc.text")
+                    image: UIImage.compatSystemImage("doc.text")
                 ) { [weak self] _ in self?.exportStatus() },
             ]),
             UIMenu(options: .displayInline, children: [filter, sort]),
@@ -463,7 +463,7 @@ class InstalledController: UICollectionViewController {
         return UIMenu(
             title: title,
             subtitle: selected.isEmpty ? nil : selected.sorted().joined(separator: ", "),
-            image: UIImage(systemName: image),
+            image: UIImage.compatSystemImage(image),
             identifier: .init(identifier),
             children: [
                 UIMenu(options: .displayInline, children: [allAction]),

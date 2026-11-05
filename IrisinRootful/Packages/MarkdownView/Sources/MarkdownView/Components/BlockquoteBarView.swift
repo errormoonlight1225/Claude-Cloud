@@ -5,6 +5,7 @@
 //  Created by Claude on 8/8/26.
 //
 
+import LegacyCompat
 import Foundation
 
 /// Identifies the lines belonging to one blockquote.
@@ -32,7 +33,7 @@ final class BlockquoteBarView: UIView {
         super.init(frame: .zero)
         isUserInteractionEnabled = false
         layer.cornerRadius = Self.width / 2
-        layer.cornerCurve = .continuous
+        layer.compatContinuousCorners()
     }
 
     @available(*, unavailable)

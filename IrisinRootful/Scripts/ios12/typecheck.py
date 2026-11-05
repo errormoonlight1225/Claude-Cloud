@@ -43,7 +43,8 @@ P = ROOT / "Packages"
 CLANG = {
     "cmark_gfm": DEPS / "swift-cmark/src/include/module.modulemap",
     "cmark_gfm_extensions": DEPS / "swift-cmark/extensions/include/module.modulemap",
-    "SDWebImage": ("umbrella-header", DEPS / "SDWebImage/SDWebImage/include/SDWebImage/SDWebImage.h"),
+    "SDWebImage": ("umbrella-header", DEPS / "SDWebImage/SDWebImage/include/SDWebImage/SDWebImage.h",
+                   DEPS / "SDWebImage/SDWebImage/include"),
     "CIrisinXPC": P / "IrisinKit/Sources/CIrisinXPC/module.modulemap",
     "CIrisinSpawn": P / "IrisinKit/Sources/CIrisinSpawn/module.modulemap",
     "CIrisinDB": P / "IrisinKit/Sources/CIrisinDB/module.modulemap",
@@ -107,7 +108,7 @@ MODULES = [
       ["ArchiveKit", "IrisinProtocol", "IrisinPreparation", "WCDBSwift", "LRUCache", "OpenCombine", "OpenCombineDispatch", "LegacyCompat", "LegacyCrypto"]),
     M("AptResolver", [P / "AptRepository/Sources/AptResolver"], ["AptRepository", "LibSolv", "IrisinProtocol", "OpenCombine", "LegacyCompat", "LegacyCrypto"]),
     M("MarkdownParser", [P / "MarkdownView/Sources/MarkdownParser"], ["cmark_gfm", "cmark_gfm_extensions", "LegacyCompat", "LegacyCrypto"]),
-    M("MarkdownView", [P / "MarkdownView/Sources/MarkdownView"], ["Litext", "MarkdownParser", "LRUCache", "DequeModule", "LegacyCompat", "LegacyCrypto"]),
+    M("MarkdownView", [P / "MarkdownView/Sources/MarkdownView"], ["Litext", "MarkdownParser", "LRUCache", "DequeModule", "OpenCombine", "OpenCombineDispatch", "LegacyCompat"]),
     M("PackageDepiction", [P / "PackageDepiction/Sources/PackageDepiction"],
       ["SDWebImage", "MarkdownView", "SnapKit", "Then", "LegacyCompat", "LegacyCrypto"], resources=True),
     # Products.
@@ -133,7 +134,9 @@ def modulemap_flags():
     flags = []
     for name, spec in CLANG.items():
         if isinstance(spec, tuple):
-            kind, path = spec
+            kind, path = spec[0], spec[1]
+            if len(spec) > 2:
+                flags += ["-Xcc", f"-I{spec[2]}"]
             body = (f'umbrella header "{path}"' if kind == "umbrella-header" else f'umbrella "{path}"')
             mm = gen / f"{name}.modulemap"
             mm.write_text(f"module {name} {{\n  {body}\n  export *\n}}\n")

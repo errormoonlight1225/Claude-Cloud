@@ -6,7 +6,6 @@
 import DequeModule
 import UIKit
 
-@MainActor
 private class ObjectPool<T: Equatable & Hashable> {
     private let factory: () -> T
     private lazy var objects: Deque<T> = .init()
@@ -48,7 +47,6 @@ private class ObjectPool<T: Equatable & Hashable> {
     }
 }
 
-@MainActor
 public final class ReusableViewProvider {
     private let codeViewPool: ObjectPool<CodeView> = .init {
         CodeView(frame: .zero)

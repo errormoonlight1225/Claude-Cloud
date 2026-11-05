@@ -3,6 +3,7 @@
 //  JsonDepiction
 //
 
+import LegacyCompat
 import UIKit
 
 /// Every word a depiction sets is body-sized. Weight marks what matters
@@ -28,7 +29,7 @@ extension UIFont {
 }
 
 extension UIColor {
-    static let depictionSecondaryLabel = UIColor.label.withAlphaComponent(0.55)
+    static let depictionSecondaryLabel = UIColor.compatLabel.withAlphaComponent(0.55)
 
     /// The colour a tinted control shows while pressed: the same hue, a
     /// quarter darker.

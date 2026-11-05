@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Combine
@@ -495,7 +496,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     }
 
     private func render(animated: Bool) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         let (changes, dropped) = diff
         if let proposal {
             for group in QueueChange.sections(of: changes) {
@@ -586,7 +587,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         case let .cleanup(name):
             let blockedBy = blockers(of: name)
             let package = proposal?.plan?.snapshot.installed.first { $0.identity == name }
-            content.image = UIImage(systemName: (ticked ?? []).contains(name) ? "checkmark.circle.fill" : "circle")
+            content.image = UIImage.compatSystemImage((ticked ?? []).contains(name) ? "checkmark.circle.fill" : "circle")
             content.imageProperties.tintColor = blockedBy.isEmpty ? .buttonNormal : .textSubtitle
             content.attributedText = plainTitle(
                 package.map(self.name(of:)) ?? name,
@@ -603,7 +604,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             content.secondaryText = subtitle.filter { !$0.isEmpty }.joined(separator: " · ")
         case .unchanged:
             content = .cell()
-            content.image = UIImage(systemName: "checkmark.circle")
+            content.image = UIImage.compatSystemImage("checkmark.circle")
             content.imageProperties.tintColor = .textSubtitle
             // nothing to add to an empty queue, or nothing to take out of
             // one, is not "already queued"

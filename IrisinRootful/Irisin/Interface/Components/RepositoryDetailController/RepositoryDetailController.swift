@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import OrderedCollections
@@ -61,7 +62,7 @@ class RepositoryDetailController: UIViewController {
         }
     }
 
-    private lazy var dataSource = UICollectionViewDiffableDataSource<Section, Item>(
+    private lazy var dataSource = LegacyCollectionViewDiffableDataSource<Section, Item>(
         collectionView: collectionView
     ) { [unowned self] collectionView, indexPath, item in
         switch item {
@@ -144,7 +145,7 @@ class RepositoryDetailController: UIViewController {
         // the grouped ground, so the inset list rows read as cards
         view.backgroundColor = .groupedBackground
 
-        let more = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: moreMenu).then {
+        let more = UIBarButtonItem(image: UIImage.compatSystemImage("ellipsis"), menu: moreMenu).then {
             $0.tintColor = .textTitle
             $0.accessibilityLabel = String(localized: "More")
         }
@@ -162,7 +163,7 @@ class RepositoryDetailController: UIViewController {
             x.edges.equalToSuperview()
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        var snapshot = LegacyDiffableSnapshot<Section, Item>()
         if !banners.isEmpty {
             snapshot.appendSections([.featured])
             snapshot.appendItems(banners.indices.map(Item.banner), toSection: .featured)
@@ -205,7 +206,7 @@ class RepositoryDetailController: UIViewController {
         let elements = VendorAccount.shared.accountMenu(for: repo) { [weak self] in self }
         let only = elements.count == 1 ? elements.first as? UIAction : nil
         let account = UIBarButtonItem(
-            image: UIImage(systemName: "person.crop.circle"),
+            image: UIImage.compatSystemImage("person.crop.circle"),
             primaryAction: only,
             menu: only == nil ? UIMenu(children: elements) : nil
         )
@@ -348,13 +349,13 @@ class RepositoryDetailController: UIViewController {
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Refresh"),
-                    image: UIImage(systemName: "arrow.clockwise")
+                    image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.refresh() },
                 shareMenu,
             ]),
             UIAction(
                 title: String(localized: "Delete"),
-                image: UIImage(systemName: "trash"),
+                image: UIImage.compatSystemImage("trash"),
                 attributes: .destructive
             ) { [weak self] _ in self?.confirmDelete() },
         ])
@@ -388,25 +389,25 @@ class RepositoryDetailController: UIViewController {
     /// The address three ways (copied bare, copied as a sources.list line,
     /// shared), then the whole catalogue as a file.
     private var shareMenu: UIMenu {
-        UIMenu(title: String(localized: "Share"), image: UIImage(systemName: "square.and.arrow.up"), children: [
+        UIMenu(title: String(localized: "Share"), image: UIImage.compatSystemImage("square.and.arrow.up"), children: [
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Copy Address"),
-                    image: UIImage(systemName: "link")
+                    image: UIImage.compatSystemImage("link")
                 ) { [weak self] _ in self?.copy(self?.repo.url.absoluteString) },
                 UIAction(
                     title: String(localized: "Copy APT Source"),
-                    image: UIImage(systemName: "doc.on.doc")
+                    image: UIImage.compatSystemImage("doc.on.doc")
                 ) { [weak self] _ in self?.copy(self?.repo.source.line) },
                 UIAction(
                     title: String(localized: "Share"),
-                    image: UIImage(systemName: "square.and.arrow.up")
+                    image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.openShareView() },
             ]),
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Export Packages"),
-                    image: UIImage(systemName: "doc.plaintext")
+                    image: UIImage.compatSystemImage("doc.plaintext")
                 ) { [weak self] _ in self?.exportPackages() },
                 ExportFile.exportRepositoryAction(
                     repo.url,

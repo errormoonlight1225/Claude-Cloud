@@ -36,7 +36,7 @@ public final class MarkdownContent: @unchecked Sendable {
     /// living on the instance never saw a second lookup in the one situation it
     /// exists for. Shared, a stream re-renders only the paragraph that grew.
     /// Bounded by entry count, and cleared under memory pressure by `LRUCache`.
-    @MainActor private static let inlineRenderCache =
+    private static let inlineRenderCache =
         LRUCache<InlineRenderCacheKey, NSAttributedString>(countLimit: 4096)
 
     public let blocks: [MarkdownBlockNode]
@@ -60,7 +60,6 @@ public final class MarkdownContent: @unchecked Sendable {
     }
 
     /// Parses markdown text and pre-renders it in one step.
-    @MainActor
     public convenience init(
         markdown: String,
         theme: MarkdownTheme = .default,
@@ -78,7 +77,6 @@ public final class MarkdownContent: @unchecked Sendable {
         locale = .autoupdatingCurrent
     }
 
-    @MainActor
     func cachedBodyText(_ text: String, theme: MarkdownTheme) -> NSAttributedString {
         let key = InlineRenderCacheKey(
             text: text,

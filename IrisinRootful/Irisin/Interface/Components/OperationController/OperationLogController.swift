@@ -1,3 +1,4 @@
+import LegacyCompat
 import Combine
 import UIKit
 
@@ -10,7 +11,7 @@ final class OperationLogController: UIViewController {
     private var lines: [String] = []
     private var subscriptions = Set<AnyCancellable>()
 
-    private lazy var dataSource = UITableViewDiffableDataSource<Int, Int>(
+    private lazy var dataSource = LegacyTableViewDiffableDataSource<Int, Int>(
         tableView: tableView
     ) { [weak self] table, indexPath, line in
         let cell = table.dequeueReusableCell(withIdentifier: "log", for: indexPath) as! OperationLogCell
@@ -76,7 +77,7 @@ final class OperationLogController: UIViewController {
         } ?? true
         let follow = lastVisible && !tableView.isTracking && !tableView.isDecelerating
         self.lines = lines
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Int>()
+        var snapshot = LegacyDiffableSnapshot<Int, Int>()
         snapshot.appendSections([0])
         // A row is its position: the same text can be said twice and both
         // rows have to exist. Rows never change once said.

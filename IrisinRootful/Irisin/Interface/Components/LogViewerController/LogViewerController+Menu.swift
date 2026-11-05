@@ -3,13 +3,14 @@
 //  Irisin
 //
 
+import LegacyCompat
 import Dog
 import UIKit
 
 extension LogViewerController {
     func setupNavigationItems() {
         let menuButton = UIButton(type: .system)
-        menuButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        menuButton.setImage(UIImage.compatSystemImage("ellipsis"), for: .normal)
         menuButton.tintColor = .textTitle
         // the bar item is only a wrapper; the button is what a reader lands on
         menuButton.accessibilityLabel = String(localized: "More")
@@ -27,7 +28,7 @@ extension LogViewerController {
         let levelActions = [Dog.DogLevel.verbose, .info, .warning, .error, .critical].map { level in
             UIAction(
                 title: level.rawValue,
-                image: selectedLevels.contains(level) ? UIImage(systemName: "checkmark") : nil,
+                image: selectedLevels.contains(level) ? UIImage.compatSystemImage("checkmark") : nil,
                 handler: { [weak self] _ in
                     self?.toggleLevel(level)
                 }
@@ -35,7 +36,7 @@ extension LogViewerController {
         }
         let levelMenu = UIMenu(
             title: String(localized: "Filter by Level"),
-            image: UIImage(systemName: "slider.horizontal.3"),
+            image: UIImage.compatSystemImage("slider.horizontal.3"),
             children: levelActions
         )
 
@@ -44,7 +45,7 @@ extension LogViewerController {
         if !categories.isEmpty {
             categoryActions.append(UIAction(
                 title: String(localized: "All Categories"),
-                image: selectedCategories.isEmpty ? UIImage(systemName: "checkmark") : nil,
+                image: selectedCategories.isEmpty ? UIImage.compatSystemImage("checkmark") : nil,
                 handler: { [weak self] _ in
                     self?.selectedCategories.removeAll()
                     self?.applyFilters(stickToBottom: false)
@@ -53,7 +54,7 @@ extension LogViewerController {
             categoryActions.append(contentsOf: categories.sorted().map { category in
                 UIAction(
                     title: category,
-                    image: selectedCategories.contains(category) ? UIImage(systemName: "checkmark") : nil,
+                    image: selectedCategories.contains(category) ? UIImage.compatSystemImage("checkmark") : nil,
                     handler: { [weak self] _ in
                         self?.toggleCategory(category)
                     }
@@ -63,13 +64,13 @@ extension LogViewerController {
         let emptyCategories = [UIAction(title: String(localized: "No Categories"), handler: { _ in })]
         let categoryMenu = UIMenu(
             title: String(localized: "Filter by Category"),
-            image: UIImage(systemName: "tag"),
+            image: UIImage.compatSystemImage("tag"),
             children: categoryActions.isEmpty ? emptyCategories : categoryActions
         )
 
         let onlyFailuresAction = UIAction(
             title: String(localized: "Errors Only"),
-            image: UIImage(systemName: "exclamationmark.triangle"),
+            image: UIImage.compatSystemImage("exclamationmark.triangle"),
             state: selectedLevels == [.error, .critical] ? .on : .off,
             handler: { [weak self] _ in
                 guard let self else { return }
@@ -82,7 +83,7 @@ extension LogViewerController {
 
         let shareAction = UIAction(
             title: String(localized: "Share"),
-            image: UIImage(systemName: "square.and.arrow.up"),
+            image: UIImage.compatSystemImage("square.and.arrow.up"),
             handler: { [weak self] _ in
                 self?.shareLog()
             }
@@ -90,7 +91,7 @@ extension LogViewerController {
 
         let clearAction = UIAction(
             title: String(localized: "Clear"),
-            image: UIImage(systemName: "trash"),
+            image: UIImage.compatSystemImage("trash"),
             attributes: .destructive,
             handler: { [weak self] _ in
                 self?.clearLog()
@@ -156,14 +157,14 @@ extension LogViewerController {
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
             let copyAction = UIAction(
                 title: String(localized: "Copy"),
-                image: UIImage(systemName: "doc.on.doc")
+                image: UIImage.compatSystemImage("doc.on.doc")
             ) { _ in
                 UIPasteboard.general.string = logLine.fullText
             }
 
             let copyMessageAction = UIAction(
                 title: String(localized: "Copy Message"),
-                image: UIImage(systemName: "text.quote")
+                image: UIImage.compatSystemImage("text.quote")
             ) { _ in
                 UIPasteboard.general.string = logLine.message
             }

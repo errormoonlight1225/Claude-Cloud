@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import UIKit
@@ -89,7 +90,7 @@ final class RepositoryAddAdvancedController: UITableViewController {
             }
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Section>()
+        var snapshot = LegacyDiffableSnapshot<Section, Section>()
         for section in [Section.url, .suite, .components] {
             snapshot.appendSections([section])
             snapshot.appendItems([section], toSection: section)

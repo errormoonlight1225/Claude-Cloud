@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -30,7 +31,7 @@ final class LicenseController: UITableViewController {
     private var entries: [LicenseEntry] = []
 
     /// rows by position: two notices may read the same
-    private lazy var dataSource = UITableViewDiffableDataSource<Int, Int>(
+    private lazy var dataSource = LegacyTableViewDiffableDataSource<Int, Int>(
         tableView: tableView
     ) { [unowned self] tableView, indexPath, index in
         let entry = entries[index]
@@ -81,7 +82,7 @@ final class LicenseController: UITableViewController {
 
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "license")
         tableView.dataSource = dataSource
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Int>()
+        var snapshot = LegacyDiffableSnapshot<Int, Int>()
         snapshot.appendSections([0])
         snapshot.appendItems(Array(entries.indices))
         dataSource.apply(snapshot, animatingDifferences: false)

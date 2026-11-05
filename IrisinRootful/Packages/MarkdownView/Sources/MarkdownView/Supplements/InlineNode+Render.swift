@@ -11,7 +11,6 @@ import MarkdownParser
 import UIKit
 
 extension [MarkdownInlineNode] {
-    @MainActor
     func render(
         theme: MarkdownTheme,
         context: MarkdownContent,
@@ -30,7 +29,6 @@ extension [MarkdownInlineNode] {
 }
 
 extension MarkdownInlineNode {
-    @MainActor
     func render(
         theme: MarkdownTheme,
         context: MarkdownContent,

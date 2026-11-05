@@ -5,7 +5,8 @@
 //  Created by 秋星桥 on 7/9/25.
 //
 
-import Combine
+import OpenCombine
+import OpenCombineDispatch
 import Foundation
 import Litext
 
@@ -20,7 +21,7 @@ extension MarkdownTextView {
         if let throttleInterval {
             contentSubject
                 .dropFirst()
-                .throttle(for: .seconds(throttleInterval), scheduler: DispatchQueue.main, latest: true)
+                .throttle(for: .seconds(throttleInterval), scheduler: DispatchQueue.main.ocombine, latest: true)
                 .sink { [weak self] content in self?.use(content) }
                 .store(in: &cancellables)
         } else {

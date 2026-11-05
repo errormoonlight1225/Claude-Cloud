@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import SPIndicator
 import UIKit
@@ -84,7 +85,7 @@ class EmptyRepositoriesController: UITableViewController {
         }
 
         // nothing to list: no section, so no footer, and the line in its place
-        var snapshot = NSDiffableDataSourceSnapshot<Section, URL>()
+        var snapshot = LegacyDiffableSnapshot<Section, URL>()
         if urls.isEmpty {
             tableView.backgroundView = EmptyStateView(
                 icon: .bookCompass24Regular,

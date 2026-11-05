@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Then
 import UIKit
@@ -32,8 +33,8 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
     }
 
     /// Sections are their header text; the plain list is one untitled section.
-    private(set) lazy var diffableDataSource: UICollectionViewDiffableDataSource<String, Package> = {
-        let source = UICollectionViewDiffableDataSource<String, Package>(
+    private(set) lazy var diffableDataSource: LegacyCollectionViewDiffableDataSource<String, Package> = {
+        let source = LegacyCollectionViewDiffableDataSource<String, Package>(
             collectionView: collectionView
         ) { [unowned self] collectionView, indexPath, package in
             let cell = collectionView
@@ -57,8 +58,8 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
         return source
     }()
 
-    func buildSnapshot() -> NSDiffableDataSourceSnapshot<String, Package> {
-        var snapshot = NSDiffableDataSourceSnapshot<String, Package>()
+    func buildSnapshot() -> LegacyDiffableSnapshot<String, Package> {
+        var snapshot = LegacyDiffableSnapshot<String, Package>()
         snapshot.appendSections([""])
         snapshot.appendItems(dataSource.uniqued(), toSection: "")
         return snapshot
@@ -169,7 +170,7 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
 
     let emptyElementGuider = UIImageView().then {
         $0.tintColor = .placeholderGlyph
-        $0.image = .init(systemName: "questionmark.circle.fill")
+        $0.image = UIImage.compatSystemImage("questionmark.circle.fill")
         $0.contentMode = .scaleAspectFit
     }
 

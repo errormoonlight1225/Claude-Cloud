@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import Dog
@@ -59,7 +60,7 @@ class SearchController: UITableViewController {
         case empty
     }
 
-    private lazy var diffableDataSource = UITableViewDiffableDataSource<Section, Item>(
+    private lazy var diffableDataSource = LegacyTableViewDiffableDataSource<Section, Item>(
         tableView: tableView
     ) { [unowned self] tableView, indexPath, item in
         let cell = tableView.dequeueReusableCell(withIdentifier: cellId, for: indexPath) as! SearchCell
@@ -297,7 +298,7 @@ class SearchController: UITableViewController {
 
     func setSearchResult(with value: [[SearchResult]]) {
         Dog.shared.join(self, "\(value.count) result will be applied", level: .verbose)
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        var snapshot = LegacyDiffableSnapshot<Section, Item>()
         if previousSearchValue.isEmpty {
             // nothing typed: the guider takes the screen
         } else if value.isEmpty {

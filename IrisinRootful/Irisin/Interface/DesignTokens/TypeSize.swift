@@ -6,6 +6,7 @@
 //  weight other than regular / semibold.
 //
 
+import LegacyCompat
 import UIKit
 
 /// The type ramp. Every label in the app is one of these sizes, at the
@@ -142,7 +143,7 @@ extension UIFont {
     }
 }
 
-extension UIImage.SymbolConfiguration {
+extension LegacySymbolConfiguration {
     convenience init(_ size: TypeSize, emphasized: Bool = false) {
         self.init(pointSize: size.scaled, weight: emphasized ? .semibold : .regular)
     }

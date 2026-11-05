@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Foundation
 import UIKit
 
@@ -15,7 +16,6 @@ struct CodeSheetContent {
     let text: String
     let fileName: String
 
-    @MainActor
     init(_ codeView: CodeView) {
         let language = codeView.language
         // The fence's word as written, with only its first letter raised:
@@ -27,7 +27,6 @@ struct CodeSheetContent {
     }
 
     /// Copy, Download and Close for the sheet showing this code from `view`.
-    @MainActor
     func menuActions(from view: @escaping () -> UIView?, close: @escaping () -> Void) -> SheetMenuActions {
         let text = text
         let fileName = fileName
@@ -47,11 +46,10 @@ struct CodeSheetContent {
 
 enum CodeSheetText {
     static var code: String {
-        String(localized: "Code", comment: "Title of a code block's sheet when it names no language.")
+        String(legacyLocalized: "Code", comment: "Title of a code block's sheet when it names no language.")
     }
 }
 
-@MainActor
 enum CodeSheetPresenter {
     /// Presents `codeView`'s code in a half-height sheet that can be
     /// pulled up to full height.
@@ -60,7 +58,7 @@ enum CodeSheetPresenter {
         let controller = CodeSheetViewController(content: CodeSheetContent(codeView))
         let navigation = UINavigationController(rootViewController: controller)
         navigation.modalPresentationStyle = .formSheet
-        if let sheet = navigation.sheetPresentationController {
+        if #available(iOS 15.0, *), let sheet = navigation.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
         }
@@ -86,7 +84,7 @@ final class CodeSheetViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .compatSystemBackground
         textView.isEditable = false
         textView.isSelectable = true
         textView.backgroundColor = .clear

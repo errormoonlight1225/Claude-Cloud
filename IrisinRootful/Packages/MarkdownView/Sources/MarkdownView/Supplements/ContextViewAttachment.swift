@@ -77,7 +77,6 @@ final class ContextViewAttachment: TextLabel.Attachment, Hashable {
 }
 
 extension ContextViewAttachment.Appearance {
-    @MainActor
     static func of(_ codeView: CodeView) -> Self {
         .init(
             kind: .code(language: codeView.language, content: codeView.content),
@@ -86,7 +85,6 @@ extension ContextViewAttachment.Appearance {
         )
     }
 
-    @MainActor
     static func of(_ tableView: TableView) -> Self {
         .init(
             kind: .table(cells: tableView.contents, columnAlignments: tableView.columnAlignments),

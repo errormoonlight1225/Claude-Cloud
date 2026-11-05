@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import Dog
 import SnapKit
 import UIKit
@@ -73,7 +74,7 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
         let line: LogLine
     }
 
-    lazy var dataSource = UITableViewDiffableDataSource<Int, Row>(tableView: tableView) { tableView, _, row in
+    lazy var dataSource = LegacyTableViewDiffableDataSource<Int, Row>(tableView: tableView) { tableView, _, row in
         let id = "LogCell"
         let cell = tableView.dequeueReusableCell(withIdentifier: id)
             ?? UITableViewCell(style: .subtitle, reuseIdentifier: id)
@@ -155,7 +156,7 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
                 && (selectedCategories.isEmpty || selectedCategories.contains(line.category))
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Row>()
+        var snapshot = LegacyDiffableSnapshot<Int, Row>()
         snapshot.appendSections([0])
         snapshot.appendItems(shown.enumerated().map { Row(index: $0.offset, line: $0.element) })
         dataSource.apply(snapshot, animatingDifferences: false)

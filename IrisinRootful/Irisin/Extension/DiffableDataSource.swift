@@ -6,14 +6,15 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
-extension NSDiffableDataSourceSnapshot {
+extension LegacyDiffableSnapshot {
     /// Items that survive from `previous` keep their identifier and their
     /// cell, so the cell provider never runs again for them. Mark them, and
     /// the search highlight, the queue indicator and the download listener
     /// follow the new content.
-    mutating func reconfigureItems(survivingFrom previous: NSDiffableDataSourceSnapshot) {
+    mutating func reconfigureItems(survivingFrom previous: LegacyDiffableSnapshot) {
         let before = Set(previous.itemIdentifiers)
         let survivors = itemIdentifiers.filter { before.contains($0) }
         if !survivors.isEmpty {
@@ -22,10 +23,10 @@ extension NSDiffableDataSourceSnapshot {
     }
 }
 
-/// `UITableViewDiffableDataSource` answers `canEditRowAt` with false, which
+/// `LegacyTableViewDiffableDataSource` answers `canEditRowAt` with false, which
 /// silently disables swipe actions.
 final class EditableTableDiffableDataSource<Section: Hashable & Sendable, Item: Hashable & Sendable>:
-    UITableViewDiffableDataSource<Section, Item>
+    LegacyTableViewDiffableDataSource<Section, Item>
 {
     override func tableView(_: UITableView, canEditRowAt _: IndexPath) -> Bool {
         true

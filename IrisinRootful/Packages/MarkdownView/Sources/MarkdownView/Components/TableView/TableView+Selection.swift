@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Litext
 import UIKit
 
@@ -88,7 +89,7 @@ extension TableView {
 
     fileprivate static var copyAsMarkdownTitle: String {
         String(
-            localized: "Copy as Markdown",
+            legacyLocalized: "Copy as Markdown",
             comment: "Menu command that copies the selected table cells as a Markdown table."
         )
     }
@@ -113,7 +114,7 @@ extension TableView: TextSelectionGroupDelegate {
     ) -> UIMenu? {
         let copyAsMarkdown = UIAction(
             title: Self.copyAsMarkdownTitle,
-            image: UIImage(systemName: "tablecells")
+            image: UIImage.compatSystemImage("tablecells")
         ) { [weak self] _ in
             guard let markdown = self?.selectedMarkdown() else { return }
             UIPasteboard.general.string = markdown

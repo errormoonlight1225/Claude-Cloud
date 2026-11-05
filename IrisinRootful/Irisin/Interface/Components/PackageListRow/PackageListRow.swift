@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import SDWebImage
@@ -314,7 +315,7 @@ class PackageListRow: UIView {
             indicator.image = .fluent(.arrowRightCircle24Filled)
         } else if plan.remove.contains(where: { $0.identity == package.identity }) {
             indicator.tintColor = .queuedRemoval
-            indicator.image = UIImage(systemName: "xmark.circle.fill")
+            indicator.image = UIImage.compatSystemImage("xmark.circle.fill")
         } else {
             return
         }

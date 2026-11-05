@@ -54,8 +54,20 @@ RENAMES = {
     "systemUltraThinMaterial": "compatSystemUltraThinMaterial",
     "systemThickMaterial": "compatSystemThickMaterial",
     "systemChromeMaterial": "compatSystemChromeMaterial",
+    "systemMaterialDark": "compatSystemMaterialDark",
+    "systemThinMaterialDark": "compatSystemThinMaterialDark",
+    "systemUltraThinMaterialDark": "compatSystemUltraThinMaterialDark",
+    "systemChromeMaterialDark": "compatSystemChromeMaterialDark",
+    "systemThickMaterialDark": "compatSystemThickMaterialDark",
+    "systemMaterialLight": "compatSystemMaterial",
+    "systemThinMaterialLight": "compatSystemThinMaterial",
     "monospacedSystemFont(ofSize:weight:)": "compatMonospacedSystemFont",
     "resolvedColor(with:)": "compatResolvedColor",
+    "withTintColor(_:renderingMode:)": "compatWithTintColor",
+    "withTintColor(_:)": "compatWithTintColor",
+    "withConfiguration(_:)": "compatWithConfiguration",
+    "preferredSymbolConfiguration": "compatPreferredSymbolConfiguration",
+    "setPreferredSymbolConfiguration(_:forImageIn:)": "compatSetPreferredSymbolConfiguration",
     "write(contentsOf:)": "compatWrite",
     "read(upToCount:)": "compatRead",
     "readToEnd()": "compatReadToEnd",
@@ -88,6 +100,17 @@ LINE_RULES = {
         (r"\bUIImage\(systemName:\s*", "UIImage.compatSystemImage("),
         (r"(?<![A-Za-z0-9_])\.init\(systemName:\s*", "UIImage.compatSystemImage("),
     ],
+    "init(systemName:withConfiguration:)": [
+        (r"\bUIImage\(systemName:\s*", "UIImage.compatSystemImage("),
+        (r"(?<![A-Za-z0-9_])\.init\(systemName:\s*", "UIImage.compatSystemImage("),
+    ],
+    "init(dynamicProvider:)": [
+        (r"\bUIColor\(dynamicProvider:\s*", "UIColor.compatDynamic("),
+        (r"\bUIColor\s*\{", "UIColor.compatDynamic {"),
+        (r"(?<![A-Za-z0-9_])\.init\(dynamicProvider:\s*", "UIColor.compatDynamic("),
+        (r"(?<![A-Za-z0-9_])\.init\s*\{", "UIColor.compatDynamic {"),
+    ],
+    "SymbolConfiguration": [(r"\bUIImage\.SymbolConfiguration\b", "LegacySymbolConfiguration")],
     "cornerCurve": [(r"(\S+)\.cornerCurve\s*=\s*\.continuous", r"\1.compatContinuousCorners()"),
                     (r"^(\s*)cornerCurve\s*=\s*\.continuous", r"\1compatContinuousCorners()")],
     "continuous": [(r"(\S+)\.cornerCurve\s*=\s*\.continuous", r"\1.compatContinuousCorners()"),
@@ -159,10 +182,10 @@ def fix_file(path, edits):
                     # The labels start on the next line.
                     following = raw[idx + 1].decode()
                     rewritten = re.sub(r"^(\s*)localized:", r"\1legacyLocalized:", following)
-                    rewritten = re.sub(r"^(\s*)systemName:\s*", r"\1", rewritten) if name == "init(systemName:)" else rewritten
+                    rewritten = re.sub(r"^(\s*)systemName:\s*", r"\1", rewritten) if name.startswith("init(systemName:") else rewritten
                     if rewritten != following:
                         raw[idx + 1] = rewritten.encode()
-                        if name == "init(systemName:)":
+                        if name.startswith("init(systemName:"):
                             new = re.sub(r"\bUIImage\($", "UIImage.compatSystemImage(", line.rstrip())
                         changed = True
                     continue

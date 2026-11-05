@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Dog
@@ -66,33 +67,33 @@ enum PackageMenu {
         func icon() -> UIImage? {
             switch self {
             case .dequeue:
-                UIImage(systemName: "minus.circle")
+                UIImage.compatSystemImage("minus.circle")
             case .replace:
-                UIImage(systemName: "arrow.left.arrow.right.circle")
+                UIImage.compatSystemImage("arrow.left.arrow.right.circle")
             case .directInstall:
-                UIImage(systemName: "paperplane")
+                UIImage.compatSystemImage("paperplane")
             case .install:
-                UIImage(systemName: "arrow.down.square")
+                UIImage.compatSystemImage("arrow.down.square")
             case .reinstall:
-                UIImage(systemName: "arrow.clockwise.circle")
+                UIImage.compatSystemImage("arrow.clockwise.circle")
             case .downgrade:
-                UIImage(systemName: "arrow.down.circle")
+                UIImage.compatSystemImage("arrow.down.circle")
             case .update:
-                UIImage(systemName: "arrow.up.circle")
+                UIImage.compatSystemImage("arrow.up.circle")
             case .remove:
-                UIImage(systemName: "xmark.circle")
+                UIImage.compatSystemImage("xmark.circle")
             case .versionControl:
-                UIImage(systemName: "list.triangle")
+                UIImage.compatSystemImage("list.triangle")
             case .blockUpdate:
-                UIImage(systemName: "hand.raised")
+                UIImage.compatSystemImage("hand.raised")
             case .unblockUpdate:
-                UIImage(systemName: "face.dashed")
+                UIImage.compatSystemImage("face.dashed")
             case .download:
-                UIImage(systemName: "icloud.and.arrow.down")
+                UIImage.compatSystemImage("icloud.and.arrow.down")
             case .viewMeta:
-                UIImage(systemName: "doc.text")
+                UIImage.compatSystemImage("doc.text")
             case .revealFiles:
-                UIImage(systemName: "doc.text.magnifyingglass")
+                UIImage.compatSystemImage("doc.text.magnifyingglass")
             }
         }
     }
@@ -175,7 +176,7 @@ enum PackageMenu {
         if !advanced.isEmpty {
             elements.append(UIMenu(
                 title: String(localized: "Advanced"),
-                image: UIImage(systemName: "ellipsis.circle"),
+                image: UIImage.compatSystemImage("ellipsis.circle"),
                 children: advanced
             ))
         }

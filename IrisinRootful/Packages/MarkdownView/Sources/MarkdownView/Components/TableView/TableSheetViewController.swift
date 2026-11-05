@@ -3,10 +3,10 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Litext
 import UIKit
 
-@MainActor
 enum TableSheetPresenter {
     /// Presents every row of `tableView` in a full-height sheet over the
     /// view controller showing it.
@@ -23,8 +23,8 @@ enum TableSheetPresenter {
 /// item per column, the header pinned while the rows scroll under it.
 /// Tapping a header sorts by that column, and the rows slide into place.
 final class TableSheetViewController: UIViewController, UICollectionViewDelegate {
-    private typealias DataSource = UICollectionViewDiffableDataSource<Int, TableSheetItem>
-    private typealias Snapshot = NSDiffableDataSourceSnapshot<Int, TableSheetItem>
+    private typealias DataSource = LegacyCollectionViewDiffableDataSource<Int, TableSheetItem>
+    private typealias Snapshot = LegacyDiffableSnapshot<Int, TableSheetItem>
 
     let model: TableSheetModel
     private let content: TableSheetContent
@@ -52,7 +52,7 @@ final class TableSheetViewController: UIViewController, UICollectionViewDelegate
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .compatSystemBackground
         collectionView.backgroundColor = .clear
         collectionView.alwaysBounceVertical = true
         collectionView.isDirectionalLockEnabled = true
@@ -75,12 +75,12 @@ final class TableSheetViewController: UIViewController, UICollectionViewDelegate
     // MARK: - Data
 
     private func configureDataSource() {
-        let registration = UICollectionView.CellRegistration<TableSheetCell, TableSheetItem> {
+        let registration = LegacyCellRegistration<TableSheetCell, TableSheetItem> {
             [weak self] cell, _, item in
             self?.configure(cell, for: item)
         }
         dataSource = DataSource(collectionView: collectionView) { collectionView, indexPath, item in
-            collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: item)
+            collectionView.legacyDequeueConfiguredReusableCell(using: registration, for: indexPath, item: item)
         }
         dataSource?.apply(snapshot(), animatingDifferences: false)
     }
@@ -411,7 +411,7 @@ final class TableSheetCell: UICollectionViewCell {
         label.backgroundColor = .clear
         contentView.addSubview(label)
         glyphView.contentMode = .center
-        glyphView.tintColor = .secondaryLabel
+        glyphView.tintColor = .compatSecondaryLabel
         contentView.addSubview(glyphView)
         contentView.addSubview(headerSeparator)
     }
@@ -434,15 +434,14 @@ final class TableSheetCell: UICollectionViewCell {
         label.isUserInteractionEnabled = !configuration.isHeader
         label.selectionBackgroundColor = configuration.theme.colors.selectionBackground
         // Opaque, so rows scrolling under the pinned header stay hidden.
-        backgroundColor = configuration.isHeader ? .systemBackground : .clear
+        backgroundColor = configuration.isHeader ? .compatSystemBackground : .clear
         headerBackground.isHidden = !configuration.isHeader
         headerBackground.backgroundColor = table.headerBackgroundColor
         headerSeparator.isHidden = !configuration.isHeader
         headerSeparator.backgroundColor = table.borderColor
         glyphView.image = configuration.sortSymbol.flatMap {
-            UIImage(
-                systemName: $0,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: TableHeaderAccessory.glyphSize - 2, weight: .semibold)
+            UIImage.compatSystemImage($0,
+                withConfiguration: LegacySymbolConfiguration(pointSize: TableHeaderAccessory.glyphSize - 2, weight: .semibold)
             )
         }
         setNeedsLayout()

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import SnapKit
@@ -76,8 +77,8 @@ class SidebarController: UIViewController {
         }
     )
 
-    private lazy var dataSource: UICollectionViewDiffableDataSource<Section, Item> = {
-        let features = UICollectionView.CellRegistration<UICollectionViewCell, Item> { [unowned self] cell, _, _ in
+    private lazy var dataSource: LegacyCollectionViewDiffableDataSource<Section, Item> = {
+        let features = LegacyCellRegistration<UICollectionViewCell, Item> { [unowned self] cell, _, _ in
             guard cards.superview !== cell.contentView else { return }
             cell.contentView.addSubview(cards)
             cards.snp.remakeConstraints { x in
@@ -85,10 +86,10 @@ class SidebarController: UIViewController {
                 x.height.equalTo(210).priority(999)
             }
         }
-        let header = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { [unowned self] cell, _, _ in
+        let header = LegacyCellRegistration<UICollectionViewListCell, Item> { [unowned self] cell, _, _ in
             configureHeader(cell)
         }
-        let row = UICollectionView.CellRegistration<RepoListCell, Item> { cell, _, item in
+        let row = LegacyCellRegistration<RepoListCell, Item> { cell, _, item in
             cell.updateFill.url = nil
             if case let .repository(url) = item {
                 cell.row.setRepository(withUrl: url)
@@ -97,24 +98,24 @@ class SidebarController: UIViewController {
                 cell.row.setNoRepoAvailable()
             }
         }
-        let footer = UICollectionView.SupplementaryRegistration<ListFootnoteView>(
+        let footer = LegacySupplementaryRegistration<ListFootnoteView>(
             elementKind: UICollectionView.elementKindSectionFooter
         ) { [unowned self] view, _, _ in
             view.label.text = RepositoriesController.footnote
             footnote = view
         }
-        let source = UICollectionViewDiffableDataSource<Section, Item>(
+        let source = LegacyCollectionViewDiffableDataSource<Section, Item>(
             collectionView: collectionView
         ) { collection, indexPath, item in
             switch item {
-            case .features: collection.dequeueConfiguredReusableCell(using: features, for: indexPath, item: item)
-            case .header: collection.dequeueConfiguredReusableCell(using: header, for: indexPath, item: item)
-            case .repository, .none: collection.dequeueConfiguredReusableCell(using: row, for: indexPath, item: item)
+            case .features: collection.legacyDequeueConfiguredReusableCell(using: features, for: indexPath, item: item)
+            case .header: collection.legacyDequeueConfiguredReusableCell(using: header, for: indexPath, item: item)
+            case .repository, .none: collection.legacyDequeueConfiguredReusableCell(using: row, for: indexPath, item: item)
             }
         }
         // only the repositories are a list, so only they have a footer
         source.supplementaryViewProvider = { collection, _, indexPath in
-            collection.dequeueConfiguredReusableSupplementary(using: footer, for: indexPath)
+            collection.legacyDequeueConfiguredReusableSupplementary(using: footer, for: indexPath)
         }
         return source
     }()
@@ -130,7 +131,7 @@ class SidebarController: UIViewController {
         view.backgroundColor = .panelBackground
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "plus"),
+            image: UIImage.compatSystemImage("plus"),
             primaryAction: UIAction { [weak self] _ in
                 self?.present(RepositoryAddController.sheet(), animated: true)
             }
@@ -145,7 +146,7 @@ class SidebarController: UIViewController {
             x.edges.equalToSuperview()
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+        var snapshot = LegacyDiffableSnapshot<Section, Item>()
         snapshot.appendSections([.features, .repositories])
         snapshot.appendItems([.features], toSection: .features)
         dataSource.apply(snapshot, animatingDifferences: false)
@@ -283,7 +284,7 @@ class SidebarController: UIViewController {
             }
         }
         // the column is narrow: icons, so the row stays legible beside them
-        deleteItem.image = UIImage(systemName: "trash")
+        deleteItem.image = UIImage.compatSystemImage("trash")
         deleteItem.accessibilityLabel = String(localized: "Delete")
         deleteItem.backgroundColor = .swipeDelete
         let reloadItem = UIContextualAction(style: .normal, title: nil) { _, _, completion in
@@ -291,7 +292,7 @@ class SidebarController: UIViewController {
             RepositoryCenter.default.dispatchUpdateOnRepository(withUrl: url)
             SPIndicator.present(title: String(localized: "Refreshing…"), preset: .done)
         }
-        reloadItem.image = UIImage(systemName: "arrow.clockwise")
+        reloadItem.image = UIImage.compatSystemImage("arrow.clockwise")
         reloadItem.accessibilityLabel = String(localized: "Refresh")
         reloadItem.backgroundColor = .swipeRefresh
         return UISwipeActionsConfiguration(actions: [reloadItem, deleteItem])
@@ -324,7 +325,7 @@ class SidebarController: UIViewController {
             UIMenu(children: [
                 UIAction(
                     title: String(localized: "Share"),
-                    image: UIImage(systemName: "square.and.arrow.up")
+                    image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in
                     guard let self else { return }
                     ExportFile.shareRepository(url, from: self, anchor: cellAnchor(at: indexPath))

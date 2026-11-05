@@ -9,7 +9,12 @@ import UIKit
 
 extension UIColor {
     convenience init(light: UIColor, dark: UIColor) {
-        self.init(dynamicProvider: { $0.userInterfaceStyle == .dark ? dark : light })
+        // iOS 12 port: dynamic colours are iOS 13; iOS 12 has no dark mode
+        if #available(iOS 13.0, *) {
+            self.init(dynamicProvider: { $0.userInterfaceStyle == .dark ? dark : light })
+        } else {
+            self.init(cgColor: light.cgColor)
+        }
     }
 }
 

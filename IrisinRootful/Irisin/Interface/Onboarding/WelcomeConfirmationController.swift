@@ -8,6 +8,7 @@
 //  the user says Not Now.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -34,7 +35,7 @@ class WelcomeConfirmationController: UIViewController {
         title = String(localized: "Verify Ownership")
         view.backgroundColor = .groupedBackground
 
-        let symbol = UIImageView(image: UIImage(systemName: method.symbol)).then {
+        let symbol = UIImageView(image: UIImage.compatSystemImage(method.symbol)).then {
             $0.tintColor = .buttonNormal
             $0.preferredSymbolConfiguration = .init(pointSize: 44)
         }

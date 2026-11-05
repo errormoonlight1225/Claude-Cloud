@@ -10,7 +10,6 @@ import UIKit
 
 // MARK: - ListProcessor
 
-@MainActor
 final class ListProcessor {
     private let theme: MarkdownTheme
     private let context: MarkdownContent

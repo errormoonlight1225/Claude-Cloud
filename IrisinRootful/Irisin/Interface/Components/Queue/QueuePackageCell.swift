@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Then
 import UIKit
@@ -47,9 +48,8 @@ final class QueuePackageCell: UITableViewCell {
     /// accessory view, so the cell draws the chevron itself, and keeps its
     /// column while a download runs: the percentage stays where it is when
     /// the chevron arrives.
-    private let chevron = UIImageView(image: UIImage(
-        systemName: "chevron.right",
-        withConfiguration: UIImage.SymbolConfiguration(font: .type(.footnote, emphasized: true), scale: .small)
+    private let chevron = UIImageView(image: UIImage.compatSystemImage("chevron.right",
+        withConfiguration: LegacySymbolConfiguration(font: .type(.footnote, emphasized: true), scale: .small)
     )).then {
         $0.tintColor = .tertiaryLabel
         $0.contentMode = .right

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import Dog
@@ -158,7 +159,7 @@ class RepositoriesController: UIViewController {
     private func applySnapshot(animatingDifferences: Bool) {
         let urls = shownUrls
         let isSearching = !searchText.isEmpty
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Row>()
+        var snapshot = LegacyDiffableSnapshot<Int, Row>()
         snapshot.appendSections([0])
         if dataSourceCache.isEmpty, !isSearching {
             snapshot.appendItems([.none])
@@ -234,13 +235,13 @@ class RepositoriesController: UIViewController {
             // one liquid glass group: the ellipsis, then add
             navigationItem.setRightBarButtonItems([
                 UIBarButtonItem(
-                    image: UIImage(systemName: "plus"),
+                    image: UIImage.compatSystemImage("plus"),
                     style: .plain,
                     target: self,
                     action: #selector(openAdd)
                 ).then { $0.accessibilityLabel = String(localized: "Add Repository") },
                 UIBarButtonItem(
-                    image: UIImage(systemName: "ellipsis"),
+                    image: UIImage.compatSystemImage("ellipsis"),
                     menu: moreMenu
                 ).then {
                     $0.tintColor = .textTitle
@@ -261,7 +262,7 @@ class RepositoriesController: UIViewController {
     }
 
     private lazy var refreshSelectedItem = UIBarButtonItem(
-        image: UIImage(systemName: "arrow.clockwise"),
+        image: UIImage.compatSystemImage("arrow.clockwise"),
         style: .plain,
         target: self,
         action: #selector(refreshSelected)
@@ -362,27 +363,27 @@ class RepositoriesController: UIViewController {
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Refresh"),
-                    image: UIImage(systemName: "arrow.clockwise")
+                    image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.refreshAll() },
             ]),
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Select"),
-                    image: UIImage(systemName: "checkmark.circle")
+                    image: UIImage.compatSystemImage("checkmark.circle")
                 ) { [weak self] _ in self?.setEditing(true, animated: true) },
                 UIAction(
                     title: String(localized: "Import Repository List…"),
-                    image: UIImage(systemName: "square.and.arrow.down")
+                    image: UIImage.compatSystemImage("square.and.arrow.down")
                 ) { [weak self] _ in self?.openImport() },
                 UIAction(
                     title: String(localized: "Export Repository List"),
-                    image: UIImage(systemName: "square.and.arrow.up")
+                    image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.exportList() },
             ]),
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Remove Broken Repositories"),
-                    image: UIImage(systemName: "wand.and.rays"),
+                    image: UIImage.compatSystemImage("wand.and.rays"),
                     attributes: .destructive
                 ) { [weak self] _ in self?.clean() },
             ]),

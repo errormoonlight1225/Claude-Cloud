@@ -3,6 +3,7 @@
 //  JsonDepiction
 //
 
+import LegacyCompat
 import UIKit
 
 extension DepictionMarkdownView {
@@ -68,7 +69,7 @@ extension DepictionMarkdownView {
                 let font = UIFont.depictionBody(traits: traits.intersection([.traitBold, .traitItalic]))
                 text.addAttribute(.font, value: font, range: range)
             }
-            text.addAttribute(.foregroundColor, value: UIColor.label, range: whole)
+            text.addAttribute(.foregroundColor, value: UIColor.compatLabel, range: whole)
             return text
         }
     }

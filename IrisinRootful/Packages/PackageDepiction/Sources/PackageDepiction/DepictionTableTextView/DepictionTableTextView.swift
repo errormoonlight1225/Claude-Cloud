@@ -6,6 +6,7 @@
 //  Copyright © 2019 CoolStar. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -47,7 +48,7 @@ final class DepictionTableTextView: DepictionView {
             $0.text = text
             $0.textAlignment = .right
             $0.font = .depictionBody
-            $0.textColor = action == nil ? .label : tintColor
+            $0.textColor = action == nil ? .compatLabel : tintColor
         }
         if action != nil {
             textLabel.isUserInteractionEnabled = true

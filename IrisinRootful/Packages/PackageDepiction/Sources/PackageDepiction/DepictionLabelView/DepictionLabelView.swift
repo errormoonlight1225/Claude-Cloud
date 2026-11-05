@@ -6,6 +6,7 @@
 //  Copyright © 2019 CoolStar. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -77,7 +78,7 @@ final class DepictionLabelView: DepictionView {
     private func recolor() {
         guard usesDefaultColor else { return }
         guard isActionable else {
-            label.textColor = .label
+            label.textColor = .compatLabel
             return
         }
         label.textColor = isHighlighted ? tintColor.pressed : tintColor

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import SPIndicator
 import UIKit
@@ -43,7 +44,7 @@ extension DashboardController {
     }
 
     func applySnapshot(animatingDifferences: Bool) {
-        var snapshot = NSDiffableDataSourceSnapshot<String, Item>()
+        var snapshot = LegacyDiffableSnapshot<String, Item>()
         for section in dataSource where !snapshot.sectionIdentifiers.contains(section.title) {
             snapshot.appendSections([section.title])
             var items = section.packages.uniqued().map { Item.package(section: section.title, $0) }

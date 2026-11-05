@@ -24,12 +24,12 @@ public struct CodeBlockAction {
     public var title: String
     /// An SF Symbol name.
     public var systemImage: String
-    public var handler: @MainActor (CodeBlock) -> Void
+    public var handler: (CodeBlock) -> Void
 
     public init(
         title: String,
         systemImage: String,
-        handler: @escaping @MainActor (CodeBlock) -> Void
+        handler: @escaping (CodeBlock) -> Void
     ) {
         self.title = title
         self.systemImage = systemImage
@@ -43,7 +43,6 @@ public struct CodeBlockAction {
 /// Asked once per block when its language is known or changes, not on
 /// every streamed token; the content is handed to the action when it is
 /// tapped, so a block still streaming gives the handler what it shows then.
-@MainActor
 public protocol CodeBlockActionProvider: AnyObject {
     /// The buttons for a block in `language`, leading to trailing; they sit
     /// before Copy. Return an empty array for none.

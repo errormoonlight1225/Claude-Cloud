@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 class SidebarCard: UIView {
@@ -54,7 +55,7 @@ class SidebarCard: UIView {
 
         layer.cornerRadius = 12
         icon.contentMode = .scaleAspectFit
-        icon.image = UIImage(systemName: symbol)
+        icon.image = UIImage.compatSystemImage(symbol)
         icon.preferredSymbolConfiguration = .init(.icon, emphasized: true)
 
         if defaultSelected {

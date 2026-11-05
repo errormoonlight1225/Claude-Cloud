@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 extension PackageController {
@@ -67,7 +68,7 @@ extension PackageController {
         ]
         return UIMenu(
             title: String(localized: "Translate"),
-            image: UIImage(systemName: "character.bubble"),
+            image: UIImage.compatSystemImage("character.bubble"),
             children: [
                 UIMenu(options: .displayInline, children: modes),
                 UIMenu(options: .displayInline, children: languages),

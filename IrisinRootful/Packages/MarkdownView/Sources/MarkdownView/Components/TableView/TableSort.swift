@@ -36,7 +36,6 @@ struct TableSort: Equatable {
     /// sort can never put one row's cell beside another row's. Rows that
     /// compare equal keep their source order in either direction, and rows
     /// whose cell is empty stay last in either direction.
-    @MainActor
     func order(of rows: [[String]]) -> [Int] {
         let keys = rows.map { SortKey($0.indices.contains(column) ? $0[column] : "") }
         return rows.indices.sorted { lhs, rhs in
@@ -59,7 +58,6 @@ struct SortKey: Equatable {
 
     let value: Value
 
-    @MainActor
     init(_ cell: String) {
         let text = cell
             .replacingOccurrences(of: TextLabel.Attachment.replacementText, with: "")

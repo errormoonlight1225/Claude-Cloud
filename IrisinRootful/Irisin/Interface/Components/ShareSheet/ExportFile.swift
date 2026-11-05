@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import IrisinProtocol
@@ -51,7 +52,7 @@ enum ExportFile {
     ) -> UIAction {
         UIAction(
             title: String(localized: "Export All Repository Information…"),
-            image: UIImage(systemName: "square.and.arrow.up.on.square")
+            image: UIImage.compatSystemImage("square.and.arrow.up.on.square")
         ) { _ in
             guard let host = host(),
                   let repository = RepositoryCenter.default.obtainImmutableRepository(withUrl: url)
@@ -171,14 +172,14 @@ enum ExportFile {
             _ symbol: String,
             _ run: @escaping (UIViewController, PopoverAnchor?) -> Void
         ) -> UIAction {
-            UIAction(title: title, image: UIImage(systemName: symbol)) { [weak host] _ in
+            UIAction(title: title, image: UIImage.compatSystemImage(symbol)) { [weak host] _ in
                 guard let host else { return }
                 run(host, anchor())
             }
         }
         return UIMenu(
             title: String(localized: "Export…"),
-            image: UIImage(systemName: "square.and.arrow.up"),
+            image: UIImage.compatSystemImage("square.and.arrow.up"),
             children: [
                 UIMenu(options: .displayInline, children: [
                     action(String(localized: "Export Repository List"), "list.bullet.rectangle") {

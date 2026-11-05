@@ -47,7 +47,6 @@ struct TableLayoutMetrics: Equatable {
     }
 }
 
-@MainActor
 final class TableViewCellManager {
     /// What a cell was last styled and measured from.
     ///

@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Runestone
 import RunestoneLanguageSupport
@@ -122,7 +123,7 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
     // MARK: - Content
 
     private func render(animated: Bool) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         snapshot.appendSections([.package])
         snapshot.appendItems([.package], toSection: .package)
         if let inspection {
@@ -183,7 +184,7 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         case .failure:
             content.text = String(localized: "Unable to read this package.")
             content.textProperties.color = .operationFailed
-            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.image = UIImage.compatSystemImage("exclamationmark.triangle")
             content.imageProperties.tintColor = .operationFailed
         case .added, .replaced, .deleted:
             let count = paths(for: row).count

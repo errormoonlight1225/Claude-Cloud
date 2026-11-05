@@ -27,7 +27,6 @@ struct TableDisplay {
     /// For each drawn content row, its index among all content rows.
     let sourceRowIndices: [Int]
 
-    @MainActor
     init(contents: [[NSAttributedString]], mode: TableViewMode, sort: TableSort?) {
         let columnCount = contents.first?.count ?? 0
         switch mode {

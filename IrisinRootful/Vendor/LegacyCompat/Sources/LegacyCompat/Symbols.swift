@@ -94,6 +94,150 @@
         }
     }
 
+    /// `UIImage.SymbolConfiguration` for iOS 12: what the drawn glyph can
+    /// follow (a size and a weight), and the real configuration on iOS 13.
+    public struct LegacySymbolConfiguration {
+        public enum Weight {
+            case unspecified, ultraLight, thin, light, regular, medium, semibold, bold, heavy, black
+
+            var font: UIFont.Weight {
+                switch self {
+                case .ultraLight: .ultraLight
+                case .thin: .thin
+                case .light: .light
+                case .medium: .medium
+                case .semibold: .semibold
+                case .bold: .bold
+                case .heavy: .heavy
+                case .black: .black
+                case .unspecified, .regular: .regular
+                }
+            }
+
+            @available(iOS 13.0, tvOS 13.0, *)
+            var symbol: UIImage.SymbolWeight {
+                switch self {
+                case .unspecified: .unspecified
+                case .ultraLight: .ultraLight
+                case .thin: .thin
+                case .light: .light
+                case .regular: .regular
+                case .medium: .medium
+                case .semibold: .semibold
+                case .bold: .bold
+                case .heavy: .heavy
+                case .black: .black
+                }
+            }
+        }
+
+        public enum Scale {
+            case `default`, unspecified, small, medium, large
+
+            var factor: CGFloat {
+                switch self {
+                case .small: 0.8
+                case .large: 1.25
+                default: 1
+                }
+            }
+
+            @available(iOS 13.0, tvOS 13.0, *)
+            var symbol: UIImage.SymbolScale {
+                switch self {
+                case .default: .default
+                case .unspecified: .unspecified
+                case .small: .small
+                case .medium: .medium
+                case .large: .large
+                }
+            }
+        }
+
+        var pointSize: CGFloat?
+        var weight: Weight = .unspecified
+        var scale: Scale = .default
+        var font: UIFont?
+        var textStyle: UIFont.TextStyle?
+
+        public init(pointSize: CGFloat, weight: Weight = .regular, scale: Scale = .default) {
+            self.pointSize = pointSize
+            self.weight = weight
+            self.scale = scale
+        }
+
+        public init(weight: Weight) { self.weight = weight }
+        public init(scale: Scale) { self.scale = scale }
+        public init(font: UIFont, scale: Scale = .default) {
+            self.font = font
+            self.scale = scale
+        }
+
+        public init(textStyle: UIFont.TextStyle, scale: Scale = .default) {
+            self.textStyle = textStyle
+            self.scale = scale
+        }
+
+        var resolvedPointSize: CGFloat {
+            (font?.pointSize ?? textStyle.map { UIFont.preferredFont(forTextStyle: $0).pointSize } ?? pointSize ?? 17)
+                * scale.factor
+        }
+
+        @available(iOS 13.0, tvOS 13.0, *)
+        public var native: UIImage.SymbolConfiguration {
+            if let font { return UIImage.SymbolConfiguration(font: font, scale: scale.symbol) }
+            if let textStyle { return UIImage.SymbolConfiguration(textStyle: textStyle, scale: scale.symbol) }
+            if let pointSize { return UIImage.SymbolConfiguration(pointSize: pointSize, weight: weight.symbol, scale: scale.symbol) }
+            if weight != .unspecified { return UIImage.SymbolConfiguration(weight: weight.symbol) }
+            return UIImage.SymbolConfiguration(scale: scale.symbol)
+        }
+    }
+
+    extension UIImage {
+        /// `UIImage(systemName:withConfiguration:)`.
+        public static func compatSystemImage(_ name: String, withConfiguration configuration: LegacySymbolConfiguration?) -> UIImage? {
+            guard let configuration else { return compatSystemImage(name) }
+            if #available(iOS 13.0, tvOS 13.0, *) {
+                return UIImage(systemName: name, withConfiguration: configuration.native)
+            }
+            return LegacySymbol.fallbackImage(
+                named: name,
+                pointSize: configuration.resolvedPointSize,
+                weight: configuration.font.map { _ in configuration.weight.font } ?? configuration.weight.font
+            )
+        }
+
+        /// `withTintColor(_:renderingMode:)` (iOS 13): a template image on
+        /// iOS 12, which the view it is shown in tints.
+        public func compatWithTintColor(_ color: UIColor, renderingMode: UIImage.RenderingMode = .automatic) -> UIImage {
+            if #available(iOS 13.0, tvOS 13.0, *) { return withTintColor(color, renderingMode: renderingMode) }
+            return withRenderingMode(.alwaysTemplate)
+        }
+
+        /// `withConfiguration(_:)` (iOS 13); the glyph is drawn once on iOS 12.
+        public func compatWithConfiguration(_ configuration: LegacySymbolConfiguration) -> UIImage {
+            if #available(iOS 13.0, tvOS 13.0, *) { return withConfiguration(configuration.native) }
+            return self
+        }
+    }
+
+    extension UIImageView {
+        /// `preferredSymbolConfiguration` (iOS 13); nothing on iOS 12.
+        public var compatPreferredSymbolConfiguration: LegacySymbolConfiguration? {
+            get { nil }
+            set {
+                if #available(iOS 13.0, tvOS 13.0, *) { preferredSymbolConfiguration = newValue?.native }
+            }
+        }
+    }
+
+    extension UIButton {
+        /// `setPreferredSymbolConfiguration(_:forImageIn:)` (iOS 13).
+        public func compatSetPreferredSymbolConfiguration(_ configuration: LegacySymbolConfiguration?, forImageIn state: UIControl.State) {
+            if #available(iOS 13.0, tvOS 13.0, *) { setPreferredSymbolConfiguration(configuration?.native, forImageIn: state) }
+        }
+    }
+
     extension UIImage {
         /// `UIImage(systemName:)` on iOS 13 and later, a drawn glyph before.
         public static func compatSystemImage(_ name: String) -> UIImage? {

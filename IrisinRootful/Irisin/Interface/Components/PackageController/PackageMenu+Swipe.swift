@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -75,17 +76,17 @@ extension PackageMenu.Action {
     func swipeIcon() -> UIImage? {
         switch self {
         case .dequeue:
-            UIImage(systemName: "minus")
+            UIImage.compatSystemImage("minus")
         case .install:
-            UIImage(systemName: "arrow.down")
+            UIImage.compatSystemImage("arrow.down")
         case .reinstall:
-            UIImage(systemName: "arrow.clockwise")
+            UIImage.compatSystemImage("arrow.clockwise")
         case .downgrade:
-            UIImage(systemName: "arrow.down")
+            UIImage.compatSystemImage("arrow.down")
         case .update:
-            UIImage(systemName: "arrow.up")
+            UIImage.compatSystemImage("arrow.up")
         case .remove:
-            UIImage(systemName: "xmark")
+            UIImage.compatSystemImage("xmark")
         default:
             icon()
         }

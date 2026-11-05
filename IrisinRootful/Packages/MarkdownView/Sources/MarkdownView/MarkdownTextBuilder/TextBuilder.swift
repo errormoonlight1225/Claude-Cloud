@@ -8,7 +8,6 @@ import Litext
 import MarkdownParser
 import UIKit
 
-@MainActor
 final class TextBuilder {
     private let nodes: [MarkdownBlockNode]
     private let viewProvider: ReusableViewProvider

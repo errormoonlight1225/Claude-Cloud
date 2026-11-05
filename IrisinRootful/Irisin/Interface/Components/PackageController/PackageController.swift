@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AlertController
 import AptRepository
 import Combine
@@ -73,7 +74,7 @@ class PackageController: UIViewController {
         }
     }
 
-    private(set) lazy var dataSource = UITableViewDiffableDataSource<Int, Row>(
+    private(set) lazy var dataSource = LegacyTableViewDiffableDataSource<Int, Row>(
         tableView: tableView
     ) { [weak self] tableView, indexPath, row in
         let cell = tableView.dequeueReusableCell(withIdentifier: row.rawValue, for: indexPath)
@@ -170,7 +171,7 @@ class PackageController: UIViewController {
         // a row whose view or text changed may ask for any height again
         changed.forEach { heightsAskedFor[$0] = nil }
         let before = Set(dataSource.snapshot().itemIdentifiers)
-        var snapshot = NSDiffableDataSourceSnapshot<Int, Row>()
+        var snapshot = LegacyDiffableSnapshot<Int, Row>()
         snapshot.appendSections([0])
         snapshot.appendItems(rows)
         snapshot.reconfigureItems(changed.filter { before.contains($0) && rows.contains($0) })
@@ -319,7 +320,7 @@ class PackageController: UIViewController {
         }
         // the same menu the banner button opens on a long press
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "ellipsis"),
+            image: UIImage.compatSystemImage("ellipsis"),
             menu: bannerPackageView.actionMenu
         ).then {
             $0.tintColor = .textTitle

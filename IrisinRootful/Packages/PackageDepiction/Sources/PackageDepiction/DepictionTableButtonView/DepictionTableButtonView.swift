@@ -6,6 +6,7 @@
 //  Copyright © 2019 CoolStar. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -43,8 +44,8 @@ final class DepictionTableButtonView: DepictionView {
             $0.font = .depictionBody
             $0.textColor = tintColor
         }
-        let chevron = UIImageView(image: UIImage(systemName: "chevron.right")).then {
-            $0.preferredSymbolConfiguration = .init(font: .depictionBody, scale: .small)
+        let chevron = UIImageView(image: UIImage.compatSystemImage("chevron.right")).then {
+            $0.compatPreferredSymbolConfiguration = .init(font: .depictionBody, scale: .small)
             $0.tintColor = tintColor
             $0.setContentHuggingPriority(.required, for: .horizontal)
         }

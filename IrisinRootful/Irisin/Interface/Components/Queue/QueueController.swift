@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Combine
@@ -59,7 +60,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
     /// Export is built as the menu opens: it needs every file the queue
     /// installs to be here, and that changes under an open page.
     private lazy var menuItem = UIBarButtonItem(
-        image: UIImage(systemName: "ellipsis"),
+        image: UIImage.compatSystemImage("ellipsis"),
         menu: UIMenu(children: [
             UIDeferredMenuElement.uncached { [weak self] completion in
                 completion(self.map { [$0.exportAction()] } ?? [])
@@ -67,7 +68,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Clear Queue"),
-                    image: UIImage(systemName: "trash"),
+                    image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in PackageQueue.shared.clear() },
             ]),
@@ -136,7 +137,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
             content.text = text
             content.textProperties.font = .footnote
             content.textProperties.color = .operationFailed
-            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.image = UIImage.compatSystemImage("exclamationmark.triangle")
             content.imageProperties.tintColor = .operationFailed
             cell.contentConfiguration = content
             return cell
@@ -181,7 +182,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
                 else { return completion([]) }
                 completion([UIAction(
                     title: String(localized: "Bootstrap Install"),
-                    image: UIImage(systemName: "shippingbox")
+                    image: UIImage.compatSystemImage("shippingbox")
                 ) { [weak self] _ in self?.primaryAction(bootstrapInstall: true) }])
             },
         ])
@@ -264,7 +265,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
     private func applyRows(animated: Bool) {
         let manager = PackageQueue.shared
         let plan = manager.plan
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         let changes = QueueChange.changes(of: plan, requested: Set(manager.actions.map(\.identity)))
         if let reason = manager.blocked ?? failure {
             snapshot.appendSections([.failure])
@@ -338,7 +339,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         return UIAction(
             title: String(localized: "Export All Packages"),
             subtitle: reason,
-            image: UIImage(systemName: "square.and.arrow.up"),
+            image: UIImage.compatSystemImage("square.and.arrow.up"),
             attributes: reason == nil ? [] : .disabled
         ) { [weak self] _ in self?.export(files) }
     }

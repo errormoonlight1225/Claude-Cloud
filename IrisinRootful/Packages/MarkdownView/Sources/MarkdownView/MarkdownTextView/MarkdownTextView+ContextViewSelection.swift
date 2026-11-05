@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Foundation
 import Litext
 import UIKit
@@ -53,7 +54,7 @@ extension UIView {
             // Above the layers of subviews added after it.
             tint.zPosition = 1000
             tint.cornerRadius = 8
-            tint.cornerCurve = .continuous
+            tint.compatContinuousCorners()
             host.addSublayer(tint)
             return tint
         }()

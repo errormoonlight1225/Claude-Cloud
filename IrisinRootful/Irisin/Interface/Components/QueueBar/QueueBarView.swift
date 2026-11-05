@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -32,7 +33,7 @@ final class QueueBarView: UIControl {
     }
 
     private let glyph = UIImageView().then {
-        $0.image = UIImage(systemName: "tray.full.fill", withConfiguration: UIImage.SymbolConfiguration(.body))
+        $0.image = UIImage.compatSystemImage("tray.full.fill", withConfiguration: LegacySymbolConfiguration(.body))
         $0.tintColor = .buttonNormal
         $0.contentMode = .center
         $0.setContentHuggingPriority(.required, for: .horizontal)
@@ -48,9 +49,8 @@ final class QueueBarView: UIControl {
     }
 
     private let chevron = UIImageView().then {
-        $0.image = UIImage(
-            systemName: "chevron.forward",
-            withConfiguration: UIImage.SymbolConfiguration(.footnote, emphasized: true)
+        $0.image = UIImage.compatSystemImage("chevron.forward",
+            withConfiguration: LegacySymbolConfiguration(.footnote, emphasized: true)
         )
         $0.tintColor = .textSubtitle
         $0.contentMode = .center

@@ -220,6 +220,31 @@
             return .extraLight
         }
 
+        public static var compatSystemMaterialDark: UIBlurEffect.Style {
+            if #available(iOS 13.0, tvOS 13.0, *) { return .systemMaterialDark }
+            return .dark
+        }
+
+        public static var compatSystemThinMaterialDark: UIBlurEffect.Style {
+            if #available(iOS 13.0, tvOS 13.0, *) { return .systemThinMaterialDark }
+            return .dark
+        }
+
+        public static var compatSystemUltraThinMaterialDark: UIBlurEffect.Style {
+            if #available(iOS 13.0, tvOS 13.0, *) { return .systemUltraThinMaterialDark }
+            return .dark
+        }
+
+        public static var compatSystemChromeMaterialDark: UIBlurEffect.Style {
+            if #available(iOS 13.0, tvOS 13.0, *) { return .systemChromeMaterialDark }
+            return .dark
+        }
+
+        public static var compatSystemThickMaterialDark: UIBlurEffect.Style {
+            if #available(iOS 13.0, tvOS 13.0, *) { return .systemThickMaterialDark }
+            return .dark
+        }
+
         public static var compatSystemChromeMaterial: UIBlurEffect.Style {
             if #available(iOS 13.0, tvOS 13.0, *) { return .systemChromeMaterial }
             return .extraLight

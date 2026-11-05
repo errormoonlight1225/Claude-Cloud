@@ -6,6 +6,7 @@
 //  safe, said before the first one.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -41,7 +42,7 @@ class WelcomeCautionController: UIViewController {
         title = String(localized: "Proceed with Caution")
         view.backgroundColor = .groupedBackground
 
-        let symbol = UIImageView(image: UIImage(systemName: "exclamationmark.triangle.fill")).then {
+        let symbol = UIImageView(image: UIImage.compatSystemImage("exclamationmark.triangle.fill")).then {
             $0.tintColor = WelcomeStyle.caution
             $0.preferredSymbolConfiguration = .init(pointSize: 44)
         }

@@ -3,37 +3,38 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Foundation
 import UIKit
 
 /// The text of a table's title bar and of its buttons.
 enum TableTitleText {
     static var table: String {
-        String(localized: "Table", comment: "Title of a table's bar.")
+        String(legacyLocalized: "Table", comment: "Title of a table's bar.")
     }
 
     /// The title of a table that leaves `hiddenRowCount` rows out.
     static func table(hiddenRowCount: Int) -> String {
         String(
-            localized: "Table (\(hiddenRowCount) more rows not shown)",
+            legacyLocalized: "Table (\(hiddenRowCount) more rows not shown)",
             comment: "Title of a long table's bar, counting the rows it does not draw."
         )
     }
 
     static var copy: String {
-        String(localized: "Copy", comment: "Button that copies a table or a code block.")
+        String(legacyLocalized: "Copy", comment: "Button that copies a table or a code block.")
     }
 
     static var download: String {
         String(
-            localized: "Download",
+            legacyLocalized: "Download",
             comment: "Button that saves a table or a code block as a file."
         )
     }
 
     static var expand: String {
         String(
-            localized: "Expand",
+            legacyLocalized: "Expand",
             comment: "Button that opens a table or a code block in a sheet."
         )
     }
@@ -45,7 +46,7 @@ final class TableTitleLabel: BarTextLabel {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        textColor = .secondaryLabel
+        textColor = .compatSecondaryLabel
         setTheme(.default)
         text = TableTitleText.table
     }

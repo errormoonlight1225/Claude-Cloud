@@ -11,6 +11,7 @@
 //
 
 #if canImport(UIKit) && os(iOS)
+    import ObjectiveC
     import UIKit
 
     public struct LegacyDiffableSnapshot<SectionIdentifierType: Hashable, ItemIdentifierType: Hashable> {
@@ -432,6 +433,77 @@
             guard let view = supplementaryViewProvider?(collectionView, kind, indexPath) else {
                 fatalError("LegacyCollectionViewDiffableDataSource: no supplementary view of kind \(kind)")
             }
+            return view
+        }
+    }
+#endif
+
+#if canImport(UIKit) && os(iOS)
+    // MARK: - Cell registrations (iOS 14)
+
+    /// `UICollectionView.CellRegistration`: a cell class and how to configure
+    /// it, registered with a collection view the first time it is used.
+    public struct LegacyCellRegistration<Cell: UICollectionViewCell, Item> {
+        let reuseIdentifier: String
+        let handler: (Cell, IndexPath, Item) -> Void
+
+        public init(handler: @escaping (Cell, IndexPath, Item) -> Void) {
+            reuseIdentifier = "LegacyCellRegistration.\(Cell.self).\(UUID().uuidString)"
+            self.handler = handler
+        }
+    }
+
+    /// `UICollectionView.SupplementaryRegistration`.
+    public struct LegacySupplementaryRegistration<View: UICollectionReusableView> {
+        let reuseIdentifier: String
+        let kind: String
+        let handler: (View, String, IndexPath) -> Void
+
+        public init(elementKind: String, handler: @escaping (View, String, IndexPath) -> Void) {
+            reuseIdentifier = "LegacySupplementaryRegistration.\(View.self).\(UUID().uuidString)"
+            kind = elementKind
+            self.handler = handler
+        }
+    }
+
+    private var registeredKey: UInt8 = 0
+
+    extension UICollectionView {
+        private var legacyRegistered: NSMutableSet {
+            if let set = objc_getAssociatedObject(self, &registeredKey) as? NSMutableSet { return set }
+            let set = NSMutableSet()
+            objc_setAssociatedObject(self, &registeredKey, set, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            return set
+        }
+
+        public func legacyDequeueConfiguredReusableCell<Cell, Item>(
+            using registration: LegacyCellRegistration<Cell, Item>,
+            for indexPath: IndexPath,
+            item: Item
+        ) -> Cell {
+            if !legacyRegistered.contains(registration.reuseIdentifier) {
+                register(Cell.self, forCellWithReuseIdentifier: registration.reuseIdentifier)
+                legacyRegistered.add(registration.reuseIdentifier)
+            }
+            let cell = dequeueReusableCell(withReuseIdentifier: registration.reuseIdentifier, for: indexPath) as! Cell
+            registration.handler(cell, indexPath, item)
+            return cell
+        }
+
+        public func legacyDequeueConfiguredReusableSupplementary<View>(
+            using registration: LegacySupplementaryRegistration<View>,
+            for indexPath: IndexPath
+        ) -> View {
+            if !legacyRegistered.contains(registration.reuseIdentifier) {
+                register(View.self, forSupplementaryViewOfKind: registration.kind, withReuseIdentifier: registration.reuseIdentifier)
+                legacyRegistered.add(registration.reuseIdentifier)
+            }
+            let view = dequeueReusableSupplementaryView(
+                ofKind: registration.kind,
+                withReuseIdentifier: registration.reuseIdentifier,
+                for: indexPath
+            ) as! View
+            registration.handler(view, registration.kind, indexPath)
             return view
         }
     }

@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import SnapKit
 import Then
@@ -137,7 +138,7 @@ final class RepositoryAddCandidateCell: UITableViewCell {
         configuration.cornerStyle = .capsule
         configuration.baseForegroundColor = .buttonNormal
         if added {
-            configuration.image = UIImage(systemName: "checkmark.circle.fill")
+            configuration.image = UIImage.compatSystemImage("checkmark.circle.fill")
         } else {
             configuration.title = String(localized: "Add")
         }

@@ -5,12 +5,13 @@
 //  Created by 秋星桥 on 2025/1/3.
 //
 
+import LegacyCompat
 import Foundation
 import Litext
 import UIKit
 
 public extension MarkdownTheme {
-    @MainActor static var `default`: MarkdownTheme = .init()
+    static var `default`: MarkdownTheme = .init()
     static let codeScale = 0.85
     /// Inline code is set at the body's size.
     static let codeInlineScale = 1.0
@@ -19,13 +20,13 @@ public extension MarkdownTheme {
 public struct MarkdownTheme: Equatable, @unchecked Sendable {
     public struct Fonts: Equatable, @unchecked Sendable {
         public var body = UIFont.preferredFont(forTextStyle: .body)
-        public var codeInline = UIFont.monospacedSystemFont(
+        public var codeInline = UIFont.compatMonospacedSystemFont(
             ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize * codeInlineScale,
             weight: .regular
         )
         public var bold = UIFont.preferredFont(forTextStyle: .body).bold
         public var italic = UIFont.preferredFont(forTextStyle: .body).italic
-        public var code = UIFont.monospacedSystemFont(
+        public var code = UIFont.compatMonospacedSystemFont(
             ofSize: ceil(UIFont.preferredFont(forTextStyle: .body).pointSize * codeScale),
             weight: .regular
         )
@@ -37,7 +38,7 @@ public struct MarkdownTheme: Equatable, @unchecked Sendable {
     public var fonts: Fonts = .init()
 
     public struct Colors: Equatable, @unchecked Sendable {
-        public var body = UIColor.label
+        public var body = UIColor.compatLabel
         public var highlight =
             UIColor(named: "AccentColor")
                 ?? UIColor(named: "accentColor")
@@ -46,7 +47,7 @@ public struct MarkdownTheme: Equatable, @unchecked Sendable {
             UIColor(named: "AccentColor")
                 ?? UIColor(named: "accentColor")
                 ?? .systemOrange
-        public var code = UIColor.label
+        public var code = UIColor.compatLabel
         public var codeBackground = CodeBlockDefaults.background
         public var codeBlockBackground = CodeBlockDefaults.background
         public var codeBlockBarBackground = CodeBlockDefaults.barBackground
@@ -82,8 +83,8 @@ public struct MarkdownTheme: Equatable, @unchecked Sendable {
     public struct Table: Equatable, @unchecked Sendable {
         public var cornerRadius: CGFloat = 8
         public var borderWidth: CGFloat = 1
-        public var borderColor = UIColor.separator
-        public var headerBackgroundColor = UIColor.systemGray6
+        public var borderColor = UIColor.compatSeparator
+        public var headerBackgroundColor = UIColor.compatSystemGray6
         public var cellBackgroundColor = UIColor.clear
         public var stripeCellBackgroundColor = UIColor.systemGray.withAlphaComponent(0.03)
     }

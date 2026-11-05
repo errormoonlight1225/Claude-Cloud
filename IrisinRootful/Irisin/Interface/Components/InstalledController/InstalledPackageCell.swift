@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import SnapKit
 import Then
@@ -114,11 +115,10 @@ private final class SelectionMarkView: UIView {
     /// The title size of the type ramp: the system's own mark is as large.
     static let side = TypeSize.title.rawValue
 
-    private let tick = UIImageView(image: UIImage(
-        systemName: "checkmark",
+    private let tick = UIImageView(image: UIImage.compatSystemImage("checkmark",
         // as fixed as the circle around it: a tick that grew with the text
         // size would leave it
-        withConfiguration: UIImage.SymbolConfiguration(pointSize: side * 0.55, weight: .semibold)
+        withConfiguration: LegacySymbolConfiguration(pointSize: side * 0.55, weight: .semibold)
     )).then {
         $0.tintColor = .onAccent
         $0.contentMode = .center

@@ -1,3 +1,4 @@
+import LegacyCompat
 import SnapKit
 import UIKit
 
@@ -6,7 +7,7 @@ import UIKit
 /// banner inside it and leaves breathing room above and below.
 final class OperationWarningBanner: UIView {
     private let banner = UIView()
-    private let icon = UIImageView(image: UIImage(systemName: "exclamationmark.triangle.fill"))
+    private let icon = UIImageView(image: UIImage.compatSystemImage("exclamationmark.triangle.fill"))
     private let label = UILabel()
 
     init(title: String.LocalizationValue) {

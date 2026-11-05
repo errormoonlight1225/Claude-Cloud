@@ -19,7 +19,6 @@ struct TableSheetContent {
     /// Every row as CSV, as Download saves it.
     let csv: Data
 
-    @MainActor
     init(_ tableView: TableView) {
         contents = tableView.contents
         columnAlignments = tableView.columnAlignments
@@ -30,7 +29,6 @@ struct TableSheetContent {
     }
 
     /// Copy, Download and Close for the sheet showing this table from `view`.
-    @MainActor
     func menuActions(from view: @escaping () -> UIView?, close: @escaping () -> Void) -> SheetMenuActions {
         let markdown = markdown
         let csv = csv
@@ -48,7 +46,6 @@ struct TableSheetContent {
     }
 
     /// A table in sheet mode showing every row.
-    @MainActor
     func makeTableView() -> TableView {
         let tableView = TableView(mode: .sheet)
         tableView.setTheme(theme)

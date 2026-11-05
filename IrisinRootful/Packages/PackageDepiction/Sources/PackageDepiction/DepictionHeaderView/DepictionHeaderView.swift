@@ -6,6 +6,7 @@
 //  Copyright © 2019 CoolStar. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -45,7 +46,7 @@ class DepictionHeaderView: DepictionView {
             $0.text = title
             $0.numberOfLines = 0
             $0.font = bold ? .depictionBodyEmphasized : .depictionBody
-            $0.textColor = bold ? .label : .depictionSecondaryLabel
+            $0.textColor = bold ? .compatLabel : .depictionSecondaryLabel
             $0.textAlignment = .depiction(dictionary["alignment"] as? Int)
         }
         addSubview(label)

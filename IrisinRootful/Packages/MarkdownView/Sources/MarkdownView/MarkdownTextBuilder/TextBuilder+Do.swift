@@ -5,6 +5,7 @@
 //  Created by 秋星桥 on 7/9/25.
 //
 
+import LegacyCompat
 import CoreText
 import Foundation
 import Litext
@@ -15,20 +16,19 @@ import Litext
 /// something rasterizes it, so it is rendered here — at the fitted size, so the
 /// bitmap the marker is masked from was never scaled after the fact.
 private func builtinSystemImage(_ name: String) -> UIImage {
-    guard let image = UIImage(
-        systemName: name,
-        withConfiguration: UIImage.SymbolConfiguration(scale: .small)
+    guard let image = UIImage.compatSystemImage(name,
+        withConfiguration: LegacySymbolConfiguration(scale: .small)
     ) else { return .init() }
-    let template = image.withTintColor(.label, renderingMode: .alwaysTemplate)
+    let template = image.compatWithTintColor(.compatLabel, renderingMode: .alwaysTemplate)
     return template.resized(to: ListMarkerLayout.fittedSize(for: template.size))
 }
 
-@MainActor private let kCheckedBoxImage = builtinSystemImage("checkmark.square.fill")
-@MainActor private let kUncheckedBoxImage = builtinSystemImage("square")
+private let kCheckedBoxImage = builtinSystemImage("checkmark.square.fill")
+private let kUncheckedBoxImage = builtinSystemImage("square")
 
-@MainActor private var kNumberCircleImageCache: [Int: UIImage] = [:]
+private var kNumberCircleImageCache: [Int: UIImage] = [:]
 
-@MainActor private func kNumberCircleImage(_ number: Int) -> UIImage {
+private func kNumberCircleImage(_ number: Int) -> UIImage {
     if let cached = kNumberCircleImageCache[number] {
         return cached
     }
@@ -165,7 +165,7 @@ extension TextBuilder {
                 let boundingBox = lineBoundingBox(line, lineOrigin: lineOrigin)
 
                 context.setLineWidth(1)
-                context.setStrokeColor(UIColor.label.withAlphaComponent(0.1).cgColor)
+                context.setStrokeColor(UIColor.compatLabel.withAlphaComponent(0.1).cgColor)
                 context.move(to: .init(x: boundingBox.minX, y: boundingBox.midY))
                 context.addLine(to: .init(x: boundingBox.minX + view.bounds.width, y: boundingBox.midY))
                 context.strokePath()

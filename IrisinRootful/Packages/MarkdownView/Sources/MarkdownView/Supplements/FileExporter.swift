@@ -8,7 +8,6 @@ import UIKit
 
 /// Saves what a code block or a table holds as a file the reader picks a
 /// place for, and copies it.
-@MainActor
 enum FileExporter {
     /// Asks where to save `data` as `fileName`, over the window showing `view`.
     static func export(_ data: Data, fileName: String, from view: UIView) {
@@ -22,7 +21,13 @@ enum FileExporter {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let url = directory.appendingPathComponent(fileName)
             try data.write(to: url)
-            let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+            // iOS 12 port: forExporting:asCopy: is iOS 14; exportToService copies
+            let picker: UIDocumentPickerViewController
+            if #available(iOS 14.0, *) {
+                picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+            } else {
+                picker = UIDocumentPickerViewController(url: url, in: .exportToService)
+            }
             presenter.present(picker, animated: true)
         } catch {
             assertionFailure("Could not stage \(fileName) for export: \(error)")

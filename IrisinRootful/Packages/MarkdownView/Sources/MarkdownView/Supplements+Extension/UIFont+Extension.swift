@@ -20,8 +20,9 @@ public extension UIFont {
 
     var monospaced: UIFont {
         let settings = [[
-            UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
-            UIFontDescriptor.FeatureKey.selector: kMonospacedNumbersSelector,
+            // iOS 12 port: the pre-iOS 15 names of the same keys
+            UIFontDescriptor.FeatureKey.featureIdentifier: kNumberSpacingType,
+            UIFontDescriptor.FeatureKey.typeIdentifier: kMonospacedNumbersSelector,
         ]]
 
         let attributes = [UIFontDescriptor.AttributeName.featureSettings: settings]

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Then
 import UIKit
@@ -36,8 +37,8 @@ class RecentUpdateController: PackageCollectionController {
         emptyElementLabel.isHidden = true
     }
 
-    override func buildSnapshot() -> NSDiffableDataSourceSnapshot<String, Package> {
-        var snapshot = NSDiffableDataSourceSnapshot<String, Package>()
+    override func buildSnapshot() -> LegacyDiffableSnapshot<String, Package> {
+        var snapshot = LegacyDiffableSnapshot<String, Package>()
         var seen = Set<Package>() // a package updated twice shows once, under its newest date
         for date in updateDataSource.keys.sorted(by: >) {
             let packages = (updateDataSource[date] ?? [])

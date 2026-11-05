@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import SnapKit
 import UIKit
 
@@ -48,7 +49,7 @@ final class WelcomeFeatureRow: UIView {
         detailLabel.textColor = WelcomeStyle.detailColor
         detailLabel.numberOfLines = 0
 
-        iconView.image = UIImage(systemName: feature.symbol)?
+        iconView.image = UIImage.compatSystemImage(feature.symbol)?
             .applyingSymbolConfiguration(WelcomeStyle.featureSymbol)
         iconView.tintColor = .buttonNormal
         titleLabel.text = String(resolving: feature.title)

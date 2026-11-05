@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Foundation
 import UIKit
 
@@ -57,9 +58,8 @@ extension CodeView {
     }
 
     private func setCopySymbol(_ name: String) {
-        let image = UIImage(
-            systemName: name,
-            withConfiguration: UIImage.SymbolConfiguration(scale: .small)
+        let image = UIImage.compatSystemImage(name,
+            withConfiguration: LegacySymbolConfiguration(scale: .small)
         )
         copyButton.setImage(image, for: .normal)
     }
@@ -67,13 +67,12 @@ extension CodeView {
     private func makeActionButton(for action: CodeBlockAction, tag: Int) -> UIButton {
         let button = UIButton()
         button.setImage(
-            UIImage(
-                systemName: action.systemImage,
-                withConfiguration: UIImage.SymbolConfiguration(scale: .small)
+            UIImage.compatSystemImage(action.systemImage,
+                withConfiguration: LegacySymbolConfiguration(scale: .small)
             ),
             for: .normal
         )
-        button.tintColor = .label
+        button.tintColor = .compatLabel
         button.tag = tag
         button.accessibilityLabel = action.title
         button.addTarget(self, action: #selector(handleAction(_:)), for: .touchUpInside)

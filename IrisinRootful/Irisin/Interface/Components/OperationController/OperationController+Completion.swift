@@ -1,3 +1,4 @@
+import LegacyCompat
 import AlertController
 import UIKit
 
@@ -7,7 +8,7 @@ extension OperationController {
     /// operation has ended.
     func menuItem() -> UIBarButtonItem {
         let more = UIBarButtonItem(
-            image: UIImage(systemName: "ellipsis"),
+            image: UIImage.compatSystemImage("ellipsis"),
             menu: UIMenu(children: [
                 UIDeferredMenuElement.uncached { [weak self] completion in
                     completion(self?.menuElements() ?? [])
@@ -19,7 +20,7 @@ extension OperationController {
     }
 
     private func menuElements() -> [UIMenuElement] {
-        let log = UIAction(title: String(localized: "View Full Log"), image: UIImage(systemName: "scroll")) { [weak self] _ in
+        let log = UIAction(title: String(localized: "View Full Log"), image: UIImage.compatSystemImage("scroll")) { [weak self] _ in
             guard let self, let monitor else { return }
             navigationController?.pushViewController(OperationLogController(monitor: monitor), animated: true)
         }
@@ -27,7 +28,7 @@ extension OperationController {
         if monitor.outcome?.succeeded == false, !isRecoveryMode {
             let ignore = UIAction(
                 title: String(localized: "Ignore Script Errors and Retry"),
-                image: UIImage(systemName: "exclamationmark.shield"),
+                image: UIImage.compatSystemImage("exclamationmark.shield"),
                 attributes: retrying ? .disabled : []
             ) { [weak self] _ in
                 self?.retryIgnoringScriptFailures()
@@ -41,11 +42,11 @@ extension OperationController {
             UIMenu(options: .displayInline, children: [
                 UIAction(
                     title: String(localized: "Rebuild Icons"),
-                    image: UIImage(systemName: "square.grid.2x2")
+                    image: UIImage.compatSystemImage("square.grid.2x2")
                 ) { [weak self] _ in self?.rebuildIcons() },
                 UIAction(
                     title: String(localized: "Reload Home Screen"),
-                    image: UIImage(systemName: "arrow.clockwise")
+                    image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.reloadHomeScreen() },
             ]),
         ]
@@ -58,7 +59,7 @@ extension OperationController {
             reloadButton()
         case .close, .updateApp:
             UIBarButtonItem(
-                image: UIImage(systemName: "checkmark"),
+                image: UIImage.compatSystemImage("checkmark"),
                 primaryAction: UIAction { [weak self] _ in
                     guard let self else { return }
                     if ending == .updateApp {
@@ -89,7 +90,7 @@ extension OperationController {
             menu: UIMenu(title: reason, children: [
                 UIAction(
                     title: String(localized: "Skip for Now"),
-                    image: UIImage(systemName: "xmark")
+                    image: UIImage.compatSystemImage("xmark")
                 ) { [weak self] _ in self?.dismiss(animated: true) },
             ])
         )

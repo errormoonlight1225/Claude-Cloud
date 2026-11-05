@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import IrisinProtocol
@@ -77,24 +78,24 @@ class SettingsController: UITableViewController {
         title = String(localized: "Settings")
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "ellipsis"),
+            image: UIImage.compatSystemImage("ellipsis"),
             menu: UIMenu(children: [
                 UIAction(
                     title: String(localized: "Welcome Page"),
-                    image: UIImage(systemName: "hand.wave")
+                    image: UIImage.compatSystemImage("hand.wave")
                 ) { [weak self] _ in
                     self?.present(WelcomeController.makeNavigator(), animated: true)
                 },
                 UIAction(
                     title: String(localized: "System Settings"),
-                    image: UIImage(systemName: "gear")
+                    image: UIImage.compatSystemImage("gear")
                 ) { _ in
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 },
                 UIAction(
                     title: String(localized: "Get Test Update"),
-                    image: UIImage(systemName: "shippingbox")
+                    image: UIImage.compatSystemImage("shippingbox")
                 ) { [weak self] _ in
                     self?.getTestUpdate()
                 },
@@ -169,7 +170,7 @@ class SettingsController: UITableViewController {
     }
 
     private func applyRows(animated animatingDifferences: Bool) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         let accounts = Self.paidRepositories().map { Row.account($0.url) }
         if !accounts.isEmpty {
             snapshot.appendSections([.accounts])

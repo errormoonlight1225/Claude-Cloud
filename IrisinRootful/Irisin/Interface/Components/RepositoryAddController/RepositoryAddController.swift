@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import SnapKit
@@ -224,7 +225,7 @@ class RepositoryAddController: UITableViewController {
     }
 
     private func applySnapshot(animatingDifferences: Bool) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         for section in sections {
             snapshot.appendSections([section])
             snapshot.appendItems(rows(in: section), toSection: section)

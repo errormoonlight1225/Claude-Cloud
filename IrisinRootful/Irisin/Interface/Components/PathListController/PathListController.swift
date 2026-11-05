@@ -6,6 +6,7 @@
 //  live in Packages/PathListTableViewController as Objective-C.
 //
 
+import LegacyCompat
 import SnapKit
 import UIKit
 
@@ -28,7 +29,7 @@ final class PathListController: UITableViewController {
         searchController.isActive ? filteredContents : contents
     }
 
-    private lazy var dataSource = UITableViewDiffableDataSource<Int, String>(
+    private lazy var dataSource = LegacyTableViewDiffableDataSource<Int, String>(
         tableView: tableView
     ) { [unowned self] tableView, indexPath, path in
         let cell = tableView.dequeueReusableCell(withIdentifier: PathCell.identifier, for: indexPath)
@@ -88,7 +89,7 @@ final class PathListController: UITableViewController {
     /// The highlight follows the search text, so surviving rows are
     /// reconfigured rather than left as they were.
     private func applySnapshot() {
-        var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
+        var snapshot = LegacyDiffableSnapshot<Int, String>()
         snapshot.appendSections([0])
         snapshot.appendItems(visibleContents)
         snapshot.reconfigureItems(survivingFrom: dataSource.snapshot())
@@ -154,19 +155,19 @@ final class PathListController: UITableViewController {
             UIMenu(title: path, children: [
                 UIAction(
                     title: String(localized: "Copy Name"),
-                    image: UIImage(systemName: "doc.on.doc")
+                    image: UIImage.compatSystemImage("doc.on.doc")
                 ) { _ in
                     UIPasteboard.general.string = (path as NSString).lastPathComponent
                 },
                 UIAction(
                     title: String(localized: "Copy Path"),
-                    image: UIImage(systemName: "doc.on.clipboard")
+                    image: UIImage.compatSystemImage("doc.on.clipboard")
                 ) { _ in
                     UIPasteboard.general.string = path
                 },
                 UIAction(
                     title: String(localized: "Reveal in Fila"),
-                    image: UIImage(systemName: "folder")
+                    image: UIImage.compatSystemImage("folder")
                 ) { [weak self] _ in
                     // Fila browses the raw filesystem, so the path a package
                     // lists has to carry the bootstrap root.

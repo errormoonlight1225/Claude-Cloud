@@ -1,3 +1,4 @@
+import LegacyCompat
 import AptResolver
 import Combine
 import IrisinProtocol
@@ -123,7 +124,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
                 : String(localized: "Maintaining the system environment…")
             content.textProperties.font = .body
             if monitor?.outcome == .succeeded {
-                content.image = UIImage(systemName: "checkmark.circle.fill")
+                content.image = UIImage.compatSystemImage("checkmark.circle.fill")
                 content.imageProperties.tintColor = .operationSucceeded
                 cell.accessoryView = nil
             } else {
@@ -138,7 +139,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
             var content = cell.defaultContentConfiguration()
             content.text = text
             content.textProperties.font = .footnote
-            content.image = UIImage(systemName: "exclamationmark.triangle")
+            content.image = UIImage.compatSystemImage("exclamationmark.triangle")
             content.imageProperties.tintColor = .operationWarning
             cell.contentConfiguration = content
             cell.selectionStyle = .none
@@ -254,7 +255,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
     /// The packages alone while the operation runs: the rows are the
     /// progress. Warnings close the list; retry is the footer below it.
     private func applySnapshot() {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         if Self.showsMaintenanceRow(changeCount: changes.count, outcome: monitor?.outcome) {
             snapshot.appendSections([.status])
             snapshot.appendItems([.maintenance], toSection: .status)
@@ -318,7 +319,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
         content.textProperties.color = .textTitle
         content.secondaryTextProperties.font = .footnote
         content.secondaryTextProperties.color = .textSubtitle
-        content.image = UIImage(systemName: "exclamationmark.triangle.fill")
+        content.image = UIImage.compatSystemImage("exclamationmark.triangle.fill")
         content.imageProperties.tintColor = .operationFailed
         guard let monitor, case let .failed(reason) = monitor.outcome else { return content }
         // the packages with a row: one only set up again has none to point at

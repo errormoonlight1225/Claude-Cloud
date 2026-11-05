@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import Foundation
 import UIKit
 
@@ -18,11 +19,11 @@ struct SheetMenuActions {
 
 enum SheetMenuText {
     static var more: String {
-        String(localized: "More", comment: "Button that opens a sheet's menu of actions.")
+        String(legacyLocalized: "More", comment: "Button that opens a sheet's menu of actions.")
     }
 
     static var close: String {
-        String(localized: "Close", comment: "Menu item that closes a code or table sheet.")
+        String(legacyLocalized: "Close", comment: "Menu item that closes a code or table sheet.")
     }
 }
 
@@ -33,20 +34,20 @@ enum SheetMenuSymbol {
 
 extension UIBarButtonItem {
     /// A bar button that opens Copy, Download and Close.
-    @MainActor
     static func sheetMenu(_ actions: SheetMenuActions) -> UIBarButtonItem {
-        let menu = UIMenu(children: [
-            UIAction(title: TableTitleText.copy, image: UIImage(systemName: TableSymbol.copy)) { _ in
+        // iOS 12 port: LegacyMenu (an action sheet below iOS 15)
+        let menu = LegacyMenu(children: [
+            LegacyAction(title: TableTitleText.copy, image: UIImage.compatSystemImage(TableSymbol.copy)) { _ in
                 actions.copy()
             },
-            UIAction(title: TableTitleText.download, image: UIImage(systemName: TableSymbol.download)) { _ in
+            LegacyAction(title: TableTitleText.download, image: UIImage.compatSystemImage(TableSymbol.download)) { _ in
                 actions.download()
             },
-            UIAction(title: SheetMenuText.close, image: UIImage(systemName: SheetMenuSymbol.close)) { _ in
+            LegacyAction(title: SheetMenuText.close, image: UIImage.compatSystemImage(SheetMenuSymbol.close)) { _ in
                 actions.close()
             },
         ])
-        let item = UIBarButtonItem(image: UIImage(systemName: SheetMenuSymbol.menu), menu: menu)
+        let item = UIBarButtonItem(legacyTitle: nil, image: UIImage.compatSystemImage(SheetMenuSymbol.menu)) { menu }
         item.accessibilityLabel = SheetMenuText.more
         return item
     }

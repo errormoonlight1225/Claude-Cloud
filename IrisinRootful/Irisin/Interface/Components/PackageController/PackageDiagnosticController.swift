@@ -1,3 +1,4 @@
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Dog
@@ -17,7 +18,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
     }
 
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private var dataSource: UITableViewDiffableDataSource<Section, Row>!
+    private var dataSource: LegacyTableViewDiffableDataSource<Section, Row>!
     private var report: [ResolutionCheck] = []
     private var summary = ""
     /// A reason of the app's own, an operation still running or packages
@@ -88,7 +89,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             x.top.equalTo(view.safeAreaLayoutGuide)
             x.leading.trailing.bottom.equalToSuperview()
         }
-        dataSource = UITableViewDiffableDataSource(tableView: tableView) { [unowned self] table, indexPath, row in
+        dataSource = LegacyTableViewDiffableDataSource(tableView: tableView) { [unowned self] table, indexPath, row in
             let cell = table.dequeueReusableCell(withIdentifier: "requirement", for: indexPath)
             guard case let .check(check) = row else {
                 var content = cell.defaultContentConfiguration()
@@ -124,8 +125,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             content.secondaryTextProperties.font = .rounded(.subheadline)
             content.secondaryTextProperties.color = .textSubtitle
             content.secondaryTextProperties.numberOfLines = 0
-            content.image = UIImage(
-                systemName: check.outcome == .matched ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+            content.image = UIImage.compatSystemImage(check.outcome == .matched ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
             )
             content.imageProperties.tintColor = check.outcome == .matched ? .requirementMatched : .requirementIssue
             cell.contentConfiguration = content
@@ -136,7 +136,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
     }
 
     private func applyReport() {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         let summaryCheck = ResolutionCheck(
             package: "",
             requirement: summary,

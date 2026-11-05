@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Combine
 import UIKit
@@ -23,7 +24,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
         let candidate: Package
     }
 
-    private lazy var diffableDataSource = UITableViewDiffableDataSource<Int, Row>(
+    private lazy var diffableDataSource = LegacyTableViewDiffableDataSource<Int, Row>(
         tableView: tableView
     ) { [unowned self] tableView, indexPath, fetch in
         let cell = tableView.dequeueReusableCell(withIdentifier: cellID, for: indexPath) as! PackageUpdateTableCell
@@ -162,7 +163,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
         reloadTask = Task { [weak self] in
             let rows = await Self.rows(in: index)
             guard !Task.isCancelled, let self else { return }
-            var snapshot = NSDiffableDataSourceSnapshot<Int, Row>()
+            var snapshot = LegacyDiffableSnapshot<Int, Row>()
             snapshot.appendSections([0])
             snapshot.appendItems(rows)
             snapshot.reconfigureItems(survivingFrom: diffableDataSource.snapshot())

@@ -7,7 +7,7 @@
 //  the view the image was tapped in and back into the one on show.
 //
 
-import LinkPresentation
+import LegacyCompat
 import SnapKit
 import UIKit
 
@@ -103,12 +103,12 @@ extension DepictionScreenshotsView {
             chrome.spacing = 8
             chrome.addArrangedSubview(chromeButton(
                 symbol: "square.and.arrow.up",
-                label: String(localized: "Share"),
+                label: String(legacyLocalized: "Share"),
                 action: #selector(share)
             ))
             chrome.addArrangedSubview(chromeButton(
                 symbol: "xmark",
-                label: String(localized: "Close"),
+                label: String(legacyLocalized: "Close"),
                 action: #selector(close)
             ))
             view.addSubview(chrome)
@@ -138,11 +138,13 @@ extension DepictionScreenshotsView {
         /// A symbol on a round of glass, so it reads over any picture: liquid
         /// glass where the system has it, a dark material before that.
         private func chromeButton(symbol: String, label: String, action: Selector) -> UIView {
-            var config = UIButton.Configuration.plain()
-            config.image = UIImage(systemName: symbol)
-            config.preferredSymbolConfigurationForImage = .init(pointSize: 17, weight: .semibold)
-            config.baseForegroundColor = .white
-            let button = UIButton(configuration: config)
+            // iOS 12 port: a plain button; UIButton.Configuration is iOS 15
+            let button = UIButton(type: .system)
+            button.setImage(
+                UIImage.compatSystemImage(symbol, withConfiguration: LegacySymbolConfiguration(pointSize: 17, weight: .semibold)),
+                for: .normal
+            )
+            button.tintColor = .white
             button.accessibilityLabel = label
             button.addTarget(self, action: action, for: .touchUpInside)
 
@@ -153,7 +155,7 @@ extension DepictionScreenshotsView {
                 round = UIVisualEffectView(effect: glass)
                 round.cornerConfiguration = .capsule()
             } else {
-                round = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+                round = UIVisualEffectView(effect: UIBlurEffect(style: .compatSystemThinMaterialDark))
                 round.layer.cornerRadius = 22
                 round.clipsToBounds = true
             }
@@ -437,12 +439,7 @@ extension DepictionScreenshotsView.PhotoViewerController {
             title ?? ""
         }
 
-        func activityViewControllerLinkMetadata(_: UIActivityViewController) -> LPLinkMetadata? {
-            let metadata = LPLinkMetadata()
-            metadata.title = title
-            metadata.imageProvider = NSItemProvider(object: image)
-            metadata.iconProvider = NSItemProvider(object: image)
-            return metadata
-        }
+        // iOS 12 port: no LPLinkMetadata (LinkPresentation is iOS 13); the
+        // share sheet's header shows the item as the system describes it.
     }
 }

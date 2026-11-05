@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import OrderedCollections
 import UIKit
@@ -86,7 +87,7 @@ class PackageVersionPickerController: UITableViewController {
             }
         }
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Package>()
+        var snapshot = LegacyDiffableSnapshot<Section, Package>()
         if current.repoRef == nil {
             snapshot.appendSections([.localSelectionNotice])
         }

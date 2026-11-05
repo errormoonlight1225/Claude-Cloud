@@ -9,6 +9,7 @@
 //  page, which finishes.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import SnapKit
@@ -36,7 +37,7 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
     private var registered = Set(RepositoryCenter.default.obtainRepositoryUrls())
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
 
-    private lazy var dataSource = UITableViewDiffableDataSource<Section, Row>(
+    private lazy var dataSource = LegacyTableViewDiffableDataSource<Section, Row>(
         tableView: tableView
     ) { [unowned self] tableView, indexPath, row in
         switch row {
@@ -96,7 +97,7 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
         tableView.dataSource = dataSource
         tableView.delegate = self
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        var snapshot = LegacyDiffableSnapshot<Section, Row>()
         snapshot.appendSections([.notice])
         if !lines.isEmpty {
             snapshot.appendSections([.recommended])

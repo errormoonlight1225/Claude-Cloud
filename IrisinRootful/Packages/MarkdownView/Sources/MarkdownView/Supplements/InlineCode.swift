@@ -15,7 +15,6 @@ extension NSAttributedString.Key {
 
 /// Inline code as a rounded pill: monospaced text at the body's size, on a
 /// background inset a few points past the text on either side.
-@MainActor
 enum InlineCode {
     /// Space between the pill's edge and the text, on each side.
     static let horizontalInset: CGFloat = 4

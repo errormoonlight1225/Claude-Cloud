@@ -3,10 +3,10 @@
 //  Copyright (c) 2025 ktiays. All rights reserved.
 //
 
+import LegacyCompat
 import Litext
 import UIKit
 
-@MainActor
 enum CodeViewConfiguration {
     nonisolated static let barPadding: CGFloat = 8
     nonisolated static let codePadding: CGFloat = 8
@@ -142,7 +142,7 @@ extension CodeView {
 private extension CodeView {
     func setupViewAppearance() {
         layer.cornerRadius = 8
-        layer.cornerCurve = .continuous
+        layer.compatContinuousCorners()
         // Not clipped, so a selection's handles can reach past the code;
         // the bar rounds its own corners instead.
         clipsToBounds = false
@@ -150,19 +150,18 @@ private extension CodeView {
 
     func setupBarView() {
         barView.layer.cornerRadius = layer.cornerRadius
-        barView.layer.cornerCurve = .continuous
+        barView.layer.compatContinuousCorners()
         barView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         addSubview(barView)
         barView.addSubview(languageLabel)
     }
 
     func setupPreviewButton() {
-        let previewImage = UIImage(
-            systemName: "eye",
-            withConfiguration: UIImage.SymbolConfiguration(scale: .small)
+        let previewImage = UIImage.compatSystemImage("eye",
+            withConfiguration: LegacySymbolConfiguration(scale: .small)
         )
         previewButton.setImage(previewImage, for: .normal)
-        previewButton.tintColor = .label
+        previewButton.tintColor = .compatLabel
         previewButton.addTarget(self, action: #selector(handlePreview(_:)), for: .touchUpInside)
         barView.addSubview(previewButton)
     }
@@ -172,12 +171,11 @@ private extension CodeView {
     }
 
     func setupBarButton(_ button: UIButton, symbol: String, title: String, action: Selector) {
-        let image = UIImage(
-            systemName: symbol,
-            withConfiguration: UIImage.SymbolConfiguration(scale: .small)
+        let image = UIImage.compatSystemImage(symbol,
+            withConfiguration: LegacySymbolConfiguration(scale: .small)
         )
         button.setImage(image, for: .normal)
-        button.tintColor = .label
+        button.tintColor = .compatLabel
         button.accessibilityLabel = title
         button.addTarget(self, action: action, for: .touchUpInside)
         barView.addSubview(button)

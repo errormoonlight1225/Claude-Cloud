@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -70,7 +71,7 @@ class SplitInterfaceController: UISplitViewController {
                 item.leftItemsSupplementBackButton = true
             }
             items.insert(SidebarToggleItem(
-                image: UIImage(systemName: "sidebar.leading"),
+                image: UIImage.compatSystemImage("sidebar.leading"),
                 primaryAction: UIAction { [weak self] _ in self?.show(.primary) }
             ).then { $0.accessibilityLabel = String(localized: "Show Sidebar") }, at: 0)
         }

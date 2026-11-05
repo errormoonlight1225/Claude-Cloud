@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -49,7 +50,7 @@ final class TranslationStatusView: UIView {
 
     private let symbol = UIImageView().then {
         $0.tintColor = .textSubtitle
-        $0.preferredSymbolConfiguration = UIImage.SymbolConfiguration(font: .footnote)
+        $0.preferredSymbolConfiguration = LegacySymbolConfiguration(font: .footnote)
     }
 
     private let caption = UILabel().then {
@@ -111,10 +112,10 @@ final class TranslationStatusView: UIView {
             caption.text = String(localized: "Translating…")
         case .translated:
             caption.text = String(localized: "This page is translated.")
-            symbol.image = UIImage(systemName: "character.bubble")
+            symbol.image = UIImage.compatSystemImage("character.bubble")
         case .failed:
             caption.text = String(localized: "Unable to translate this page.")
-            symbol.image = UIImage(systemName: "exclamationmark.bubble")
+            symbol.image = UIImage.compatSystemImage("exclamationmark.bubble")
         }
         if status == .translating {
             spinner.startAnimating()

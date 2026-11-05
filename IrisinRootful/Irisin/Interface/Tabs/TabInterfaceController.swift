@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Combine
 import UIKit
 
@@ -176,7 +177,7 @@ class QueueNavigator: UINavigationController {
 
         tabBarItem = UITabBarItem(
             title: String(localized: "Queue"),
-            image: UIImage(systemName: "tray.full.fill"),
+            image: UIImage.compatSystemImage("tray.full.fill"),
             tag: 0
         )
 

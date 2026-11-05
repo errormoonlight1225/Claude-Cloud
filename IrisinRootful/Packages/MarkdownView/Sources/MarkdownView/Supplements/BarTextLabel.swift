@@ -3,6 +3,7 @@
 //  MarkdownView
 //
 
+import LegacyCompat
 import CoreText
 import Foundation
 import Litext
@@ -37,7 +38,7 @@ class BarTextLabel: TextLabelView {
     }
 
     static var defaultTextColor: UIColor {
-        .label
+        .compatLabel
     }
 
     /// The width the text was last cut to fit.
