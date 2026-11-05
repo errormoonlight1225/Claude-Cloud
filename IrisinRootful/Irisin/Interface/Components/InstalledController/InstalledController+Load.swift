@@ -16,6 +16,11 @@ import UIKit
 extension InstalledController {
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        collectionView.legacyAddContextMenu { [weak self, weak collectionView] point in
+            guard let self, let collectionView, let indexPath = collectionView.indexPathForItem(at: point) else { return nil }
+            return self.legacyContextMenu(collectionView, at: indexPath)
+        }
 
         title = String(legacyLocalized: "Installed")
 

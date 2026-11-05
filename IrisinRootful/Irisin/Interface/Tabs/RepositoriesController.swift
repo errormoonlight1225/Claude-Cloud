@@ -90,6 +90,11 @@ class RepositoriesController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        tableView.legacyAddContextMenu { [weak self, weak tableView] point in
+            guard let self, let tableView, let indexPath = tableView.indexPathForRow(at: point) else { return nil }
+            return self.legacyContextMenu(tableView, at: indexPath)
+        }
 
         title = String(legacyLocalized: "Repositories")
         view.backgroundColor = .pageBackground
@@ -241,13 +246,13 @@ class RepositoriesController: UIViewController {
                     style: .plain,
                     target: self,
                     action: #selector(openAdd)
-                ).then { $0.accessibilityLabel = String(localized: "Add Repository") },
+                ).then { $0.accessibilityLabel = String(legacyLocalized: "Add Repository") },
                 UIBarButtonItem(
                     image: UIImage.compatSystemImage("ellipsis"),
                     menu: moreMenu
                 ).then {
                     $0.tintColor = .textTitle
-                    $0.accessibilityLabel = String(localized: "More")
+                    $0.accessibilityLabel = String(legacyLocalized: "More")
                 },
             ], animated: animated)
         }

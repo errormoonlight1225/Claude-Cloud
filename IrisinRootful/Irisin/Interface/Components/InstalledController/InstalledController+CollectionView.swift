@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -76,26 +77,15 @@ extension InstalledController {
             }
         }
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    override func collectionView(
-        _ collectionView: UICollectionView,
-        contextMenuConfigurationForItemAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ collectionView: UICollectionView, at indexPath: IndexPath) -> LegacyMenu? {
         guard !isEditing, let data = diffableDataSource.itemIdentifier(for: indexPath) else { return nil }
         return PackageMenu.contextMenu(
             for: data,
             from: self,
             anchor: collectionView.cellForItem(at: indexPath)
         )
-    }
-
-    override func collectionView(
-        _: UICollectionView,
-        willPerformPreviewActionForMenuWith _: UIContextMenuConfiguration,
-        animator: UIContextMenuInteractionCommitAnimating
-    ) {
-        show(preview: animator)
     }
 
     // MARK: COLLECTION VIEW -

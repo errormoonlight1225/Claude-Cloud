@@ -15,7 +15,7 @@ extension OperationController {
                 },
             ])
         )
-        more.accessibilityLabel = String(localized: "More")
+        more.accessibilityLabel = String(legacyLocalized: "More")
         return more
     }
 
@@ -68,14 +68,14 @@ extension OperationController {
                         dismiss(animated: true)
                     }
                 }
-            ).then { $0.accessibilityLabel = String(localized: "Done") }
+            ).then { $0.accessibilityLabel = String(legacyLocalized: "Done") }
         }
         button.style = .done
         // Try Again tapped before the button came holds it too (`retrying`)
         button.isEnabled = !retrying
         button.accessibilityValue = succeeded
-            ? String(localized: "Operation completed.")
-            : String(localized: "Operation failed. Try again.")
+            ? String(legacyLocalized: "Operation completed.")
+            : String(legacyLocalized: "Operation failed. Try again.")
         navigationItem.rightBarButtonItems = [button]
     }
 

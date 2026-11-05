@@ -53,6 +53,9 @@ class PackageBannerView: UIView {
     }
 
     private var queueSubscription: AnyCancellable?
+    /// iOS 12 port: a tap opens the menu when there is nothing to install or
+    /// update (showsMenuAsPrimaryAction is iOS 14).
+    var tapOpensMenu = false
 
     init(package: Package) {
         self.package = PackageMenu.requestPackage(for: package)
@@ -95,9 +98,11 @@ class PackageBannerView: UIView {
             x.centerY.equalToSuperview()
         }
 
-        // a tap installs or updates, a long press opens the menu
-        button.menu = actionMenu
+        // a tap installs or updates, a long press opens the menu (iOS 12
+        // port: an action sheet from a long press, and from a tap when
+        // there is nothing to install or update)
         button.addTarget(self, action: #selector(performQuickAction), for: .touchUpInside)
+        button.legacyAddContextMenu { [weak self] _ in self?.actionMenu }
 
         button.snp.makeConstraints { x in
             x.centerY.equalToSuperview()
@@ -166,7 +171,7 @@ class PackageBannerView: UIView {
         // with nothing to install or update, the tap opens the menu itself;
         // a queued package keeps its tap for the queue, an unsupported one
         // for the explanation
-        button.showsMenuAsPrimaryAction = obtainQuickAction() == nil
+        tapOpensMenu = obtainQuickAction() == nil
             && !opensQueue
             && package.isSupportedOnDevice
 

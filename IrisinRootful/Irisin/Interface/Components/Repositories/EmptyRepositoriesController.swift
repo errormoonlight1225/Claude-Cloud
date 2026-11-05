@@ -32,7 +32,7 @@ class EmptyRepositoriesController: UITableViewController {
     private let urls: [URL]
 
     private lazy var deleteButton = UIBarButtonItem(
-        title: String(localized: "Delete"),
+        title: String(legacyLocalized: "Delete"),
         primaryAction: LegacyAction { [weak self] _ in self?.confirmDelete() }
     )
 

@@ -53,7 +53,6 @@ class SettingsCell: UITableViewCell {
 
     /// Covers the row for kinds that open a menu on tap.
     let menuButton = UIButton().then {
-        $0.showsMenuAsPrimaryAction = true
         $0.isHidden = true
     }
 
@@ -103,9 +102,9 @@ class SettingsCell: UITableViewCell {
         menuButton.accessibilityLabel = item.title
         if let menu = item.menu {
             menuButton.isHidden = false
-            menuButton.menu = LegacyMenu(children: [
+            menuButton.legacySetMenu(LegacyMenu(children: [
                 LegacyDeferredMenuElement.uncached { completion in completion(menu()) },
-            ])
+            ]))
         } else {
             menuButton.isHidden = true
             menuButton.menu = nil

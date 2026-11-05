@@ -313,7 +313,6 @@ class InstalledController: UICollectionViewController {
     private let moreButton = UIButton(type: .system).then {
         $0.setImage(UIImage.compatSystemImage("ellipsis"), for: .normal)
         $0.tintColor = .textTitle
-        $0.showsMenuAsPrimaryAction = true
         $0.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
         $0.accessibilityLabel = String(legacyLocalized: "More")
     }
@@ -321,7 +320,7 @@ class InstalledController: UICollectionViewController {
     lazy var moreItem = UIBarButtonItem(customView: moreButton)
 
     func rebuildMoreMenu() {
-        moreButton.menu = LegacyMenu(identifier: .init("installed.more"), children: buildMoreMenu())
+        moreButton.legacySetMenu(LegacyMenu(identifier: .init("installed.more"), children: buildMoreMenu()))
     }
 
     private func buildMoreMenu() -> [LegacyMenuElement] {

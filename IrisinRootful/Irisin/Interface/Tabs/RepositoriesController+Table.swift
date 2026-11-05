@@ -85,22 +85,19 @@ extension RepositoriesController: UITableViewDelegate {
         copyItem.backgroundColor = .swipeShare
         return UISwipeActionsConfiguration(actions: [copyItem])
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    func tableView(
-        _ tableView: UITableView,
-        contextMenuConfigurationForRowAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ tableView: UITableView, at indexPath: IndexPath) -> LegacyMenu? {
         guard !tableView.isEditing, let url = url(at: indexPath) else { return nil }
-        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+        return { [weak self] () -> LegacyMenu? in
             LegacyMenu(children: [
                 LegacyMenu(options: .displayInline, children: [
                     LegacyAction(
-                        title: String(localized: "Refresh"),
+                        title: String(legacyLocalized: "Refresh"),
                         image: UIImage.compatSystemImage("arrow.clockwise")
                     ) { _ in self?.refreshRepository(url) },
                     LegacyAction(
-                        title: String(localized: "Share"),
+                        title: String(legacyLocalized: "Share"),
                         image: UIImage.compatSystemImage("square.and.arrow.up")
                     ) { _ in self?.share(url, from: tableView.cellForRow(at: indexPath)) },
                     ExportFile.exportRepositoryAction(
@@ -110,11 +107,11 @@ extension RepositoriesController: UITableViewDelegate {
                     ),
                 ]),
                 LegacyAction(
-                    title: String(localized: "Delete"),
+                    title: String(legacyLocalized: "Delete"),
                     image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in self?.delete([url]) },
             ])
-        }
+        }()
     }
 }

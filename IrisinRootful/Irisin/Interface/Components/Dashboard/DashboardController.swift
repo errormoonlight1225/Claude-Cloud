@@ -117,6 +117,11 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        collectionView.legacyAddContextMenu { [weak self, weak collectionView] point in
+            guard let self, let collectionView, let indexPath = collectionView.indexPathForItem(at: point) else { return nil }
+            return self.legacyContextMenu(collectionView, at: indexPath)
+        }
 
         collectionView.clipsToBounds = false
         collectionView.contentInset = UIEdgeInsets(top: 10, left: 20, bottom: 50, right: 20)

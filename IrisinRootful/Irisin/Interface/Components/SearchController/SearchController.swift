@@ -103,6 +103,11 @@ class SearchController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        tableView.legacyAddContextMenu { [weak self, weak tableView] point in
+            guard let self, let tableView, let indexPath = tableView.indexPathForRow(at: point) else { return nil }
+            return self.legacyContextMenu(tableView, at: indexPath)
+        }
         Publishers.MergeMany([RepositoryCenter.registrationUpdate, PackageCenter.packageRecordChanged].map {
             NotificationCenter.default.ocombine.publisher(for: $0)
         })
@@ -238,12 +243,9 @@ class SearchController: UITableViewController {
             (host ?? self).present(next: target)
         }
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    override func tableView(
-        _ tableView: UITableView,
-        contextMenuConfigurationForRowAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ tableView: UITableView, at indexPath: IndexPath) -> LegacyMenu? {
         guard let object = result(at: indexPath) else { return nil }
         switch object.associatedValue {
         case let .installed(package):
@@ -282,14 +284,6 @@ class SearchController: UITableViewController {
         return PackageMenu.swipeConfiguration(for: package, from: self) { [weak tableView] in
             tableView?.cellForRow(at: indexPath).map { PopoverAnchor($0) }
         }
-    }
-
-    override func tableView(
-        _: UITableView,
-        willPerformPreviewActionForMenuWith _: UIContextMenuConfiguration,
-        animator: UIContextMenuInteractionCommitAnimating
-    ) {
-        (host ?? self).show(preview: animator)
     }
 
     func updateGuiderOpacity() {

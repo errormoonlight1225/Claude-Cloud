@@ -69,7 +69,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
             },
             LegacyMenu(options: .displayInline, children: [
                 LegacyAction(
-                    title: String(localized: "Clear Queue"),
+                    title: String(legacyLocalized: "Clear Queue"),
                     image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in PackageQueue.shared.clear() },
@@ -175,23 +175,28 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
 
         // the title is the bar's to set: Execute or Retry
-        executeButton.primaryAction = LegacyAction { [weak self] _ in self?.primaryAction() }
-        executeButton.menu = LegacyMenu(children: [
-            LegacyDeferredMenuElement.uncached { [weak self] completion in
-                // nothing to offer beside Cancel Auto Install
-                guard let self, let plan = PackageQueue.shared.plan, !committed,
-                      plan.allowsBootstrapInstall
-                else { return completion([]) }
-                completion([LegacyAction(
-                    title: String(localized: "Bootstrap Install"),
+        // iOS 12 port: a tap executes; where the plan allows a bootstrap
+        // install (a touch and hold on iOS 14), the tap offers both
+        executeButton.legacySetHandler { [weak self] item in
+            guard let self else { return }
+            guard let plan = PackageQueue.shared.plan, !committed, plan.allowsBootstrapInstall else {
+                primaryAction()
+                return
+            }
+            LegacyMenuPresenter.present(LegacyMenu(children: [
+                LegacyAction(title: item.title ?? String(legacyLocalized: "Execute")) { [weak self] _ in
+                    self?.primaryAction()
+                },
+                LegacyAction(
+                    title: String(legacyLocalized: "Bootstrap Install"),
                     image: UIImage.compatSystemImage("shippingbox")
-                ) { [weak self] _ in self?.primaryAction(bootstrapInstall: true) }])
-            },
-        ])
+                ) { [weak self] _ in self?.primaryAction(bootstrapInstall: true) },
+            ]), from: self, barButtonItem: item)
+        }
         if #available(iOS 26.0, *) {
             executeButton.style = .prominent
         }
-        menuItem.accessibilityLabel = String(localized: "More")
+        menuItem.accessibilityLabel = String(legacyLocalized: "More")
         navigationItem.rightBarButtonItems = [executeButton, busyItem, menuItem]
         updateBar()
 

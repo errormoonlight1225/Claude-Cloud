@@ -104,6 +104,11 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        tableView.legacyAddContextMenu { [weak self, weak tableView] point in
+            guard let self, let tableView, let indexPath = tableView.indexPathForRow(at: point) else { return nil }
+            return self.legacyContextMenu(tableView, at: indexPath)
+        }
         title = String(legacyLocalized: "Logs")
         view.backgroundColor = .plainBackground
         navigationItem.largeTitleDisplayMode = .never

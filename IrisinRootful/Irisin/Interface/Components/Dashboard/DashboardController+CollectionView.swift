@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 private let kCellLineLimit = 6
@@ -116,12 +117,11 @@ extension DashboardController {
             }
         }
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    override func collectionView(
-        _ collectionView: UICollectionView,
-        contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ collectionView: UICollectionView, at indexPath: IndexPath) -> LegacyMenu? {
+
+        let indexPaths = [indexPath]
         guard let indexPath = indexPaths.first,
               case let .package(_, data) = diffableDataSource.itemIdentifier(for: indexPath)
         else {
@@ -134,22 +134,6 @@ extension DashboardController {
         )
     }
 
-    override func collectionView(
-        _ collectionView: UICollectionView,
-        contextMenuConfiguration _: UIContextMenuConfiguration,
-        highlightPreviewForItemAt indexPath: IndexPath
-    ) -> UITargetedPreview? {
-        packagePreview(in: collectionView, at: indexPath)
-    }
-
-    override func collectionView(
-        _ collectionView: UICollectionView,
-        contextMenuConfiguration _: UIContextMenuConfiguration,
-        dismissalPreviewForItemAt indexPath: IndexPath
-    ) -> UITargetedPreview? {
-        packagePreview(in: collectionView, at: indexPath)
-    }
-
     /// Install or Update first, Remove last: the package menu's own
     /// actions, as every package list swipes.
     func swipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
@@ -159,23 +143,4 @@ extension DashboardController {
         }
     }
 
-    /// A dashboard cell draws its icon at its own edge, so the preview gives
-    /// back the 4pt a package row keeps on either side.
-    private func packagePreview(in collectionView: UICollectionView, at indexPath: IndexPath) -> UITargetedPreview? {
-        guard let cell = collectionView.cellForItem(at: indexPath) else { return nil }
-        let parameters = UIPreviewParameters()
-        parameters.visiblePath = UIBezierPath(
-            roundedRect: cell.bounds.insetBy(dx: -4, dy: 0),
-            cornerRadius: 8
-        )
-        return UITargetedPreview(view: cell, parameters: parameters)
-    }
-
-    override func collectionView(
-        _: UICollectionView,
-        willPerformPreviewActionForMenuWith _: UIContextMenuConfiguration,
-        animator: UIContextMenuInteractionCommitAnimating
-    ) {
-        show(preview: animator)
-    }
 }

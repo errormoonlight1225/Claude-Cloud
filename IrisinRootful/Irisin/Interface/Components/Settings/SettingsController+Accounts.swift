@@ -53,11 +53,11 @@ final class SettingsAccountCell: SettingsCell {
         // the row's own configure never runs here: the button covering a
         // signed-in row takes its name from the repository
         menuButton.accessibilityLabel = repo.nickName
-        menuButton.menu = LegacyMenu(children: [
+        menuButton.legacySetMenu(LegacyMenu(children: [
             LegacyDeferredMenuElement.uncached { [weak self] completion in
                 completion(VendorAccount.shared.accountMenu(for: repo) { self?.parentViewController })
             },
-        ])
+        ]))
         refresh()
     }
 

@@ -67,6 +67,11 @@ final class PathListController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        tableView.legacyAddContextMenu { [weak self, weak tableView] point in
+            guard let self, let tableView, let indexPath = tableView.indexPathForRow(at: point) else { return nil }
+            return self.legacyContextMenu(tableView, at: indexPath)
+        }
 
         if title?.isEmpty ?? true {
             title = (entryPath as NSString).lastPathComponent
@@ -144,29 +149,26 @@ final class PathListController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    override func tableView(
-        _: UITableView,
-        contextMenuConfigurationForRowAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ tableView: UITableView, at indexPath: IndexPath) -> LegacyMenu? {
         guard let path = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+        return { [weak self] () -> LegacyMenu? in
             LegacyMenu(title: path, children: [
                 LegacyAction(
-                    title: String(localized: "Copy Name"),
+                    title: String(legacyLocalized: "Copy Name"),
                     image: UIImage.compatSystemImage("doc.on.doc")
                 ) { _ in
                     UIPasteboard.general.string = (path as NSString).lastPathComponent
                 },
                 LegacyAction(
-                    title: String(localized: "Copy Path"),
+                    title: String(legacyLocalized: "Copy Path"),
                     image: UIImage.compatSystemImage("doc.on.clipboard")
                 ) { _ in
                     UIPasteboard.general.string = path
                 },
                 LegacyAction(
-                    title: String(localized: "Reveal in Fila"),
+                    title: String(legacyLocalized: "Reveal in Fila"),
                     image: UIImage.compatSystemImage("folder")
                 ) { [weak self] _ in
                     // Fila browses the raw filesystem, so the path a package
@@ -174,7 +176,7 @@ final class PathListController: UITableViewController {
                     self?.revealInFila(path: JailbreakRoot.diskPath(ofListed: path))
                 },
             ])
-        }
+        }()
     }
 }
 

@@ -405,6 +405,72 @@
             }
         }
 
+        /// `UIBarButtonItem(title:image:primaryAction:menu:)` (iOS 14) with
+        /// LegacyCompat's menus. With an action alone a tap runs it; with a
+        /// menu alone a tap shows it; with both, iOS 15 runs the action on a
+        /// tap and shows the menu on a touch and hold, and iOS 12 to 14 show
+        /// one sheet with the action first.
+        public convenience init(
+            title: String? = nil,
+            image: UIImage? = nil,
+            primaryAction: LegacyAction?,
+            menu: LegacyMenu? = nil
+        ) {
+            self.init(legacyTitle: title ?? primaryAction?.title, image: image) { item in
+                switch (primaryAction, menu) {
+                case let (action?, nil):
+                    action.sender = item
+                    action.perform()
+                case let (action, menu?):
+                    guard let presenter = item.legacyPresenter else { return }
+                    let shown = action.map { first in
+                        menu.replacingChildren([LegacyAction(
+                            title: first.title.isEmpty ? (title ?? "") : first.title,
+                            image: first.image,
+                            attributes: first.attributes
+                        ) { _ in
+                            first.sender = item
+                            first.perform()
+                        }] + menu.children)
+                    } ?? menu
+                    LegacyMenuPresenter.present(shown, from: presenter, barButtonItem: item)
+                case (nil, nil):
+                    break
+                }
+            }
+            if title == nil, image == nil { self.title = primaryAction?.title }
+            if #available(iOS 15.0, *), let menu, primaryAction != nil {
+                self.menu = menu.makeNativeMenu(sender: self)
+            }
+        }
+
+        /// `UIBarButtonItem(title:image:menu:)` (iOS 14): a tap shows `menu`.
+        public convenience init(title: String? = nil, image: UIImage? = nil, menu: LegacyMenu) {
+            self.init(title: title, image: image, primaryAction: nil, menu: menu)
+        }
+
+        /// `UIBarButtonItem(systemItem:primaryAction:menu:)` (iOS 14).
+        public convenience init(systemItem: UIBarButtonItem.SystemItem, primaryAction: LegacyAction?, menu: LegacyMenu? = nil) {
+            self.init(legacySystemItem: systemItem) { item in
+                primaryAction?.sender = item
+                primaryAction?.perform()
+            }
+        }
+
+        /// `menu` (iOS 14) for an existing item: a tap shows `menu`; nil
+        /// leaves the item as it is.
+        public func legacySetMenu(_ menu: LegacyMenu?) {
+            guard let menu else { return }
+            if #available(iOS 15.0, *), target == nil, action == nil {
+                self.menu = menu.makeNativeMenu(sender: self)
+                return
+            }
+            legacySetHandler { item in
+                guard let presenter = item.legacyPresenter else { return }
+                LegacyMenuPresenter.present(menu, from: presenter, barButtonItem: item)
+            }
+        }
+
         /// Replaces the handler a `legacyTitle:` item runs.
         public func legacySetHandler(_ handler: @escaping (UIBarButtonItem) -> Void) {
             let newTarget = LegacyBarTarget(handler)

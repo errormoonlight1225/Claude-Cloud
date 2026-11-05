@@ -255,7 +255,7 @@ class PackageController: UIViewController {
         packageObject = package
         bannerPackageView = PackageBannerView(package: package)
         applyRows(reconfiguring: [.banner], animated: false)
-        navigationItem.rightBarButtonItem?.menu = bannerPackageView.actionMenu
+        navigationItem.rightBarButtonItem?.legacySetMenu(bannerPackageView.actionMenu)
         bannerArtwork.write(nameOf: bannerPackageView.package)
         downloadDepictionIfAvailable()
     }
@@ -326,7 +326,7 @@ class PackageController: UIViewController {
             menu: bannerPackageView.actionMenu
         ).then {
             $0.tintColor = .textTitle
-            $0.accessibilityLabel = String(localized: "More")
+            $0.accessibilityLabel = String(legacyLocalized: "More")
         }
 
         view.addSubview(tableView)

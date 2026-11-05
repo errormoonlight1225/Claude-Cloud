@@ -184,6 +184,11 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        collectionView.legacyAddContextMenu { [weak self, weak collectionView] point in
+            guard let self, let collectionView, let indexPath = collectionView.indexPathForItem(at: point) else { return nil }
+            return self.legacyContextMenu(collectionView, at: indexPath)
+        }
         if title?.count ?? 0 < 1 {
             title = String(legacyLocalized: "Packages")
         }
@@ -194,7 +199,7 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: .fluent(.shareIos24Filled),
             primaryAction: LegacyAction { [weak self] _ in self?.exportPackageList() }
-        ).then { $0.accessibilityLabel = String(localized: "Share") }
+        ).then { $0.accessibilityLabel = String(legacyLocalized: "Share") }
 
         searchController.searchBar.placeholder = String(legacyLocalized: "Search")
         searchController.searchBar.setValue(
@@ -278,26 +283,15 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
         let target = PackageController(package: data)
         present(next: target)
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    func collectionView(
-        _ collectionView: UICollectionView,
-        contextMenuConfigurationForItemAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ collectionView: UICollectionView, at indexPath: IndexPath) -> LegacyMenu? {
         guard let data = diffableDataSource.itemIdentifier(for: indexPath) else { return nil }
         return PackageMenu.contextMenu(
             for: data,
             from: self,
             anchor: collectionView.cellForItem(at: indexPath)
         )
-    }
-
-    func collectionView(
-        _: UICollectionView,
-        willPerformPreviewActionForMenuWith _: UIContextMenuConfiguration,
-        animator: UIContextMenuInteractionCommitAnimating
-    ) {
-        show(preview: animator)
     }
 }
 

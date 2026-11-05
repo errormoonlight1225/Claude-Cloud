@@ -31,6 +31,10 @@ extension PackageBannerView {
     func performQuickAction() {
         // the page, taken now: the banner may leave it while the action runs
         guard let host = parentViewController else { return }
+        if tapOpensMenu {
+            LegacyMenuPresenter.present(actionMenu, from: host, sourceView: button)
+            return
+        }
         guard package.isSupportedOnDevice else {
             PackageMenu.presentUnsupportedArchitecture(of: package, from: host)
             return

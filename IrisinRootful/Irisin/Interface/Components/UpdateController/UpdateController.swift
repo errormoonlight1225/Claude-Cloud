@@ -73,6 +73,11 @@ class UpdateController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // iOS 12 port: a long press opens the row's menu
+        tableView.legacyAddContextMenu { [weak self, weak tableView] point in
+            guard let self, let tableView, let indexPath = tableView.indexPathForRow(at: point) else { return nil }
+            return self.legacyContextMenu(tableView, at: indexPath)
+        }
 
         view.backgroundColor = .plainBackground
 
@@ -199,25 +204,14 @@ class UpdateController: UIViewController, UITableViewDelegate {
         guard let row = diffableDataSource.itemIdentifier(for: indexPath) else { return }
         present(next: PackageController(package: row.candidate))
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    func tableView(
-        _ tableView: UITableView,
-        contextMenuConfigurationForRowAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ tableView: UITableView, at indexPath: IndexPath) -> LegacyMenu? {
         guard let row = diffableDataSource.itemIdentifier(for: indexPath) else { return nil }
         return PackageMenu.contextMenu(
             for: row.candidate,
             from: self,
             anchor: tableView.cellForRow(at: indexPath)
         )
-    }
-
-    func tableView(
-        _: UITableView,
-        willPerformPreviewActionForMenuWith _: UIContextMenuConfiguration,
-        animator: UIContextMenuInteractionCommitAnimating
-    ) {
-        show(preview: animator)
     }
 }

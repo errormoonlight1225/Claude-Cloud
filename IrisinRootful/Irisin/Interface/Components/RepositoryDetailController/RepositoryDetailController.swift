@@ -149,7 +149,7 @@ class RepositoryDetailController: UIViewController {
 
         let more = UIBarButtonItem(image: UIImage.compatSystemImage("ellipsis"), menu: moreMenu).then {
             $0.tintColor = .textTitle
-            $0.accessibilityLabel = String(localized: "More")
+            $0.accessibilityLabel = String(legacyLocalized: "More")
         }
         navigationItem.rightBarButtonItems = [more]
         if paymentEndpoint != nil {
@@ -212,7 +212,7 @@ class RepositoryDetailController: UIViewController {
             primaryAction: only,
             menu: only == nil ? LegacyMenu(children: elements) : nil
         )
-        account.accessibilityLabel = String(localized: "Account")
+        account.accessibilityLabel = String(legacyLocalized: "Account")
         navigationItem.rightBarButtonItems = [more, account]
     }
 

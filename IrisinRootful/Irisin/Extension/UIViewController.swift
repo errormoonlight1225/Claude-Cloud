@@ -61,13 +61,6 @@ extension UIViewController {
         }
     }
 
-    /// Shows a context menu's preview as a page. The preview's size was the
-    /// menu's: pushed with it, the page would resize the sheet it lands in.
-    func show(preview animator: UIContextMenuInteractionCommitAnimating) {
-        guard let page = animator.previewViewController else { return }
-        page.preferredContentSize = .zero
-        animator.addAnimations { self.show(page, sender: self) }
-    }
 }
 
 extension UINavigationController {

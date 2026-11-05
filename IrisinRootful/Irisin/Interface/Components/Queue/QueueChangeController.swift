@@ -90,12 +90,12 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
 
     private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
     private lazy var confirmButton = UIBarButtonItem(
-        primaryAction: LegacyAction(title: String(localized: "Confirm")) { [weak self] _ in self?.commit() }
+        primaryAction: LegacyAction(title: String(legacyLocalized: "Confirm")) { [weak self] _ in self?.commit() }
     )
     /// Stands in for Confirm when the request leaves the queue as it is:
     /// there is nothing to confirm, and the queue is where the user was going.
     private lazy var openQueueButton = UIBarButtonItem(
-        primaryAction: LegacyAction(title: String(localized: "Open Queue")) { [weak self] _ in
+        primaryAction: LegacyAction(title: String(legacyLocalized: "Open Queue")) { [weak self] _ in
             guard let self else { return }
             InterfaceHostController.enclosing(self)?.openQueue()
         }

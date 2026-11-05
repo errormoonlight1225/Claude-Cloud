@@ -14,12 +14,11 @@ extension LogViewerController {
         menuButton.tintColor = .textTitle
         // the bar item is only a wrapper; the button is what a reader lands on
         menuButton.accessibilityLabel = String(legacyLocalized: "More")
-        menuButton.showsMenuAsPrimaryAction = true
-        menuButton.menu = LegacyMenu(children: [
+        menuButton.legacySetMenu(LegacyMenu(children: [
             LegacyDeferredMenuElement.uncached { [weak self] completion in
                 completion(self?.createMenu().children ?? [])
             },
-        ])
+        ]))
         menuButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
         navigationItem.rightBarButtonItem = UIBarButtonItem(customView: menuButton)
     }
@@ -146,30 +145,27 @@ extension LogViewerController {
         hiddenPrefixCount = Dog.shared.obtainCurrentLogContent().count
         reload()
     }
+    /// iOS 12 port: a long press's action sheet (context menus are iOS 13).
 
-    func tableView(
-        _: UITableView,
-        contextMenuConfigurationForRowAt indexPath: IndexPath,
-        point _: CGPoint
-    ) -> UIContextMenuConfiguration? {
+    func legacyContextMenu(_ tableView: UITableView, at indexPath: IndexPath) -> LegacyMenu? {
         guard let logLine = dataSource.itemIdentifier(for: indexPath)?.line else { return nil }
 
-        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
+        return { () -> LegacyMenu? in
             let copyAction = LegacyAction(
-                title: String(localized: "Copy"),
+                title: String(legacyLocalized: "Copy"),
                 image: UIImage.compatSystemImage("doc.on.doc")
             ) { _ in
                 UIPasteboard.general.string = logLine.fullText
             }
 
             let copyMessageAction = LegacyAction(
-                title: String(localized: "Copy Message"),
+                title: String(legacyLocalized: "Copy Message"),
                 image: UIImage.compatSystemImage("text.quote")
             ) { _ in
                 UIPasteboard.general.string = logLine.message
             }
 
             return LegacyMenu(children: [copyAction, copyMessageAction])
-        }
+        }()
     }
 }
