@@ -228,6 +228,10 @@ private func recognizeImage(path: String, languages: [String], minConfidence: Fl
     guard MTLCreateSystemDefaultDevice() != nil else {
         throw IcliError.unavailable("System text recognition is unavailable on this device.")
     }
+    // iOS 12 port: VNRecognizeTextRequest is iOS 13.
+    guard #available(iOS 13.0, *) else {
+        throw IcliError.unavailable("System text recognition needs iOS 13 or later.")
+    }
     let pointSize = pointSizeMatching(image: cgImage)
     do {
         let blocks = try visionBlocks(
@@ -426,6 +430,7 @@ func validatePoint(_ x: Double, _ y: Double) throws {
     }
 }
 
+@available(iOS 13.0, *)
 private func visionBlocks(
     in image: CGImage,
     languages: [String],

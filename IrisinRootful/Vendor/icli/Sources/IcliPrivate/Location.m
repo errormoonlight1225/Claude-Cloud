@@ -4,6 +4,14 @@
 #import <CoreLocation/CoreLocation.h>
 #import <objc/message.h>
 
+/// iOS 12 port: CLLocation.sourceInformation is iOS 15.
+static BOOL icli_location_is_simulated(CLLocation *location) {
+    if (@available(iOS 15.0, *)) {
+        return location.sourceInformation.isSimulatedBySoftware;
+    }
+    return NO;
+}
+
 // locationd's simulation client (the one Xcode's location simulation uses).
 // The simulated location lives in locationd and outlives this connection;
 // one manager per process lets a long-running host keep its session.
@@ -101,7 +109,14 @@ static CLLocationManager *systemServiceManager(NSString **bundlePath) {
             hasPath ? byPath : byBundle,
             argument
         );
-        CLAuthorizationStatus status = manager.authorizationStatus;
+        // iOS 12 port: -[CLLocationManager authorizationStatus] is public
+        // from iOS 14; earlier releases answer it privately or not at all.
+        CLAuthorizationStatus status = kCLAuthorizationStatusNotDetermined;
+        if (@available(iOS 14.0, *)) {
+            status = manager.authorizationStatus;
+        } else if ([manager respondsToSelector:@selector(authorizationStatus)]) {
+            status = (CLAuthorizationStatus)((int (*)(id, SEL))objc_msgSend)(manager, @selector(authorizationStatus));
+        }
         if (status == kCLAuthorizationStatusAuthorizedAlways || status == kCLAuthorizationStatusAuthorizedWhenInUse) {
             *bundlePath = path;
             return manager;
@@ -168,7 +183,7 @@ char *icli_location_read_json(double timeout, bool match, double latitude, doubl
         @"timestamp": [formatter stringFromDate:location.timestamp],
         @"age_seconds": @(MAX(0, -location.timestamp.timeIntervalSinceNow)),
         @"fresh": @(fresh(location)),
-        @"simulated": @(location.sourceInformation.isSimulatedBySoftware),
+        @"simulated": @(icli_location_is_simulated(location)),
         @"client": bundlePath,
     });
 }

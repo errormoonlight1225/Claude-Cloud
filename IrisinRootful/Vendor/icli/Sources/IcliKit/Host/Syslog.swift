@@ -195,31 +195,5 @@ private extension SyslogStreamEnd {
     }
 }
 
-/// The live unified log as an async sequence: one `SyslogStream` that ends
-/// with the sequence, when the consuming task is cancelled, or when the
-/// stream ends by itself. At most `bufferLimit` entries wait for a consumer
-/// that falls behind; later ones are dropped until it catches up.
-public func syslogEntries(
-    filter: SyslogFilter = SyslogFilter(),
-    seconds: TimeInterval? = nil,
-    maxEntries: Int? = nil,
-    bufferLimit: Int = 1000,
-) throws -> AsyncStream<SyslogEntry> {
-    guard bufferLimit > 0 else {
-        throw IcliError.failed("buffer limit must be positive")
-    }
-    let (entries, continuation) = AsyncStream.makeStream(of: SyslogEntry.self, bufferingPolicy: .bufferingOldest(bufferLimit))
-    let stream = try SyslogStream(
-        filter: filter,
-        seconds: seconds,
-        maxEntries: maxEntries,
-        handler: { entry in
-            if case .terminated = continuation.yield(entry) { return false }
-            return true
-        },
-        onEnd: { _ in continuation.finish() },
-    )
-    // The sequence keeps the stream until it terminates either way.
-    continuation.onTermination = { _ in stream.cancel() }
-    return entries
-}
+// iOS 12 port: `syslogEntries` (an AsyncStream over SyslogStream) is removed;
+// Swift concurrency is iOS 13. SyslogStream's callbacks remain.

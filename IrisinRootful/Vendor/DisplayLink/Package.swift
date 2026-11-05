@@ -17,4 +17,5 @@ let package = Package(
     targets: [
         .target(name: "DisplayLink"),
     ],
+    swiftLanguageModes: [.v5],
 )

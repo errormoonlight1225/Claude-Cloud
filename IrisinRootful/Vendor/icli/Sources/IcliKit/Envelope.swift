@@ -1,3 +1,4 @@
+import LegacyCompat
 import Darwin
 import Foundation
 import IcliPrivate
@@ -47,7 +48,7 @@ public enum Envelope {
             ? (try? JSONSerialization.data(withJSONObject: encodable, options: [.prettyPrinted, .sortedKeys]))
             : nil
         // The throwing write: the legacy write(_:) raises on EPIPE or EBADF.
-        try? FileHandle.standardOutput.write(
+        try? FileHandle.standardOutput.compatWrite(
             contentsOf: (data ?? Data("{\"error\":\"failed\",\"message\":\"unencodable\"}".utf8)) + Data("\n".utf8),
         )
     }

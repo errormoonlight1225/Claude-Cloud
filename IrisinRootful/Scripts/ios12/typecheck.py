@@ -90,7 +90,7 @@ MODULES = [
     M("IcliSystem", [V / "icli/Sources/IcliSystem"], ["IcliSystemPrivate"]),
     M("IcliLaunch", [V / "icli/Sources/IcliLaunch"], ["IcliLaunchPrivate", "IcliSystem"]),
     M("IcliKit", [V / "icli/Sources/IcliKit"],
-      ["IcliPrivate", "IcliSystem", "IcliLaunch", "IcliProbe", "ArchiveKit"]),
+      ["IcliPrivate", "IcliSystem", "IcliLaunch", "IcliProbe", "ArchiveKit", "LegacyCompat"]),
     # First party packages.
     M("IrisinProtocol", [P / "IrisinKit/Sources/IrisinProtocol"], ["CIrisinXPC", "CIrisinSpawn"]),
     M("IrisinPreparation", [P / "IrisinKit/Sources/IrisinPreparation"], ["IrisinProtocol", "ArchiveKit"]),

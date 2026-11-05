@@ -1,3 +1,4 @@
+import LegacyCompat
 import Foundation
 import IcliSystem
 
@@ -28,10 +29,10 @@ public func readFile(_ path: String, binary: Bool, limit: Int?) throws -> [Strin
     let cap = limit ?? defaultReadCap
     guard (0 ... 64 * 1024 * 1024).contains(cap) else { throw IcliError.failed("limit must be 0–67108864 bytes") }
     let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
-    defer { try? handle.close() }
-    let size = try handle.seekToEnd()
-    try handle.seek(toOffset: 0)
-    let data = try handle.read(upToCount: cap + 1) ?? Data()
+    defer { try? handle.compatClose() }
+    let size = try handle.compatSeekToEnd()
+    try handle.compatSeek(toOffset: 0)
+    let data = try handle.compatRead(upToCount: cap + 1) ?? Data()
     let truncated = data.count > cap
     let slice = truncated ? data.prefix(cap) : data
     if binary || !isLikelyText(slice) {

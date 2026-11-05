@@ -38,7 +38,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "SnapKit", path: "Sources", resources: [.copy("PrivacyInfo.xcprivacy")]),
-        .testTarget(name: "SnapKitTests", dependencies: ["SnapKit"]),
     ],
     swiftLanguageVersions: [
         .v5

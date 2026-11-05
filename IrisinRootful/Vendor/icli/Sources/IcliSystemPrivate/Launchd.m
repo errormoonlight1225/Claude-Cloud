@@ -79,7 +79,11 @@ static id objectFromXPC(xpc_object_t value) {
         });
         return dict;
     }
-    return [NSString stringWithFormat:@"<%s>", xpc_type_get_name(type)];
+    // iOS 12 port: xpc_type_get_name is iOS 13.
+    if (@available(iOS 13.0, *)) {
+        return [NSString stringWithFormat:@"<%s>", xpc_type_get_name(type)];
+    }
+    return @"<xpc object>";
 }
 
 /// The uid whose launchd domain holds the foreground user's jobs, or false

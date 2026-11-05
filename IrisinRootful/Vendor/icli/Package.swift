@@ -1,4 +1,6 @@
 // swift-tools-version:5.9
+// iOS 12 port: iOS 12 minimum, the `icli` command-line tool target removed
+// (Irisin links IcliKit only), LegacyCompat for the iOS 13 stand-ins.
 import Foundation
 import PackageDescription
 
@@ -6,15 +8,14 @@ let repositoryDirectory = URL(fileURLWithPath: #filePath).deletingLastPathCompon
 
 let package = Package(
     name: "icli",
-    platforms: [.iOS(.v15), .tvOS(.v15)],
+    platforms: [.iOS(.v12), .tvOS(.v12)],
     products: [
         .library(name: "IcliKit", targets: ["IcliKit"]),
         .library(name: "IcliSystem", targets: ["IcliSystem"]),
         .library(name: "IcliLaunch", targets: ["IcliLaunch"]),
-        .executable(name: "icli", targets: ["icli"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.1"),
+        .package(path: "../LegacyCompat"),
         .package(url: "https://github.com/Lakr233/libarchive.xcframework.git", from: "1.0.0"),
     ],
     targets: [
@@ -87,23 +88,8 @@ let package = Package(
         ),
         .target(
             name: "IcliKit",
-            dependencies: ["IcliPrivate", "IcliSystem", "IcliLaunch", "IcliProbe"],
+            dependencies: ["IcliPrivate", "IcliSystem", "IcliLaunch", "IcliProbe", "LegacyCompat"],
             linkerSettings: [.linkedLibrary("sqlite3")],
-        ),
-        .executableTarget(
-            name: "icli",
-            dependencies: [
-                "IcliKit",
-                "IcliPrivate",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            swiftSettings: [.unsafeFlags(["-warnings-as-errors"])],
-            linkerSettings: [
-                .unsafeFlags([
-                    "-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
-                    "-Xlinker", repositoryDirectory.appendingPathComponent("Resources/Info.plist").path,
-                ]),
-            ],
         ),
     ],
 )
