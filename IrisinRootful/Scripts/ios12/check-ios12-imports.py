@@ -56,8 +56,10 @@ def tbd_exports(path):
             for n in names:
                 if n.startswith("_OBJC_CLASS_$_"):
                     exports.add(n)
-                else:
-                    base = n.lstrip("_") if not n.startswith("_OBJC") else n
+                    continue
+                # A class name may itself start with "_" (_TtCs12_SwiftObject);
+                # older stubs also wrote a symbol's leading underscore. Both.
+                for base in {n, n[1:] if n.startswith("_") else n}:
                     exports.add(f"_OBJC_CLASS_$_{base}")
                     exports.add(f"_OBJC_METACLASS_$_{base}")
         elif key == "objc-eh-types":
@@ -113,6 +115,9 @@ def main():
     parser.add_argument("--swift-stubs", type=Path,
                         help="usr/lib/swift of an SDK that has the Swift runtime's stubs, for an --sdk without them")
     parser.add_argument("--allow", type=Path)
+    parser.add_argument("--weak-concurrency-ok", action="append", default=[], metavar="NAME",
+                        help="a binary (by file name) allowed to load libswift_Concurrency weakly and import "
+                             "from it, for a dependency's async code the binary never runs")
     parser.add_argument("paths", nargs="+", type=Path)
     args = parser.parse_args()
 
@@ -148,7 +153,12 @@ def main():
                 if m:
                     loads.append((m.group(1), "weak)" in line or ", weak" in line))
             weak_loads = set()
+            concurrency_ok = binary.name in args.weak_concurrency_ok
             for install, weak in loads:
+                if "libswift_Concurrency" in install and weak and concurrency_ok:
+                    print(f"note: {binary} loads {install} weakly (allowed): missing on iOS 12, its imports bind to NULL")
+                    weak_loads.add(install)
+                    continue
                 if "libswift_Concurrency" in install:
                     print(f"error: {binary} loads {install}{' (weak)' if weak else ''}: Swift concurrency cannot run on iOS 12")
                     failures += 1
@@ -165,7 +175,8 @@ def main():
                 if not m:
                     continue
                 weak, symbol, short = m.groups()
-                if symbol.startswith(("_swift_task_", "_swift_job_", "_swift_continuation_", "_swift_asyncLet", "_swift_taskGroup")):
+                if symbol.startswith(("_swift_task_", "_swift_job_", "_swift_continuation_", "_swift_asyncLet", "_swift_taskGroup")) \
+                        and not (concurrency_ok and short == "libswift_Concurrency"):
                     print(f"error: {binary} imports {symbol}: Swift concurrency cannot run on iOS 12")
                     failures += 1
                     continue

@@ -91,6 +91,7 @@ jobs:
             --sdk ../../theos-sdks/iPhoneOS12.4.sdk \
             --swift-stubs ../../ios-sdks/iPhoneOS13.0.sdk/usr/lib/swift \
             --allow Scripts/ios12/ios12-imports-allowed.txt \
+            --weak-concurrency-ok irisin-cli \
             "$products/irisind" "$products/irisin-install" "$products/irisin-cli"
 
       - name: Collect binaries and logs
