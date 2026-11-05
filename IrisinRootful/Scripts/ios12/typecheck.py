@@ -125,7 +125,8 @@ MODULES = [
       executable=True,
       # Upstream builds the app with main-actor default isolation; checking
       # it the same way reports every converted hop (as a warning).
-      flags=["-Xfrontend", "-default-isolation", "-Xfrontend", "MainActor"]),
+      # SHIPPING=1 checks as Xcode builds it: no default isolation
+      flags=[] if os.environ.get("SHIPPING") else ["-Xfrontend", "-default-isolation", "-Xfrontend", "MainActor"]),
 ]
 
 BY_NAME = {m["name"]: m for m in MODULES}

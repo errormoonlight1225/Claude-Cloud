@@ -47,7 +47,7 @@ import Testing
         var tasks = [String: Task<RepositoryCenter.Download, Never>]()
         for path in ["hang", "stall", "trickle"] {
             var networking = Self.networking
-            networking.activity = { Task { @MainActor in watch.lastActivity[path] = Date() } }
+            networking.activity = { Task { watch.lastActivity[path] = Date() } }
             tasks[path] = Task {
                 let download = await RepositoryCenter.download(
                     fromUrl: URL(string: "https://watched.test/\(path)")!,
@@ -126,7 +126,7 @@ private final class Beats: @unchecked Sendable {
     }
 }
 
-@MainActor private final class Watch {
+private final class Watch {
     var lastActivity = [String: Date]()
     var finished = Set<String>()
     var killed = Set<String>()

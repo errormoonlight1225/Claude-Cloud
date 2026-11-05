@@ -17,7 +17,6 @@ extension VendorAccount {
     /// The vendor account of a repository as a menu: sign in while there is
     /// no account, sign out or list the purchases once there is one. Shared
     /// by the repository page and the Settings row.
-    @MainActor
     func accountMenu(for repo: Repository, in controller: @escaping () -> UIViewController?) -> [LegacyMenuElement] {
         guard storedToken(for: repo) != nil else {
             return [LegacyAction(

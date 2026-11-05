@@ -383,7 +383,8 @@ extension PackageListRow: UIDragInteractionDelegate {
         let provider = NSItemProvider(object: captureDragImage())
         let dragItem = UIDragItem(itemProvider: provider)
 
-        if let data = package.propertyListEncoded() {
+        // NSUserActivity is an item provider's object from iOS 13
+        if #available(iOS 13.0, *), let data = package.propertyListEncoded() {
             let userActivity = NSUserActivity(activityType: NSUserActivity.dropPackageActivityType)
             userActivity.title = NSUserActivity.dropPackageActivityType
             userActivity.userInfo = ["attach": data]

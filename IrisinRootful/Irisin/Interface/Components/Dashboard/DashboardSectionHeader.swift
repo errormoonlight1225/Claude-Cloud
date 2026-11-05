@@ -12,7 +12,7 @@ import UIKit
 class DashboardSectionHeader: UICollectionReusableView {
     let label = UILabel()
     let button = UIButton()
-    var overrideButtonAction: (@MainActor @Sendable (UIViewController?) -> Void)?
+    var overrideButtonAction: (@Sendable (UIViewController?) -> Void)?
 
     var representSection: DashboardController.Section?
     /// The section as it is now: a header on screen outlives many

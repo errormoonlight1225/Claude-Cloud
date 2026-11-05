@@ -12,7 +12,6 @@ import AptResolver
 import Dog
 import UIKit
 
-@MainActor
 enum PackageMenu {
     enum Action: String, CaseIterable {
         case dequeue
@@ -103,7 +102,7 @@ enum PackageMenu {
         /// Runs with the page the menu belongs to, which presents what the
         /// action shows, and what the user touched to get here, for an
         /// action that ends in a popover on the iPad.
-        typealias Block = @MainActor (Package, UIViewController, PopoverAnchor?) -> Void
+        typealias Block = (Package, UIViewController, PopoverAnchor?) -> Void
 
         let block: Block
         let eligibleForPerform: (Package) -> (Bool)

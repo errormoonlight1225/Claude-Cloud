@@ -363,7 +363,6 @@ final class ScribbleLetterView: UIView {
 }
 
 /// Holds the view weakly so a running display link doesn't keep it alive.
-@MainActor
 private final class DisplayLinkTarget: NSObject {
     weak var view: ScribbleLetterView?
 

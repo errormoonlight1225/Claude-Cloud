@@ -18,7 +18,6 @@ import IrisinProtocol
 /// - `golden` writes every plan (or failure) of a fixed set of requests, for
 ///   `diff` against the plans another build writes; `--pool` solves them
 ///   the way the queue does, against one pool read ahead and kept.
-@MainActor
 enum CatalogueBench {
     nonisolated static let device = BootstrapArchitecture.roothide.rawValue
 

@@ -39,7 +39,7 @@ final class VendorAccount {
         window: UIWindow,
         controller: UIViewController?,
         repoUrl: URL,
-        completionCallback: @escaping @MainActor @Sendable () -> Void
+        completionCallback: @escaping @Sendable () -> Void
     ) {
         guard let repo = RepositoryCenter
             .default

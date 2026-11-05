@@ -36,14 +36,14 @@ nonisolated enum PrivilegedBackend {
     /// The same answer as it changes. A screen subscribes rather than asking
     /// once: the daemon answers a moment after launch, and a build without
     /// one settles on `.local` after the grace period.
-    @MainActor static let backendUpdates = CurrentValueSubject<DaemonLink.Backend?, Never>(nil)
+    static let backendUpdates = CurrentValueSubject<DaemonLink.Backend?, Never>(nil)
 
     private static var waiters: [AnyCancellable] = []
 
     /// Runs `body` on the main queue once, with the backend, as soon as one
     /// is bound. iOS 12 port: what reading `backendUpdates.values` until a
     /// non-nil value did.
-    @MainActor static func whenBackendIsKnown(_ body: @escaping (DaemonLink.Backend) -> Void) {
+    static func whenBackendIsKnown(_ body: @escaping (DaemonLink.Backend) -> Void) {
         var done = false
         var token: AnyCancellable?
         token = backendUpdates

@@ -20,7 +20,6 @@ import LRUCache
 /// Everything here is the main actor's, as the center's state is: the read
 /// takes a copy of the index and commits back, and an answer read before
 /// the database changed never passes for a current one.
-@MainActor
 public final class PackageLookupCache {
     public struct Key: Hashable, Sendable {
         public let identity: String

@@ -6,7 +6,7 @@ extension PrivilegedBackend {
     /// an answer.
     static nonisolated func runMaintenance(_ job: InstallerJob) -> OperationMonitor.Outcome {
         var problem: InstallerEvent.Problem?
-        let status = run(job) { @MainActor event in
+        let status = run(job) { event in
             if case let .failure(reported) = event {
                 problem = reported
             }

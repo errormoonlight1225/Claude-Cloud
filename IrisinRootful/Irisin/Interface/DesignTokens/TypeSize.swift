@@ -158,7 +158,6 @@ extension LegacySymbolConfiguration {
 /// 27.0, while the text view and the field still take it). A label already
 /// on screen there keeps the size it was built with until the view is built
 /// again — which is why the font tokens above are computed and not stored.
-@MainActor
 func adoptDynamicTypeEverywhere() {
     UILabel.appearance().adjustsFontForContentSizeCategory = true
     UITextView.appearance().adjustsFontForContentSizeCategory = true

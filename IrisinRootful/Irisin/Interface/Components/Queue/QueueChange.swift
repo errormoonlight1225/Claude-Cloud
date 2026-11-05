@@ -81,7 +81,6 @@ nonisolated struct QueueChange: Hashable, Sendable {
 
     /// The list's sections in reading order, each kind's requests ahead of
     /// the dependencies they bring, rows by name.
-    @MainActor
     static func sections(
         of changes: some Collection<QueueChange>
     ) -> [(kind: Kind, dependencies: Bool, changes: [QueueChange])] {
@@ -94,7 +93,6 @@ nonisolated struct QueueChange: Hashable, Sendable {
         }
     }
 
-    @MainActor
     var name: String {
         PackageCenter.default.name(of: package)
     }
@@ -110,7 +108,6 @@ nonisolated struct QueueChange: Hashable, Sendable {
     }
 
     /// Why a package the user did not ask for is in the plan.
-    @MainActor
     func reason(in plan: ResolutionPlan?, cleanup: Set<String>) -> String? {
         guard !requested else { return nil }
         let identity = package.identity
@@ -127,7 +124,6 @@ nonisolated struct QueueChange: Hashable, Sendable {
 
     /// What goes under the name: the download still to come, the size on
     /// disk, and why a package nobody asked for is in `plan`.
-    @MainActor
     func details(in plan: ResolutionPlan?, cleanup: Set<String>) -> [String] {
         let format = Downloads.shared.byteFormat
         var details: [String] = []
@@ -146,7 +142,6 @@ nonisolated struct QueueChange: Hashable, Sendable {
     /// The row for this change: the package's icon, its name in bold on one
     /// line, red and struck through for a removal and green for an install,
     /// grey when `muted`, and `details` under it.
-    @MainActor
     func content(icon: UIImage?, details: [String], muted: Bool = false) -> LegacyListContentConfiguration {
         var content = LegacyListContentConfiguration.subtitleCell()
         content.image = icon

@@ -162,7 +162,6 @@ nonisolated struct QueuePackageInspection: Sendable {
 extension QueueChange {
     /// The package page has something to read: dpkg's own files for a
     /// removal, the package file for anything else once it is here.
-    @MainActor
     var isInspectable: Bool {
         kind == .remove || package.isOnDisk
     }

@@ -5,7 +5,7 @@ import Testing
 /// A repository deleted while its refresh is in flight, through the center
 /// itself: the fetch is cancelled rather than waited for, and a repository
 /// added again at the same address gets a refresh of its own.
-@MainActor @Suite(.serialized) struct RepositoryDeletionTests {
+@Suite(.serialized) struct RepositoryDeletionTests {
     private static let index = Data("Package: a\nVersion: 1\nArchitecture: iphoneos-arm64\n".utf8)
 
     /// Every path the refresh asks for first, answered with silence.

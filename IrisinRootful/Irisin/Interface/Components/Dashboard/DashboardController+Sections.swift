@@ -15,7 +15,7 @@ extension DashboardController {
         let title: String
         let packages: [Package]
         let shouldLimit: Bool
-        let action: (@MainActor @Sendable (UIViewController?) -> Void)?
+        let action: (@Sendable (UIViewController?) -> Void)?
     }
 
     /// Takes a copy of what the centers know and builds the sections off the

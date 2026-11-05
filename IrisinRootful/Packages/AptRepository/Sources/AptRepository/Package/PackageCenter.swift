@@ -21,7 +21,6 @@ let kPackageCenterIdentity = "wiki.qaq.irisin.PackageCenter"
 ///
 /// The bootstrap's dpkg status file, the database location and the logger
 /// all come from `AptEnvironment.bootstrap(_:)`.
-@MainActor
 public final class PackageCenter {
     // MARK: - PROPERTY
 

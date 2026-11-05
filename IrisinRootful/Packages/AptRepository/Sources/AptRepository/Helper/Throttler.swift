@@ -10,9 +10,8 @@ import Foundation
 /// Coalesces bursts of work on the main actor. The first job runs straight
 /// away; while calls keep arriving inside `minimumDelay` only the most recent
 /// one survives to run at the end of the window.
-@MainActor
 public final class Throttler {
-    private let subject = PassthroughSubject<@MainActor () -> Void, Never>()
+    private let subject = PassthroughSubject<() -> Void, Never>()
     private var cancellable: AnyCancellable?
 
     public init(minimumDelay: TimeInterval) {
@@ -21,7 +20,7 @@ public final class Throttler {
             .sink { job in job() }
     }
 
-    public func throttle(_ job: @escaping @MainActor () -> Void) {
+    public func throttle(_ job: @escaping () -> Void) {
         subject.send(job)
     }
 }

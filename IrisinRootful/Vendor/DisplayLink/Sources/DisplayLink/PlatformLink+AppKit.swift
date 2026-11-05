@@ -22,9 +22,9 @@
 
         /// Asking the window server costs microseconds per call, which adds up
         /// over thousands of links; the answers only change when displays do.
-        @MainActor private static var cachedPrimary: Display?
-        @MainActor private static var cachedConnected: Set<Display>?
-        @MainActor private static var cachedScreens: [ObjectIdentifier: Display] = [:]
+        private static var cachedPrimary: Display?
+        private static var cachedConnected: Set<Display>?
+        private static var cachedScreens: [ObjectIdentifier: Display] = [:]
         static var primary: Display {
             if let cachedPrimary {
                 return cachedPrimary
@@ -84,7 +84,7 @@
         }
 
         deinit {
-            MainActor.assumeIsolated { _ = CVDisplayLinkStop(link) }
+            do { _ = CVDisplayLinkStop(link) }
         }
 
         private nonisolated static func seconds(fromHostTime hostTime: UInt64) -> TimeInterval {
@@ -126,7 +126,7 @@
             guard isFirst else { return }
             DispatchQueue.main.async { [self] in
                 lock.withLock { isFrameQueued = false }
-                MainActor.assumeIsolated { onFrame(frame) }
+                do { onFrame(frame) }
             }
         }
     }
@@ -142,7 +142,7 @@
             ]
             for (center, name) in changes {
                 center.addObserver(forName: name, object: nil, queue: .main) { _ in
-                    MainActor.assumeIsolated {
+                    do {
                         Display.displaysDidChange()
                         displaysDidChange()
                     }

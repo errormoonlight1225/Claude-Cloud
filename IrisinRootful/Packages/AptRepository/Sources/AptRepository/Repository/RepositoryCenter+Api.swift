@@ -294,7 +294,7 @@ extension RepositoryCenter {
     /// for as long as that takes.
     func write(
         _ body: @escaping @Sendable (AptDatabase) -> Void,
-        then landed: (@MainActor @Sendable () -> Void)? = nil
+        then landed: (@Sendable () -> Void)? = nil
     ) {
         let before = lastWrite
         let db = AptDatabase.shared

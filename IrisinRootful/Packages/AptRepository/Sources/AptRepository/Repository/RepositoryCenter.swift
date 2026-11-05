@@ -24,7 +24,6 @@ let kRepositoryCenterIdentity = "wiki.qaq.irisin.RepositoryCenter"
 /// Everything it needs from the outside — where the database lives, which
 /// package flavour this device takes, where settings live, where logs go —
 /// arrives in `AptEnvironment.bootstrap(_:)` before `load()` is called.
-@MainActor
 public final class RepositoryCenter {
     public nonisolated static let `default` = RepositoryCenter()
 
