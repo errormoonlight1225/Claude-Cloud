@@ -77,15 +77,13 @@ def wrap_awaits(text):
         depth = 0
         j = start_expr
         n = len(masked)
-        line_end = masked.find("\n", start_expr)
-        line_end = n if line_end < 0 else line_end
-        # where the statement's own block or else begins on this line
-        line = masked[start_expr:line_end]
         statement_start = masked.rfind("\n", 0, m.start()) + 1
         head = masked[statement_start:m.start()].strip()
         opens_block = re.match(r"^(if|guard|while|switch|else if|\}\s*else if)\b", head) is not None
-        end = line_end
-        while j < line_end:
+        end = n
+        # the expression runs to the end of its line, or past it while a
+        # parenthesis or bracket is open
+        while j < n:
             c = masked[j]
             if c in "([":
                 depth += 1
@@ -94,16 +92,13 @@ def wrap_awaits(text):
                     end = j
                     break
                 depth -= 1
-            elif depth == 0 and c in TERMINATORS_AT_DEPTH0:
+            elif depth == 0 and (c == "\n" or c in TERMINATORS_AT_DEPTH0):
                 end = j
                 break
             elif depth == 0 and masked.startswith(" else", j) and head.startswith("guard"):
                 end = j
                 break
             elif depth == 0 and c == "{" and opens_block:
-                end = j
-                break
-            elif depth == 0 and masked.startswith("//", j):
                 end = j
                 break
             j += 1

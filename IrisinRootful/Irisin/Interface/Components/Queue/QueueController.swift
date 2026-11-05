@@ -603,10 +603,10 @@ final class QueueController: UIViewController, UITableViewDelegate {
                 stage = .ready
                 return reload()
             }
-            let payload = awaitBackground { Installer.shared.createOperationPayload( }
+            let payload = awaitBackground { Installer.shared.createOperationPayload(
                 plan: plan,
                 bootstrapInstall: bootstrapInstall
-            )
+            ) }
             guard let self else { return }
             staging = nil
             // a page left while staging ran has nothing to present on
@@ -617,10 +617,10 @@ final class QueueController: UIViewController, UITableViewDelegate {
             guard let payload, !payload.transaction.stages.isEmpty else {
                 // staging said why in the report when it could
                 let report = PackageActionReport.shared.allAvailable()
-                stagingFailed(report.isEmpty ? String(localized: "Unable to prepare this operation. Try again.") : report)
+                stagingFailed(report.isEmpty ? String(legacyLocalized: "Unable to prepare this operation. Try again.") : report)
                 // a reason that asked to be an alert is one as well as the row
                 if let title = PackageActionReport.shared.alertTitle {
-                    presentNotice(title: String.LocalizationValue(title), message: report)
+                    presentNotice(title: LegacyLocalizationValue(title), message: report)
                 }
                 return
             }

@@ -169,10 +169,10 @@ class UpdateController: UIViewController, UITableViewDelegate {
             snapshot.appendSections([0])
             snapshot.appendItems(rows)
             snapshot.reconfigureItems(survivingFrom: diffableDataSource.snapshot())
-            awaitBackground { diffableDataSource.apply( }
+            awaitBackground { diffableDataSource.apply(
                 snapshot,
                 animatingDifferences: tableView.shouldAnimateDiff
-            )
+            ) }
             showBarButton(animated: tableView.shouldAnimateDiff)
             guard !LegacyTask.isCancelled else { return }
             if rows.isEmpty {

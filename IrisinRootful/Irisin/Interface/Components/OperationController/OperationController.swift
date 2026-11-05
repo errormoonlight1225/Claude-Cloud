@@ -462,11 +462,11 @@ final class OperationController: UIViewController, UITableViewDelegate {
             {
                 awaitBackground { Installer.shared.createRecoveryRemovalPayload(identity: package.identity) }
             } else if manager.blocked == nil, let plan = manager.plan {
-                awaitBackground { Installer.shared.createOperationPayload( }
+                awaitBackground { Installer.shared.createOperationPayload(
                     plan: plan,
                     ignoreScriptFailures: ignoreScriptFailures ?? ignoresScriptFailures,
                     bootstrapInstall: operation.transaction.bootstrapInstall && plan.allowsBootstrapInstall
-                )
+                ) }
             } else {
                 nil
             }
@@ -477,7 +477,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
                 reconfigure()
                 // staging said why in the report when it could
                 let report = PackageActionReport.shared.allAvailable()
-                let fallback = String(localized: "Unable to prepare this operation. Try again.")
+                let fallback = String(legacyLocalized: "Unable to prepare this operation. Try again.")
                 return presentNotice(
                     title: "Unable to Try Again",
                     message: manager.blocked ?? (report.isEmpty ? fallback : report)

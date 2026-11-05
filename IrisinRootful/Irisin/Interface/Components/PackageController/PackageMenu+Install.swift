@@ -91,11 +91,11 @@ extension PackageMenu {
         if !center.blockedUpdateTable.contains(selected.identity),
            let newer = advice.newerAlternative(installedVersion: installed)
         {
-            let choice = awaitBackground { host.askRecommendation( }
+            let choice = awaitBackground { host.askRecommendation(
                 title: "Newer Version Available",
-                message: String(localized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
+                message: String(legacyLocalized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
                 anywayTitle: anyway
-            )
+            ) }
             switch choice {
             case .recommended:
                 host.present(next: PackageController(package: newer))
@@ -165,10 +165,10 @@ extension PackageMenu {
 
     /// `package` is trimmed to the version the user picked.
     static func checkPurchase(of package: Package, in repoUrl: URL) -> PurchaseCheck {
-        guard let info = awaitBackground({ VendorAccount.shared.purchaseStatus( })
+        guard let info = awaitBackground({ VendorAccount.shared.purchaseStatus(
             for: repoUrl,
             withPackageIdentity: package.identity
-        ) else {
+        ) }) else {
             // jsonReply already said why; this says what it cost.
             Dog.shared.join(
                 "PackageAction",
@@ -198,11 +198,11 @@ extension PackageMenu {
         case .purchased:
             break
         case let .forSale(identity, repository):
-            _ = awaitBackground { VendorAccount.shared.initPurchase( }
+            _ = awaitBackground { VendorAccount.shared.initPurchase(
                 for: repository,
                 withPackageIdentity: identity,
                 window: host.view.window ?? UIWindow()
-            )
+            ) }
         case .vendorUnavailable:
             host.presentNotice(
                 title: "Vendor Unavailable",

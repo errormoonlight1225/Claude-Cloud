@@ -146,11 +146,11 @@ final class VendorAccount {
             return nil
         }
         return awaitBackground { Self.logged(endpoint.appendingPathComponent("user_info")) { () throws(VendorService.Failure) in }
-            try awaitBackground { try VendorService.purchasedIdentities( }
+            try awaitBackground { try VendorService.purchasedIdentities(
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
-            )
+            ) }
         }
     }
 
@@ -164,12 +164,12 @@ final class VendorAccount {
             return nil
         }
         return awaitBackground { Self.logged(VendorService.package(identity, "info", at: endpoint)) { () throws(VendorService.Failure) in }
-            try awaitBackground { try VendorService.purchaseStatus( }
+            try awaitBackground { try VendorService.purchaseStatus(
                 of: identity,
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
-            )
+            ) }
         }
     }
 
@@ -188,13 +188,13 @@ final class VendorAccount {
         }
         // nil as well for a purchase that already went through: no page to open
         let page = awaitBackground { Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { () throws(VendorService.Failure) in }
-            try awaitBackground { try VendorService.purchasePage( }
+            try awaitBackground { try VendorService.purchasePage(
                 for: identity,
                 architecture: PackagedArchitecture.architecture,
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
-            )
+            ) }
         }
         guard let url = page ?? nil else {
             return
@@ -223,7 +223,7 @@ final class VendorAccount {
         }
         let link = awaitBackground { Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) { }
             () throws(VendorService.Failure) in
-            try awaitBackground { try VendorService.downloadLink( }
+            try awaitBackground { try VendorService.downloadLink(
                 for: package.identity,
                 version: package.latestVersion,
                 architecture: package.architectures.first { $0 != "all" } ?? PackagedArchitecture.architecture,
@@ -231,7 +231,7 @@ final class VendorAccount {
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
-            )
+            ) }
         }
         return link ?? nil
     }

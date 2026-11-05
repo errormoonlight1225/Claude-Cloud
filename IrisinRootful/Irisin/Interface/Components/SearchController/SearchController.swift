@@ -348,11 +348,11 @@ extension SearchController: UISearchControllerDelegate, UISearchResultsUpdating,
         let index = PackageCenter.default.index
         let repositories = RepositoryCenter.default.repositories
         searchTask = LegacyMainTask {
-            let results = awaitBackground { SearchResult.search( }
+            let results = awaitBackground { SearchResult.search(
                 key: text,
                 in: index,
                 repositories: repositories
-            )
+            ) }
             // a newer keystroke owns the table now
             guard !LegacyTask.isCancelled else { return }
             setSearchResult(with: results)
