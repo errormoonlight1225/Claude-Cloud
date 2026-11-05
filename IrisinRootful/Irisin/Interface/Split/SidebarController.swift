@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SnapKit
 import SPIndicator
 import Then
@@ -42,7 +44,7 @@ class SidebarController: UIViewController {
     private let countLabel = UILabel().then {
         $0.font = UIFont.body.monospacedDigitFont
         // the grey of the header's own title
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.isUserInteractionEnabled = false
     }
 
@@ -60,7 +62,7 @@ class SidebarController: UIViewController {
                 let cards = NSCollectionLayoutSection(
                     group: .vertical(layoutSize: size, subitems: [NSCollectionLayoutItem(layoutSize: size)])
                 )
-                cards.contentInsetsReference = list.contentInsetsReference
+                if #available(iOS 14.0, *) { cards.contentInsetsReference = list.contentInsetsReference }
                 cards.contentInsets = list.contentInsets
                 cards.contentInsets.top = 0
                 return cards
@@ -132,12 +134,12 @@ class SidebarController: UIViewController {
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: UIImage.compatSystemImage("plus"),
-            primaryAction: UIAction { [weak self] _ in
+            primaryAction: LegacyAction { [weak self] _ in
                 self?.present(RepositoryAddController.sheet(), animated: true)
             }
         ).then { $0.accessibilityLabel = String(localized: "Add Repository") }
 
-        refreshControl.addAction(UIAction { [weak self] _ in self?.refresh() }, for: .valueChanged)
+        refreshControl.legacyAddAction(for: .valueChanged) { [weak self] _ in self?.refresh() }
         collectionView.refreshControl = refreshControl
         collectionView.delegate = self
         collectionView.showsVerticalScrollIndicator = false
@@ -206,9 +208,9 @@ class SidebarController: UIViewController {
     }
 
     private func configureHeader(_ cell: UICollectionViewListCell) {
-        var content = UIListContentConfiguration.sidebarHeader()
-        content.text = String(localized: "Repositories")
-        cell.contentConfiguration = content
+        var content = LegacyListContentConfiguration.sidebarHeader()
+        content.text = String(legacyLocalized: "Repositories")
+        cell.legacyContentConfiguration = content
         // while a refresh runs, how far it has come; after it, the whole
         // list and, in red, the repositories left with no packages
         let center = RepositoryCenter.default
@@ -223,7 +225,7 @@ class SidebarController: UIViewController {
                     string: " (\(broken))",
                     attributes: [.foregroundColor: UIColor.repositoryFailed]
                 ))
-                spoken += ", \(broken) " + String(localized: "Unavailable")
+                spoken += ", \(broken) " + String(legacyLocalized: "Unavailable")
             }
         }
         countLabel.attributedText = count
@@ -272,28 +274,28 @@ class SidebarController: UIViewController {
             let name = RepositoryCenter.default.obtainImmutableRepository(withUrl: url)?.nickName ?? url.absoluteString
             self?.presentConfirmation(
                 title: "Delete Repository?",
-                message: String.LocalizationValue(
-                    String(localized: "Its packages will no longer be listed. This cannot be undone.") + "\n\n" + name
+                message: LegacyLocalizationValue(
+                    String(legacyLocalized: "Its packages will no longer be listed. This cannot be undone.") + "\n\n" + name
                 ),
                 confirmTitle: "Delete",
                 destructive: true
             ) { [weak self] in
                 RepositoriesController.remove(url)
                 self?.rebuild(animated: true)
-                SPIndicator.present(title: String(localized: "Deleted"), preset: .done)
+                SPIndicator.present(title: String(legacyLocalized: "Deleted"), preset: .done)
             }
         }
         // the column is narrow: icons, so the row stays legible beside them
         deleteItem.image = UIImage.compatSystemImage("trash")
-        deleteItem.accessibilityLabel = String(localized: "Delete")
+        deleteItem.accessibilityLabel = String(legacyLocalized: "Delete")
         deleteItem.backgroundColor = .swipeDelete
         let reloadItem = UIContextualAction(style: .normal, title: nil) { _, _, completion in
             completion(true)
             RepositoryCenter.default.dispatchUpdateOnRepository(withUrl: url)
-            SPIndicator.present(title: String(localized: "Refreshing…"), preset: .done)
+            SPIndicator.present(title: String(legacyLocalized: "Refreshing…"), preset: .done)
         }
         reloadItem.image = UIImage.compatSystemImage("arrow.clockwise")
-        reloadItem.accessibilityLabel = String(localized: "Refresh")
+        reloadItem.accessibilityLabel = String(legacyLocalized: "Refresh")
         reloadItem.backgroundColor = .swipeRefresh
         return UISwipeActionsConfiguration(actions: [reloadItem, deleteItem])
     }
@@ -304,7 +306,7 @@ class SidebarController: UIViewController {
 
     private func leadingSwipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard let url = url(at: indexPath) else { return nil }
-        let shareItem = UIContextualAction(style: .normal, title: String(localized: "Share")) { [weak self] _, _, completion in
+        let shareItem = UIContextualAction(style: .normal, title: String(legacyLocalized: "Share")) { [weak self] _, _, completion in
             completion(true)
             guard let self else { return }
             ExportFile.shareRepository(url, from: self, anchor: cellAnchor(at: indexPath))
@@ -322,9 +324,9 @@ class SidebarController: UIViewController {
     ) -> UIContextMenuConfiguration? {
         guard let url = url(at: indexPath) else { return nil }
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
-            UIMenu(children: [
-                UIAction(
-                    title: String(localized: "Share"),
+            LegacyMenu(children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Share"),
                     image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in
                     guard let self else { return }
@@ -391,13 +393,13 @@ private final class RepoListCell: UICollectionViewListCell {
         // the focus ring is a rectangle around a card's rounded row
         focusEffect = nil
         configurationUpdateHandler = { [updateFill] cell, state in
-            var background = UIBackgroundConfiguration.listGroupedCell().updated(for: state)
+            var background = LegacyBackgroundConfiguration.listGroupedCell().updated(for: state)
             background.customView = updateFill
             background.backgroundColorTransformer = nil
             background.backgroundColor = state.isHighlighted || state.isSelected || state.isFocused
                 ? .buttonNormal.withAlphaComponent(0.1)
                 : .cardBackground
-            cell.backgroundConfiguration = background
+            cell.legacyBackgroundConfiguration = background
         }
     }
 

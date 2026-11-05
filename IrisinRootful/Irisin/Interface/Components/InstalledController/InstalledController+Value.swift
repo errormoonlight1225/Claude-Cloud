@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -54,7 +55,7 @@ extension InstalledController {
                 let section: String = if let lastModifiedDate {
                     formatter.string(from: lastModifiedDate)
                 } else {
-                    String(localized: "Unknown Date")
+                    String(legacyLocalized: "Unknown Date")
                 }
                 var sectionBuilder = builder[
                     lastModifiedDate,
@@ -93,9 +94,9 @@ extension InstalledController {
     /// have moved. A search keystroke cannot change the answer.
     func refreshUpdateSet() {
         updateSetTask?.cancel()
-        updateSetTask = Task { [weak self] in
-            let identities = await Self.identitiesWithUpdate(in: PackageCenter.default.index)
-            guard !Task.isCancelled, let self else { return }
+        updateSetTask = LegacyTask.detached { [weak self] in
+            let identities = Self.identitiesWithUpdate(in: PackageCenter.default.index)
+            guard !LegacyTask.isCancelled, let self else { return }
             identitiesWithUpdate = identities
             setupBarItems()
             // the indicator lives outside the package: repaint the rows
@@ -106,7 +107,7 @@ extension InstalledController {
     /// Two index lookups per package and the list runs into the thousands,
     /// so the page asks once and reads the answer per row.
     @concurrent
-    private nonisolated static func identitiesWithUpdate(in index: PackageIndex) async -> Set<String> {
+    private nonisolated static func identitiesWithUpdate(in index: PackageIndex) -> Set<String> {
         Set(index.updateCandidates().map(\.installed.identity))
     }
 

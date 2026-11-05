@@ -32,15 +32,15 @@ class EmptyRepositoriesController: UITableViewController {
     private let urls: [URL]
 
     private lazy var deleteButton = UIBarButtonItem(
-        title: String(localized: "Delete"),
-        primaryAction: UIAction { [weak self] _ in self?.confirmDelete() }
+        title: String(legacyLocalized: "Delete"),
+        primaryAction: LegacyAction { [weak self] _ in self?.confirmDelete() }
     )
 
     private lazy var dataSource = EditableTableDiffableDataSource<Section, URL>(
         tableView: tableView
     ) { [unowned self] tableView, indexPath, url in
         let cell = tableView.dequeueReusableCell(withIdentifier: "repository", for: indexPath)
-        var content = UIListContentConfiguration.subtitleCell()
+        var content = LegacyListContentConfiguration.subtitleCell()
         let repo = RepositoryCenter.default.obtainImmutableRepository(withUrl: url)
         content.text = repo?.nickName ?? url.absoluteString
         content.secondaryText = url.absoluteString
@@ -48,16 +48,15 @@ class EmptyRepositoriesController: UITableViewController {
         content.image = icon(of: url, data: repo?.avatar ?? Data())
         content.imageProperties.maximumSize = CGSize(width: 33, height: 33)
         content.imageProperties.cornerRadius = 8
-        cell.contentConfiguration = content
+        cell.legacyContentConfiguration = content
         // the checkmark says a row is chosen; the row keeps its ground
-        cell.backgroundConfiguration = .listGroupedCell()
-        cell.automaticallyUpdatesBackgroundConfiguration = false
+        cell.legacyBackgroundConfiguration = .listGroupedCell()
         return cell
     }
 
     init(urls: [URL]) {
         self.urls = urls
-        super.init(style: .insetGrouped)
+        super.init(style: .compatInsetGrouped)
     }
 
     @available(*, unavailable)
@@ -68,10 +67,10 @@ class EmptyRepositoriesController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = String(localized: "Empty Repositories")
+        title = String(legacyLocalized: "Empty Repositories")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             systemItem: .cancel,
-            primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
+            primaryAction: LegacyAction { [weak self] _ in self?.dismiss(animated: true) }
         )
         deleteButton.tintColor = .swipeDelete
         navigationItem.rightBarButtonItem = deleteButton
@@ -81,7 +80,7 @@ class EmptyRepositoriesController: UITableViewController {
         tableView.setEditing(true, animated: false)
         tableView.dataSource = dataSource
         dataSource.footerTitle = { _ in
-            String(localized: "These repositories had no packages at their last refresh. The address may be wrong, or the server may be down.")
+            String(legacyLocalized: "These repositories had no packages at their last refresh. The address may be wrong, or the server may be down.")
         }
 
         // nothing to list: no section, so no footer, and the line in its place
@@ -89,7 +88,7 @@ class EmptyRepositoriesController: UITableViewController {
         if urls.isEmpty {
             tableView.backgroundView = EmptyStateView(
                 icon: .bookCompass24Regular,
-                text: String(localized: "Every repository offers packages.")
+                text: String(legacyLocalized: "Every repository offers packages.")
             )
         } else {
             snapshot.appendSections([.repositories])
@@ -130,14 +129,14 @@ class EmptyRepositoriesController: UITableViewController {
         if let cached = RepositoryAvatar.cached(for: url, data: data) {
             return cached ?? fallback
         }
-        Task { [weak self] in
-            _ = await RepositoryAvatar.icon(for: url, data: data)
+        LegacyTask.detached { [weak self] in
+            _ = RepositoryAvatar.icon(for: url, data: data)
             guard let self else { return }
             var snapshot = dataSource.snapshot()
             guard snapshot.indexOfItem(url) != nil else { return }
             // a reconfigure keeps the row, and its checkmark with it
             snapshot.reconfigureItems([url])
-            await dataSource.apply(snapshot, animatingDifferences: false)
+            dataSource.apply(snapshot, animatingDifferences: false)
         }
         return fallback
     }
@@ -148,15 +147,15 @@ class EmptyRepositoriesController: UITableViewController {
         let names = urls.compactMap { RepositoryCenter.default.obtainImmutableRepository(withUrl: $0)?.nickName }
         presentConfirmation(
             title: urls.count == 1 ? "Delete Repository?" : "Delete \(urls.count) Repositories?",
-            message: String.LocalizationValue(
-                String(localized: "Packages from deleted repositories will no longer be listed. This cannot be undone.")
+            message: LegacyLocalizationValue(
+                String(legacyLocalized: "Packages from deleted repositories will no longer be listed. This cannot be undone.")
                     + (names.isEmpty ? "" : "\n\n" + names.joined(separator: "\n"))
             ),
             confirmTitle: "Delete",
             destructive: true
         ) { [weak self] in
             urls.forEach(RepositoriesController.remove)
-            SPIndicator.present(title: String(localized: "Deleted"), preset: .done)
+            SPIndicator.present(title: String(legacyLocalized: "Deleted"), preset: .done)
             self?.dismiss(animated: true)
         }
     }

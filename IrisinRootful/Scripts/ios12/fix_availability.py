@@ -77,6 +77,11 @@ RENAMES = {
     "synchronize()": "compatSynchronize",
     "truncate(atOffset:)": "compatTruncate",
     "close()": "compatClose",
+    "insetGrouped": "compatInsetGrouped",
+    "searchTextField": "compatSearchTextField",
+    "ListFormatter": "LegacyListFormatter",
+    "value(forHTTPHeaderField:)": "compatValue",
+    "withDesign": "compatWithDesign",
 }
 
 # Renames that only apply when the line also matches a pattern.
@@ -125,6 +130,16 @@ GUARD_LINE = {
     "showsLargeContentViewer": "13.0",
     "scalesLargeContentImage": "13.0",
     "wantsPriorityOverSystemBehavior": "15.0",
+    "sectionHeaderTopPadding": "15.0",
+    "presentationContextProvider": "13.0",
+    "contentInsetsReference": "14.0",
+    "supplementariesFollowContentInsets": "13.0",
+    "prefersPageSizing": "13.0",
+    "largeContentTitle": "13.0",
+    "showsLargeContentViewer": "13.0",
+    "isSpringLoaded": "11.0",
+    "allowsExpansionToolbar": "14.0",
+    "preferredDisplayMode": "14.0",
     "keyboardLayoutGuide": None,
 }
 
@@ -229,8 +244,11 @@ def main(modules):
             total_files += changed
             leftovers += [(path, *u) for u in unhandled]
     print(f"rewrote {total_files} file(s); {len(leftovers)} error(s) without a rule")
-    for path, ln, col, name in sorted(set(leftovers)):
-        print(f"  {path}:{ln}:{col}: {name}")
+    try:
+        for path, ln, col, name in sorted(set(leftovers)):
+            print(f"  {path}:{ln}:{col}: {name}")
+    except BrokenPipeError:
+        pass
 
 
 if __name__ == "__main__":

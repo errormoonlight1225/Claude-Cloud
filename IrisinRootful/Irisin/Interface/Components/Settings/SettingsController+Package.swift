@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -37,8 +38,8 @@ extension SettingsController {
                     }
                     // on only once the device has shown it can: the switch
                     // goes back until the translator has answered
-                    Task { [weak self] in
-                        if let failure = await SystemTranslator.verify() {
+                    LegacyTask.detached { [weak self] in
+                        if let failure = SystemTranslator.verify() {
                             self?.presentNotice(
                                 title: "Unable to Translate",
                                 message: AutomaticTranslation.describe(failure)
@@ -89,12 +90,12 @@ extension SettingsController {
         return SettingsItem(
             id: "package.ownerConfirmation",
             icon: method.symbol,
-            title: String(localized: "Require \(method.name)"),
+            title: String(legacyLocalized: "Require \(method.name)"),
             kind: .toggle,
             isOn: { OperationConfirmation.isEnabled },
             setOn: { [weak self] isOn in
-                Task { [weak self] in
-                    if await OperationConfirmation.authenticate() {
+                LegacyTask.detached { [weak self] in
+                    if OperationConfirmation.authenticate() {
                         OperationConfirmation.isEnabled = isOn
                     }
                     self?.dispatchValueUpdate()

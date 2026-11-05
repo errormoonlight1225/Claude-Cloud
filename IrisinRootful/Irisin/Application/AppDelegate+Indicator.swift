@@ -6,8 +6,11 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import Foundation
 import SPIndicator
@@ -29,7 +32,7 @@ extension AppDelegate {
            .obtainImmutableRepository(withUrl: object.repository)?.nickName
         {
             SPIndicator.present(
-                title: String(localized: "Repository update failed"),
+                title: String(legacyLocalized: "Repository update failed"),
                 message: failedRepoName,
                 preset: .error,
                 haptic: .error,
@@ -38,10 +41,10 @@ extension AppDelegate {
             )
         }
         if object.queueLeft < 1 {
-            Task {
-                try? await Task.sleep(seconds: 1) // prevent hides another
+            LegacyTask.detached {
+                try? Task.sleep(seconds: 1) // prevent hides another
                 SPIndicator.present(
-                    title: String(localized: "Repositories updated"),
+                    title: String(legacyLocalized: "Repositories updated"),
                     message: "", // dont remove this
                     preset: .done,
                     haptic: .success,

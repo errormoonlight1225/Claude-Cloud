@@ -52,7 +52,7 @@ extension RepositoriesController: UITableViewDelegate {
         guard let url = url(at: index) else { return nil }
         let deleteItem = UIContextualAction(
             style: .destructive,
-            title: String(localized: "Delete")
+            title: String(legacyLocalized: "Delete")
         ) { [weak self] _, _, completion in
             self?.delete([url])
             // the swipe's own transaction has to end for the row to slide out
@@ -61,7 +61,7 @@ extension RepositoriesController: UITableViewDelegate {
         deleteItem.backgroundColor = .swipeDelete
         let reloadItem = UIContextualAction(
             style: .normal,
-            title: String(localized: "Refresh")
+            title: String(legacyLocalized: "Refresh")
         ) { [weak self] _, _, completion in
             self?.refreshRepository(url)
             completion(true)
@@ -77,7 +77,7 @@ extension RepositoriesController: UITableViewDelegate {
         guard let url = url(at: index) else { return nil }
         let copyItem = UIContextualAction(
             style: .normal,
-            title: String(localized: "Share")
+            title: String(legacyLocalized: "Share")
         ) { [weak self] _, _, completion in
             completion(true)
             self?.share(url, from: tableView.cellForRow(at: index))
@@ -93,14 +93,14 @@ extension RepositoriesController: UITableViewDelegate {
     ) -> UIContextMenuConfiguration? {
         guard !tableView.isEditing, let url = url(at: indexPath) else { return nil }
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
-            UIMenu(children: [
-                UIMenu(options: .displayInline, children: [
-                    UIAction(
-                        title: String(localized: "Refresh"),
+            LegacyMenu(children: [
+                LegacyMenu(options: .displayInline, children: [
+                    LegacyAction(
+                        title: String(legacyLocalized: "Refresh"),
                         image: UIImage.compatSystemImage("arrow.clockwise")
                     ) { _ in self?.refreshRepository(url) },
-                    UIAction(
-                        title: String(localized: "Share"),
+                    LegacyAction(
+                        title: String(legacyLocalized: "Share"),
                         image: UIImage.compatSystemImage("square.and.arrow.up")
                     ) { _ in self?.share(url, from: tableView.cellForRow(at: indexPath)) },
                     ExportFile.exportRepositoryAction(
@@ -109,8 +109,8 @@ extension RepositoriesController: UITableViewDelegate {
                         anchor: { tableView.cellForRow(at: indexPath).map { PopoverAnchor($0) } }
                     ),
                 ]),
-                UIAction(
-                    title: String(localized: "Delete"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Delete"),
                     image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in self?.delete([url]) },

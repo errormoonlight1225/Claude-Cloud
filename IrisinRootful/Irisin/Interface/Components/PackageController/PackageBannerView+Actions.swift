@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -13,9 +14,9 @@ extension PackageBannerView {
     /// The install button's menu, rebuilt from the package's eligible
     /// actions every time it opens. The navigation bar and a long press on a
     /// cell show the same one.
-    var actionMenu: UIMenu {
-        UIMenu(children: [
-            UIDeferredMenuElement.uncached { [weak self] completion in
+    var actionMenu: LegacyMenu {
+        LegacyMenu(children: [
+            LegacyDeferredMenuElement.uncached { [weak self] completion in
                 guard let self, let host = parentViewController else { return completion([]) }
                 completion(PackageMenu.menuElements(for: package, from: host))
             },
@@ -41,8 +42,8 @@ extension PackageBannerView {
             return
         }
         button.titleLabel?.alpha = 0.5
-        Task {
-            await action.block(package, host, PopoverAnchor(button))
+        LegacyTask.detached {
+            action.block(package, host, PopoverAnchor(button))
             button.titleLabel?.alpha = 1
         }
     }

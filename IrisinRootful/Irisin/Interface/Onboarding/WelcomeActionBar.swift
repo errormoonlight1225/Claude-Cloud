@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -18,7 +19,7 @@ final class WelcomeActionBar: UIView {
     ) {
         super.init(frame: .zero)
         let blur = UIVisualEffectView(effect: UIBlurEffect(style: .regular))
-        let rule = UIView().then { $0.backgroundColor = .separator }
+        let rule = UIView().then { $0.backgroundColor = .compatSeparator }
         let button = UIButton(type: .system)
         addSubview(blur)
         addSubview(rule)
@@ -42,7 +43,7 @@ final class WelcomeActionBar: UIView {
             plain.title = secondaryTitle
             let secondary = UIButton(configuration: plain)
             secondary.titleLabel?.font = WelcomeStyle.subtitleFont
-            secondary.addAction(UIAction { _ in secondaryAction() }, for: .touchUpInside)
+            secondary.legacyAddAction(for: .touchUpInside) { _ in secondaryAction() }
             addSubview(secondary)
             secondary.snp.makeConstraints { x in
                 x.top.equalTo(button.snp.bottom).offset(4)
@@ -65,7 +66,7 @@ final class WelcomeActionBar: UIView {
         configuration.baseForegroundColor = .onAccent
         configuration.title = title
         button.configuration = configuration
-        button.addAction(UIAction { _ in action() }, for: .touchUpInside)
+        button.legacyAddAction(for: .touchUpInside) { _ in action() }
     }
 
     @available(*, unavailable)

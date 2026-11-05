@@ -21,7 +21,7 @@ final class OperationProblemController: UIViewController {
     private let icon: UIImage?
     private let state: OperationPackages.State
     private let output: [String]
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
 
     private lazy var dataSource: EditableTableDiffableDataSource<Section, Row> = .init(
         tableView: tableView
@@ -30,19 +30,19 @@ final class OperationProblemController: UIViewController {
         cell.selectionStyle = .none
         switch row {
         case .package:
-            cell.contentConfiguration = change.content(icon: icon, details: [change.package.identity, change.versions])
+            cell.legacyContentConfiguration = change.content(icon: icon, details: [change.package.identity, change.versions])
         case let .text(text):
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = text
             content.textProperties.font = .subheadline
             content.textProperties.color = .textTitle
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
         case let .output(text):
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = text
             content.textProperties.font = .monospaced(.caption)
             content.textProperties.color = .textTitle
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
         }
         return cell
     }
@@ -62,11 +62,11 @@ final class OperationProblemController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Problem")
+        title = String(legacyLocalized: "Problem")
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             systemItem: .action,
-            primaryAction: UIAction { [weak self] _ in self?.share() }
+            primaryAction: LegacyAction { [weak self] _ in self?.share() }
         )
 
         tableView.backgroundColor = .groupedBackground
@@ -76,9 +76,9 @@ final class OperationProblemController: UIViewController {
         dataSource.headerTitle = { section in
             switch section {
             case .package: nil
-            case .happened: String(localized: "What Happened")
-            case .next: String(localized: "What to Do")
-            case .output: String(localized: "Script Output")
+            case .happened: String(legacyLocalized: "What Happened")
+            case .next: String(legacyLocalized: "What to Do")
+            case .output: String(legacyLocalized: "Script Output")
             }
         }
         view.addSubview(tableView)
@@ -105,9 +105,9 @@ final class OperationProblemController: UIViewController {
         }
         switch state.status {
         case .incomplete:
-            return String(localized: "This package was unpacked, but the operation stopped at another package before this one was set up.")
+            return String(legacyLocalized: "This package was unpacked, but the operation stopped at another package before this one was set up.")
         case .failed:
-            return String(localized: "The installer stopped while it was working on this package and did not say why.")
+            return String(legacyLocalized: "The installer stopped while it was working on this package and did not say why.")
         default:
             return InstallerEvent.Problem.packageNeedsRepair(identity: change.package.identity).localizedDescription
         }
@@ -116,22 +116,22 @@ final class OperationProblemController: UIViewController {
     /// What the state the package is left in asks of the user.
     private var advice: String {
         if state.ignoredScriptFailure {
-            return String(localized: "Review the script output. If the package does not work, remove it or install a fixed version.")
+            return String(legacyLocalized: "Review the script output. If the package does not work, remove it or install a fixed version.")
         }
         if state.needsRepair {
-            return String(localized: "The package is half-installed. Install it again to repair it, or remove it.")
+            return String(legacyLocalized: "The package is half-installed. Install it again to repair it, or remove it.")
         }
         switch state.status {
         case .failed(step: .verifying):
-            return String(localized: "Nothing was changed for this package. Remove it from the queue and add it again to download a fresh copy.")
+            return String(legacyLocalized: "Nothing was changed for this package. Remove it from the queue and add it again to download a fresh copy.")
         case .failed(step: .unpacking):
-            return String(localized: "The package was put back as it was before. Go back and choose Try Again.")
+            return String(legacyLocalized: "The package was put back as it was before. Go back and choose Try Again.")
         case .failed(step: .removing):
-            return String(localized: "The package is still installed. Go back and choose Try Again.")
+            return String(legacyLocalized: "The package is still installed. Go back and choose Try Again.")
         case .failed:
-            return String(localized: "The package's files are in place, but it is not set up and may not work. Go back and choose Try Again, or remove the package.")
+            return String(legacyLocalized: "The package's files are in place, but it is not set up and may not work. Go back and choose Try Again, or remove the package.")
         default:
-            return String(localized: "Go back and choose Try Again to finish setting up this package.")
+            return String(legacyLocalized: "Go back and choose Try Again to finish setting up this package.")
         }
     }
 

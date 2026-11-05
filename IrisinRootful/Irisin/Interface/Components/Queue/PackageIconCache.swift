@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import SDWebImage
 import UIKit
@@ -28,7 +29,7 @@ final class PackageIconCache {
         }
         SDWebImageManager.shared.loadImage(with: url, options: .highPriority, progress: nil) { [weak self] image, _, _, _, _, _ in
             // a cached icon answers inside the cell provider; redraw after it
-            Task { [weak self] in
+            LegacyTask.detached { [weak self] in
                 guard let self, let image, icons[url] == nil else { return }
                 icons[url] = image
                 arrived()

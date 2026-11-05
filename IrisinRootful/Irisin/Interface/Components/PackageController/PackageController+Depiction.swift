@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AlertController
 import AptRepository
 import Dog
@@ -22,7 +23,7 @@ extension PackageController {
         targetJsonData["minVersion"] = "0.1"
         targetJsonData["class"] = "DepictionTabView"
 
-        var tabRoot: [String: Any] = ["tabname": String(localized: "Details"),
+        var tabRoot: [String: Any] = ["tabname": String(legacyLocalized: "Details"),
                                       "class": "DepictionStackView"]
         var tabViewsArray: [[String: Any]] = []
 
@@ -36,13 +37,13 @@ extension PackageController {
         }
 
         for (title, key) in [
-            (String(localized: "Version"), "version"),
-            (String(localized: "Section"), "section"),
-            (String(localized: "Author"), "author"),
-            (String(localized: "Maintainer"), "maintainer"),
+            (String(legacyLocalized: "Version"), "version"),
+            (String(legacyLocalized: "Section"), "section"),
+            (String(legacyLocalized: "Author"), "author"),
+            (String(legacyLocalized: "Maintainer"), "maintainer"),
         ] {
             var row: [String: Any] = ["title": title, "class": "DepictionTableTextView"]
-            var field = package.latestMetadata?[key] ?? String(localized: "Unknown")
+            var field = package.latestMetadata?[key] ?? String(legacyLocalized: "Unknown")
             if key == "section" {
                 field = field.sectionDisplayName
             }
@@ -116,12 +117,12 @@ extension PackageController {
     /// between the two is a line in the log, not a different page.
     func downloadDepictionIfAvailable() {
         let package = describedPackage
-        Task { [weak self] in
+        LegacyTask.detached { [weak self] in
             guard let self else { return }
 
             var json: [String: Any]?
             if let url = PackageCenter.default.depictionURL(of: package) {
-                if let (data, _) = try? await URLSession.shared.data(from: url),
+                if let (data, _) = try? URLSession.shared.compatData(from: url),
                    let remote = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
                 {
                     json = remote
@@ -233,30 +234,30 @@ extension PackageController {
             : nil
         translationAlert = alert
         showTranslationStatus(.translating)
-        depictionTranslation = Task { [weak self] in
+        depictionTranslation = LegacyTask.detached { [weak self] in
             // on screen before the answer: a quick one would dismiss it
             // while it is still coming in, which UIKit ignores
             if let alert, let self {
-                await withCheckedContinuation { done in
+                withCheckedContinuation { done in
                     self.present(alert, animated: true) { done.resume() }
                 }
             }
             let outcome: Result<[String]?, Error>
             do {
-                outcome = try await .success(SystemTranslator.translate(texts, from: source, to: target))
+                outcome = try .success(SystemTranslator.translate(texts, from: source, to: target))
             } catch {
                 outcome = .failure(error)
             }
             // Cancel took the alert down itself; a page that moved on has
             // said what it shows now, and only the alert is left to go
-            guard !Task.isCancelled, let self else {
+            guard !LegacyTask.isCancelled, let self else {
                 if let alert, !alert.isBeingDismissed {
-                    await alert.dismissFinishing(animated: true)
+                    alert.dismissFinishing(animated: true)
                 }
                 return
             }
             // gone before a notice: the page cannot present while it is leaving
-            await alert?.dismissFinishing(animated: true)
+            alert?.dismissFinishing(animated: true)
             switch outcome {
             case let .success(translated):
                 // an engine unsure of the language hands the text back as it was
@@ -274,7 +275,7 @@ extension PackageController {
                 let translations = Dictionary(zip(texts, translated)) { first, _ in first }
                 TranslationCache.store(translations, of: package, pair: pair)
                 apply(translations)
-            case .failure(is CancellationError):
+            case .failure(is LegacyCancellationError):
                 return
             case let .failure(error):
                 Dog.shared.join("Translation", "could not translate the depiction of \(package): \(error)", level: .error)

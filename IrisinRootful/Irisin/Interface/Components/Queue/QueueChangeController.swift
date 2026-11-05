@@ -9,7 +9,9 @@
 import LegacyCompat
 import AptRepository
 import AptResolver
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SPIndicator
 import UIKit
 
@@ -79,32 +81,32 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// The packages this sheet's plan moves to another repository: a
     /// change row says so.
     private var moves: [String: (package: Package, origin: URL)] = [:]
-    private var work: Task<Void, Never>?
+    private var work: LegacyTask?
     /// Confirm was tapped and the answer is being held against the
     /// packages as they are now.
-    private var confirming: Task<Void, Never>?
+    private var confirming: LegacyTask?
     private var subscriptions = Set<AnyCancellable>()
     private lazy var icons = PackageIconCache { [weak self] in self?.redraw() }
 
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
     private lazy var confirmButton = UIBarButtonItem(
-        primaryAction: UIAction(title: String(localized: "Confirm")) { [weak self] _ in self?.commit() }
+        primaryAction: LegacyAction(title: String(legacyLocalized: "Confirm")) { [weak self] _ in self?.commit() }
     )
     /// Stands in for Confirm when the request leaves the queue as it is:
     /// there is nothing to confirm, and the queue is where the user was going.
     private lazy var openQueueButton = UIBarButtonItem(
-        primaryAction: UIAction(title: String(localized: "Open Queue")) { [weak self] _ in
+        primaryAction: LegacyAction(title: String(legacyLocalized: "Open Queue")) { [weak self] _ in
             guard let self else { return }
             InterfaceHostController.enclosing(self)?.openQueue()
         }
     )
-    private let spinner = UIActivityIndicatorView(style: .medium)
+    private let spinner = UIActivityIndicatorView(style: .compatMedium)
 
     private lazy var dataSource: EditableTableDiffableDataSource<Section, Row> = .init(
         tableView: tableView
     ) { [unowned self] table, indexPath, row in
         let cell = table.dequeueReusableCell(withIdentifier: "row", for: indexPath)
-        cell.contentConfiguration = content(for: row)
+        cell.legacyContentConfiguration = content(for: row)
         cell.selectionStyle = switch row {
         case let .cleanup(name): blockers(of: name).isEmpty ? .default : .none
         case .migrate: .default
@@ -134,13 +136,13 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// show: its report is the sheet, and closing the report closes it.
     /// Under `takesPlainChanges` the wait is longer, since an answer that
     /// needs no sheet shows none.
-    static func show(_ request: Request, from host: UIViewController) async {
+    static nonisolated func show(_ request: Request, from host: UIViewController) {
         let controller = QueueChangeController(request: request)
         if takesPlainChanges {
-            await controller.prepare(within: 1)
-            if await controller.takeIfPlain() { return }
+            controller.prepare(within: 1)
+            if controller.takeIfPlain() { return }
         } else {
-            await controller.prepare(within: 0.2)
+            controller.prepare(within: 0.2)
         }
         let root = controller.failure.map {
             report(of: $0, alone: true, recoveryPackage: controller.recoveryPackage, recoveryRemoval: controller.recoveryRemoval)
@@ -204,8 +206,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         fatalError()
     }
 
-    private func prepare(within budget: TimeInterval) async {
-        await work?.wait(upTo: budget)
+    private nonisolated func prepare(within budget: TimeInterval) {
+        work?.wait(upTo: budget)
     }
 
     override func viewDidLoad() {
@@ -219,18 +221,18 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         dataSource.headerTitle = { section in
             switch section {
             case let .changes(kind, dependencies): kind.title(dependencies: dependencies)
-            case .cleanup: String(localized: "No Longer Needed")
-            case .dropped: String(localized: "No Longer Queued")
-            case .migration: String(localized: "Needs Another Repository")
+            case .cleanup: String(legacyLocalized: "No Longer Needed")
+            case .dropped: String(legacyLocalized: "No Longer Queued")
+            case .migration: String(legacyLocalized: "Needs Another Repository")
             case .note: nil
             }
         }
         dataSource.footerTitle = { section in
             switch section {
             case .cleanup:
-                String(localized: "These were installed as dependencies and nothing needs them now. Tick one to remove it with the queue.")
+                String(legacyLocalized: "These were installed as dependencies and nothing needs them now. Tick one to remove it with the queue.")
             case .migration:
-                String(localized: "Held-back updates need these packages from a repository other than the one each was installed from. Migrate and Update installs them from there, and their updates come from there afterwards.")
+                String(legacyLocalized: "Held-back updates need these packages from a repository other than the one each was installed from. Migrate and Update installs them from there, and their updates come from there afterwards.")
             case let .note(text):
                 text.isEmpty ? nil : text
             case .changes, .dropped:
@@ -248,7 +250,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         spinner.hidesWhenStopped = true
 
         // no Cancel: the sheet is pulled down to leave
-        title = String(localized: "Queue Changes")
+        title = String(legacyLocalized: "Queue Changes")
         if #available(iOS 26.0, *) {
             confirmButton.style = .prominent
             openQueueButton.style = .prominent
@@ -269,16 +271,16 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         work?.cancel()
         let request = request
         let ticked = ticked
-        work = Task { [weak self] in
+        work = LegacyTask.detached { [weak self] in
             let (result, offer): (Result<PackageQueue.Proposal, ResolutionFailure>, PackageQueue.Migration?) = switch request {
             case let .actions(actions):
-                await (PackageQueue.shared.propose(actions, cleanup: ticked), nil)
+                (PackageQueue.shared.propose(actions, cleanup: ticked), nil)
             case .updateAll, .migrate:
-                await Self.proposeUpdate(for: request, cleanup: ticked)
+                Self.proposeUpdate(for: request, cleanup: ticked)
             case let .withdraw(identity):
-                await (PackageQueue.shared.proposeWithdrawal(of: identity, cleanup: ticked), nil)
+                (PackageQueue.shared.proposeWithdrawal(of: identity, cleanup: ticked), nil)
             }
-            guard !Task.isCancelled, let self else { return }
+            guard !LegacyTask.isCancelled, let self else { return }
             work = nil
             if case .migrate = request {
                 moves = offer?.moves ?? [:]
@@ -329,12 +331,12 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// Update All's answer as a proposal, and the migration it offers:
     /// the update as it is, or for `.migrate` the update with the moves,
     /// which a migration no longer needed leaves as it is.
-    private static func proposeUpdate(
+    private static nonisolated func proposeUpdate(
         for request: Request,
         cleanup: Set<String>?
-    ) async -> (Result<PackageQueue.Proposal, ResolutionFailure>, PackageQueue.Migration?) {
+    ) -> (Result<PackageQueue.Proposal, ResolutionFailure>, PackageQueue.Migration?) {
         let update: PackageQueue.UpdateAll
-        switch await PackageQueue.shared.updateAllActions() {
+        switch PackageQueue.shared.updateAllActions() {
         case let .success(found): update = found
         case let .failure(failure): return (.failure(failure), nil)
         }
@@ -342,9 +344,9 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         var notices = update.notices
         if case .migrate = request, let migration = update.migration {
             actions = migration.actions
-            notices.append(String(localized: "The packages that change repository are installed from the new one, and their updates come from there afterwards."))
+            notices.append(String(legacyLocalized: "The packages that change repository are installed from the new one, and their updates come from there afterwards."))
         }
-        let proposal = await PackageQueue.shared.propose(actions, cleanup: cleanup, keepingQueued: true, notices: notices)
+        let proposal = PackageQueue.shared.propose(actions, cleanup: cleanup, keepingQueued: true, notices: notices)
         return (proposal, update.migration)
     }
 
@@ -368,8 +370,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         guard confirming == nil else { return }
         if let work {
             // a tick is still being solved: Confirm takes its answer
-            Task { [weak self] in
-                await work.value
+            LegacyTask.detached { [weak self] in
+                work.value
                 self?.commit()
             }
             return
@@ -377,8 +379,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         guard let proposal else { return }
         // solved against the catalogue as it was: a refresh may have
         // written it since
-        confirming = Task { [weak self] in
-            let currency = await PackageQueue.shared.currency(of: proposal)
+        confirming = LegacyTask.detached { [weak self] in
+            let currency = PackageQueue.shared.currency(of: proposal)
             guard let self else { return }
             confirming = nil
             // a tick or a queue that moved during the check: Confirm takes
@@ -394,7 +396,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             case .moved:
                 solve()
             case let .withdrawn(packages):
-                let names = ListFormatter.localizedString(byJoining: packages.map(name(of:)))
+                let names = LegacyListFormatter.localizedString(byJoining: packages.map(name(of:)))
                 presentConfirmation(
                     title: "Repositories Changed",
                     message: "While you reviewed this change, a refresh updated or removed these packages: \(names). Check the change again before you confirm.",
@@ -412,7 +414,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// notice, no unneeded package to tick, and the catalogue it was solved
     /// with is still the one there is. Everything else, a solve
     /// still running included, is the sheet's, which `show` presents.
-    private func takeIfPlain() async -> Bool {
+    private nonisolated func takeIfPlain() -> Bool {
         guard work == nil, failure == nil, let proposal, proposal.notices.isEmpty else { return false }
         let (changes, dropped) = diff
         let plain = switch request {
@@ -428,7 +430,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         if proposal.plan?.remove.isEmpty == false, !unneeded.isEmpty {
             return false
         }
-        switch await PackageQueue.shared.currency(of: proposal) {
+        switch PackageQueue.shared.currency(of: proposal) {
         case .current:
             guard PackageQueue.shared.commit(proposal) else {
                 solve()
@@ -465,7 +467,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             false
         }
         SPIndicator.present(
-            title: withdrawn ? String(localized: "Removed from Queue") : String(localized: "Added to Queue"),
+            title: withdrawn ? String(legacyLocalized: "Removed from Queue") : String(legacyLocalized: "Added to Queue"),
             message: nil,
             preset: .done,
             haptic: .success,
@@ -528,7 +530,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             var lines = proposal.notices
             // an emptied queue has nothing left to install
             if !unchanged, proposal.plan != nil {
-                lines.append(String(localized: "After you confirm, the queue prepares everything the install needs. Finish installing from the Queue page."))
+                lines.append(String(legacyLocalized: "After you confirm, the queue prepares everything the install needs. Finish installing from the Queue page."))
             }
             let note = Section.note(lines.joined(separator: "\n\n"))
             snapshot.appendSections([note])
@@ -557,8 +559,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         }
     }
 
-    private func content(for row: Row) -> UIListContentConfiguration {
-        var content = UIListContentConfiguration.subtitleCell()
+    private func content(for row: Row) -> LegacyListContentConfiguration {
+        var content = LegacyListContentConfiguration.subtitleCell()
         content.textProperties.font = .body
         content.secondaryTextProperties.font = .footnote
         content.secondaryTextProperties.color = .textSubtitle
@@ -576,12 +578,12 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
                 details.append(repositoryMove(from: origin, to: change.package.repoRef))
             }
             if let dependents = migration?.requiredBy[identity], !dependents.isEmpty {
-                details.append(String(localized: "Required by \(ListFormatter.localizedString(byJoining: dependents))"))
+                details.append(String(legacyLocalized: "Required by \(LegacyListFormatter.localizedString(byJoining: dependents))"))
             }
             content = change.content(icon: icons.icon(of: change.package), details: details)
         case .migrate:
             content = .cell()
-            content.attributedText = plainTitle(String(localized: "Migrate and Update"), color: .buttonNormal)
+            content.attributedText = plainTitle(String(legacyLocalized: "Migrate and Update"), color: .buttonNormal)
         case let .dropped(change):
             content = change.content(icon: icons.icon(of: change.package), details: [], muted: true)
         case let .cleanup(name):
@@ -599,7 +601,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
                 let names = blockedBy.map { dependent in
                     installed.first { $0.identity == dependent }.map(self.name(of:)) ?? dependent
                 }
-                subtitle.append(String(localized: "Required by \(ListFormatter.localizedString(byJoining: names))"))
+                subtitle.append(String(legacyLocalized: "Required by \(LegacyListFormatter.localizedString(byJoining: names))"))
             }
             content.secondaryText = subtitle.filter { !$0.isEmpty }.joined(separator: " · ")
         case .unchanged:
@@ -615,8 +617,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             }
             content.attributedText = plainTitle(
                 adding && proposal?.plan != nil
-                    ? String(localized: "Already in the queue")
-                    : String(localized: "No changes"),
+                    ? String(legacyLocalized: "Already in the queue")
+                    : String(legacyLocalized: "No changes"),
                 color: .textSubtitle
             )
         }

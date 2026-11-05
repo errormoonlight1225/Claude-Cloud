@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Foundation
 
@@ -14,14 +15,14 @@ import Foundation
 /// comes back and when the setting changes. Never while an operation runs:
 /// a refresh then moves the catalogue under the plan being carried out.
 enum AutomaticRefresh {
-    private static var loop: Task<Void, Never>?
+    private static var loop: LegacyTask?
 
     /// Starts the minute's look, once per process, after the engines are up.
     static func start() {
         guard loop == nil else { return }
-        loop = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(continuousSeconds: 60)
+        loop = LegacyTask.detached {
+            while !LegacyTask.isCancelled {
+                try? Task.sleep(continuousSeconds: 60)
                 check()
             }
         }

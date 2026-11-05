@@ -7,7 +7,9 @@
 //
 
 import LegacyCompat
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 class TabInterfaceController: UITabBarController {
@@ -129,7 +131,7 @@ class TabInterfaceController: UITabBarController {
     private var tapCount = 0
     override func tabBar(_: UITabBar, didSelect _: UITabBarItem) {
         // double tap to select search bar, or to refresh the repositories; the tab has switched once this returns
-        Task { [self] in
+        LegacyTask.detached { [self] in
             updateQueueTab()
             if lastSelectedIndex == selectedIndex {
                 tapCount += 1
@@ -176,7 +178,7 @@ class QueueNavigator: UINavigationController {
         navigationBar.prefersLargeTitles = true
 
         tabBarItem = UITabBarItem(
-            title: String(localized: "Queue"),
+            title: String(legacyLocalized: "Queue"),
             image: UIImage.compatSystemImage("tray.full.fill"),
             tag: 0
         )

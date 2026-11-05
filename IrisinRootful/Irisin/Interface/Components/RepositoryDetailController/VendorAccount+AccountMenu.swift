@@ -18,10 +18,10 @@ extension VendorAccount {
     /// no account, sign out or list the purchases once there is one. Shared
     /// by the repository page and the Settings row.
     @MainActor
-    func accountMenu(for repo: Repository, in controller: @escaping () -> UIViewController?) -> [UIMenuElement] {
+    func accountMenu(for repo: Repository, in controller: @escaping () -> UIViewController?) -> [LegacyMenuElement] {
         guard storedToken(for: repo) != nil else {
-            return [UIAction(
-                title: String(localized: "Sign In"),
+            return [LegacyAction(
+                title: String(legacyLocalized: "Sign In"),
                 image: UIImage.compatSystemImage("person.crop.circle")
             ) { _ in
                 let host = controller()
@@ -33,16 +33,16 @@ extension VendorAccount {
             }]
         }
         return [
-            UIAction(title: String(localized: "Purchased"), image: UIImage.compatSystemImage("bag")) { _ in
+            LegacyAction(title: String(legacyLocalized: "Purchased"), image: UIImage.compatSystemImage("bag")) { _ in
                 guard let host = controller() else { return }
                 let alert = progressAlert(
                     title: "Loading Purchases…",
                     message: "Checking with the vendor…"
                 )
                 host.present(alert, animated: true, completion: nil)
-                Task {
+                LegacyTask.detached {
                     // the request times out on its own; nothing waits forever
-                    guard let identities = await VendorAccount.shared.purchasedIdentities(for: repo.url) else {
+                    guard let identities = VendorAccount.shared.purchasedIdentities(for: repo.url) else {
                         // jsonReply said why; this says the user saw nothing at all.
                         Dog.shared.join(
                             "Payment",
@@ -69,20 +69,20 @@ extension VendorAccount {
                     target.dataSource = purchased.sorted(by: { a, b in
                         PackageCenter.default.name(of: a) < PackageCenter.default.name(of: b)
                     })
-                    target.title = String(localized: "Purchased")
+                    target.title = String(legacyLocalized: "Purchased")
                     alert.dismiss(animated: true) {
                         host.present(next: target)
                     }
                 }
             },
-            UIAction(
-                title: String(localized: "Sign Out"),
+            LegacyAction(
+                title: String(legacyLocalized: "Sign Out"),
                 image: UIImage.compatSystemImage("rectangle.portrait.and.arrow.right"),
                 attributes: .destructive
             ) { _ in
                 VendorAccount.shared.deleteSignInRecord(for: repo.url)
                 SPIndicator.present(
-                    title: String(localized: "Signed out"),
+                    title: String(legacyLocalized: "Signed out"),
                     message: nil,
                     preset: .done,
                     from: .top,

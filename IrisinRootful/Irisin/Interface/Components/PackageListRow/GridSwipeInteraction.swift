@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import UIKit
 
 /// A swipe on the cells of a grid, which UIKit gives only to a list
@@ -212,10 +213,10 @@ final class GridSwipeTray: UIView {
             )
             button.accessibilityLabel = action.accessibilityLabel ?? action.title
             button.clipsToBounds = true
-            button.addAction(UIAction { [weak button] _ in
+            button.legacyAddAction(for: .touchUpInside) { [weak button] _ in
                 guard let button else { return }
                 perform(action, button)
-            }, for: .touchUpInside)
+            }
             return button
         }
         // the first action is nearest the trailing edge

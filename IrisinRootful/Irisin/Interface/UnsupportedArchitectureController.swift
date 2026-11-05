@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -14,7 +15,7 @@ import UIKit
 /// it says so and closes the app. The interface never opens.
 class UnsupportedArchitectureController: UIViewController {
     private let descriptionLabel = UILabel().then {
-        $0.text = String(localized: "Unsupported Architecture")
+        $0.text = String(legacyLocalized: "Unsupported Architecture")
         $0.textColor = .textMuted
         $0.font = .monospacedDigit(.caption, emphasized: true)
     }

@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 nonisolated enum DownloadEvent: Sendable {
@@ -27,7 +28,7 @@ nonisolated enum DownloadError: LocalizedError, Equatable {
     case overrun(expected: Int64, received: Int64)
 
     var errorDescription: String? {
-        String(localized: "Download failed. Try again.")
+        String(legacyLocalized: "Download failed. Try again.")
     }
 }
 
@@ -62,9 +63,9 @@ nonisolated enum Downloader {
     ) -> AsyncThrowingStream<DownloadEvent, any Error> {
         let session = session ?? Self.session
         return AsyncThrowingStream { continuation in
-            let work = Task {
+            let work = LegacyTask.detached {
                 do {
-                    try await run(url: url, headers: headers, session: session, into: continuation)
+                    try run(url: url, headers: headers, session: session, into: continuation)
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -74,12 +75,12 @@ nonisolated enum Downloader {
         }
     }
 
-    private static func run(
+    private static nonisolated func run(
         url: URL,
         headers: [String: String],
         session: URLSession,
         into continuation: AsyncThrowingStream<DownloadEvent, any Error>.Continuation
-    ) async throws {
+    ) throws {
         let partial = PartialDownloads.file(for: url)
         var request = URLRequest(url: url)
         // HTTP/3 packets can outgrow the reduced MTU inside a VPN tunnel and
@@ -96,7 +97,7 @@ nonisolated enum Downloader {
         var resumable = false
         do {
             var writer: FileHandle?
-            defer { try? writer?.close() }
+            defer { try? writer?.compatClose() }
             var completed: Int64 = 0
             var total: Int64 = 0
             // A rate on a fixed interval, so a download wakes its reader a
@@ -104,7 +105,7 @@ nonisolated enum Downloader {
             var sampledBytes: Int64 = 0
             var sampledAt = Date()
 
-            for try await chunk in DownloadTaskRelay.stream(for: request, in: session) {
+            for try chunk in DownloadTaskRelay.stream(for: request, in: session) {
                 switch chunk {
                 case let .response(response):
                     let plan = try plan(for: response, having: onDisk)
@@ -142,11 +143,11 @@ nonisolated enum Downloader {
             // An AsyncStream ends quietly when its consumer goes away, so a
             // short file is the only tell left that this was a cancellation
             // rather than a complete download.
-            try Task.checkCancellation()
+            try LegacyTask.checkCancellation()
             guard total <= 0 || completed == total else {
                 throw DownloadError.truncated(expected: total, received: completed)
             }
-            try writer?.close()
+            try writer?.compatClose()
             writer = nil
             continuation.yield(.finished(partial))
         } catch {
@@ -164,8 +165,8 @@ nonisolated enum Downloader {
             FileManager.default.createFile(atPath: file.path, contents: nil)
         }
         let handle = try FileHandle(forWritingTo: file)
-        try handle.truncate(atOffset: UInt64(offset))
-        try handle.seekToEnd()
+        try handle.compatTruncate(atOffset: UInt64(offset))
+        try handle.compatSeekToEnd()
         return handle
     }
 
@@ -184,7 +185,7 @@ nonisolated enum Downloader {
         guard (200 ..< 300).contains(response.statusCode) else {
             throw DownloadError.badStatus(response.statusCode)
         }
-        let acceptsRanges = response.value(forHTTPHeaderField: "Accept-Ranges")?.lowercased() == "bytes"
+        let acceptsRanges = response.compatValue(forHTTPHeaderField: "Accept-Ranges")?.lowercased() == "bytes"
         guard response.statusCode == 206 else {
             // The server sent the file from the top, whatever we asked for:
             // throw away what we had.
@@ -192,7 +193,7 @@ nonisolated enum Downloader {
         }
         // A 206 must say where its bytes go; one that does not, or that starts
         // past the end of what we have, would leave a hole in the file.
-        guard let range = contentRange(response.value(forHTTPHeaderField: "Content-Range")),
+        guard let range = contentRange(response.compatValue(forHTTPHeaderField: "Content-Range")),
               range.start <= onDisk,
               range.start <= range.total
         else { throw DownloadError.malformedResponse }

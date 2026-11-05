@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import LitextAnimation
 import Then
 import UIKit
@@ -40,7 +41,7 @@ final class RollingLabel: UIView {
         didSet { if font != oldValue { restyle() } }
     }
 
-    var textColor: UIColor = .label {
+    var textColor: UIColor = .compatLabel {
         didSet { if textColor != oldValue { restyle() } }
     }
 

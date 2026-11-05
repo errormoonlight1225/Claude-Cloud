@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SPIndicator
 import UIKit
 
@@ -16,7 +17,7 @@ class DashboardNavigator: UINavigationController {
         navigationBar.prefersLargeTitles = true
 
         tabBarItem = UITabBarItem(
-            title: String(localized: "Dashboard"),
+            title: String(legacyLocalized: "Dashboard"),
             image: UIImage.fluent(.timeline24Regular),
             tag: 0
         )
@@ -32,7 +33,7 @@ class TabDashboardController: DashboardController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .plainBackground
-        title = String(localized: "Dashboard")
+        title = String(legacyLocalized: "Dashboard")
 
         let settings = UIBarButtonItem(
             image: .fluent(.settings24Regular),
@@ -40,7 +41,7 @@ class TabDashboardController: DashboardController {
             target: self,
             action: #selector(rightButtonCall)
         )
-        settings.accessibilityLabel = String(localized: "Settings")
+        settings.accessibilityLabel = String(legacyLocalized: "Settings")
         navigationItem.rightBarButtonItem = settings
 
         refreshControl.alpha = 0

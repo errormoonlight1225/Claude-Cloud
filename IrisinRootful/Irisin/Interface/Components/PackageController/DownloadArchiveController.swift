@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AlertController
 import AptRepository
 import SnapKit
@@ -30,7 +31,7 @@ final class DownloadArchiveController: UIViewController {
     private weak var host: UIViewController?
     /// What the user touched to ask: where the share sheet points on the iPad.
     private let anchor: PopoverAnchor?
-    private var work: Task<Void, Never>?
+    private var work: LegacyTask?
 
     private let titleLabel = UILabel()
     private let messageLabel = UILabel()
@@ -54,7 +55,7 @@ final class DownloadArchiveController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         build()
-        show(message: store == nil ? String(localized: "Preparing…") : String(localized: "Checking Purchase…"))
+        show(message: store == nil ? String(legacyLocalized: "Preparing…") : String(legacyLocalized: "Checking Purchase…"))
     }
 
     /// Not before: a cached file finishes at once, and a card dismissed
@@ -62,26 +63,26 @@ final class DownloadArchiveController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         guard work == nil else { return }
-        work = Task { [weak self] in await self?.run() }
+        work = LegacyTask.detached { [weak self] in self?.run() }
     }
 
     // MARK: - Work
 
-    private func run() async {
+    private nonisolated func run() {
         var target = package
         if let store {
-            let check = await PackageMenu.checkPurchase(of: package, in: store)
+            let check = PackageMenu.checkPurchase(of: package, in: store)
             guard case let .purchased(purchased) = check else {
-                guard !Task.isCancelled else { return }
-                await close()
+                guard !LegacyTask.isCancelled else { return }
+                close()
                 if let host {
-                    await PackageMenu.present(check, from: host)
+                    PackageMenu.present(check, from: host)
                 }
                 return
             }
             target = purchased
         }
-        guard !Task.isCancelled else { return }
+        guard !LegacyTask.isCancelled else { return }
 
         let downloads = Downloads.shared
         let url = target.obtainDownloadLink()
@@ -91,17 +92,17 @@ final class DownloadArchiveController: UIViewController {
         // publisher on the statuses if the tick ever shows
         while downloads.isDownloading(url) {
             show(downloads.status(for: url))
-            try? await Task.sleep(continuousSeconds: 0.25)
-            guard !Task.isCancelled else { return }
+            try? Task.sleep(continuousSeconds: 0.25)
+            guard !LegacyTask.isCancelled else { return }
         }
         let status = downloads.status(for: url)
-        await close()
+        close()
         // Cancel may land while the card leaves
-        guard !Task.isCancelled else { return }
+        guard !LegacyTask.isCancelled else { return }
         guard let file = status?.file, FileManager.default.fileExists(atPath: file.path) else {
             host?.presentNotice(
                 title: "Download Failed",
-                message: status?.errorDescription ?? String(localized: "The download was interrupted.")
+                message: status?.errorDescription ?? String(legacyLocalized: "The download was interrupted.")
             )
             return
         }
@@ -133,25 +134,25 @@ final class DownloadArchiveController: UIViewController {
         return copy
     }
 
-    private func close() async {
+    private nonisolated func close() {
         guard let alert = parent, alert.presentingViewController != nil, !alert.isBeingDismissed else { return }
         cancelButton.isEnabled = false
-        await alert.dismissFinishing(animated: true)
+        alert.dismissFinishing(animated: true)
     }
 
     // MARK: - Card
 
     private func show(_ status: Downloads.Status?) {
         guard let status, status.completedBytes > 0 else {
-            return show(message: String(localized: "Preparing…"))
+            return show(message: String(legacyLocalized: "Preparing…"))
         }
         let downloads = Downloads.shared
         // every byte is in: the file is being hashed, a cached one included
         let verifying = status.completedBytes >= status.totalBytes
         show(
-            message: verifying ? String(localized: "Verifying…") : String(localized: "Downloading…"),
+            message: verifying ? String(legacyLocalized: "Verifying…") : String(legacyLocalized: "Downloading…"),
             fraction: status.fractionCompleted,
-            count: String(localized: "\(downloads.byteFormat(bytes: status.completedBytes)) of \(downloads.byteFormat(bytes: status.totalBytes))")
+            count: String(legacyLocalized: "\(downloads.byteFormat(bytes: status.completedBytes)) of \(downloads.byteFormat(bytes: status.totalBytes))")
         )
     }
 
@@ -165,29 +166,29 @@ final class DownloadArchiveController: UIViewController {
 
     private func build() {
         view.backgroundColor = AlertControllerConfiguration.backgroundColor.withAlphaComponent(0.5)
-        let material = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        let material = UIVisualEffectView(effect: UIBlurEffect(style: .compatSystemMaterial))
         view.addSubview(material)
         material.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         let artwork = UIImageView(image: AlertControllerConfiguration.alertImage).then {
             $0.contentMode = .scaleAspectFill
             $0.layer.cornerRadius = 12
-            $0.layer.cornerCurve = .continuous
+            $0.layer.compatContinuousCorners()
             $0.clipsToBounds = true
             $0.snp.makeConstraints { $0.size.equalTo(64) }
         }
         titleLabel.do {
             $0.text = PackageCenter.default.name(of: package)
             $0.font = .bodyEmphasized
-            $0.textColor = .label
+            $0.textColor = .compatLabel
         }
         messageLabel.do {
             $0.font = .footnote
-            $0.textColor = .label
+            $0.textColor = .compatLabel
         }
         countLabel.do {
             $0.font = .monospacedDigit(.footnote)
-            $0.textColor = .secondaryLabel
+            $0.textColor = .compatSecondaryLabel
         }
         for label in [titleLabel, messageLabel, countLabel] {
             label.textAlignment = .center
@@ -198,7 +199,7 @@ final class DownloadArchiveController: UIViewController {
         // a lone action is the accent one, as the library draws it; the
         // library does not export its button
         var accent = UIButton.Configuration.filled()
-        accent.title = String(localized: "Cancel")
+        accent.title = String(legacyLocalized: "Cancel")
         accent.baseForegroundColor = AlertControllerConfiguration.accentForegroundColor
         accent.baseBackgroundColor = AlertControllerConfiguration.accentColor
         accent.background.cornerRadius = 12
@@ -210,11 +211,11 @@ final class DownloadArchiveController: UIViewController {
             return outgoing
         }
         cancelButton.configuration = accent
-        cancelButton.addAction(UIAction { [weak self] _ in
+        cancelButton.legacyAddAction(for: .touchUpInside) { [weak self] _ in
             guard let self else { return }
             work?.cancel()
-            Task { await self.close() }
-        }, for: .touchUpInside)
+            LegacyTask.detached { self.close() }
+        }
 
         let stack = UIStackView(arrangedSubviews: [
             artwork, titleLabel, messageLabel, bar, countLabel, cancelButton,

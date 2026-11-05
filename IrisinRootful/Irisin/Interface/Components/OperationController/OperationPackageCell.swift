@@ -1,3 +1,4 @@
+import LegacyCompat
 import IrisinProtocol
 import UIKit
 
@@ -43,7 +44,7 @@ final class OperationPackageCell: UITableViewCell {
         }
         // one line whatever it says: a row never changes height under the eye
         content.secondaryTextProperties.numberOfLines = 1
-        contentConfiguration = content
+        legacyContentConfiguration = content
         // only a row with a problem answers a press
         selectionStyle = state.hasProblem ? .default : .none
 
@@ -80,53 +81,53 @@ final class OperationPackageCell: UITableViewCell {
         accessibilityLabel = content.attributedText?.string
         accessibilityValue = content.secondaryText
         accessibilityTraits = state.hasProblem ? .button : .staticText
-        accessibilityHint = state.hasProblem ? String(localized: "Shows what went wrong.") : nil
+        accessibilityHint = state.hasProblem ? String(legacyLocalized: "Shows what went wrong.") : nil
     }
 
     /// What the package is doing, or how it ended.
     private static func subtitle(of state: OperationPackages.State, change: QueueChange) -> String {
         switch state.status {
         case .waiting:
-            return state.nextStep == .configuring ? String(localized: "Waiting to be set up") : String(localized: "Waiting")
+            return state.nextStep == .configuring ? String(legacyLocalized: "Waiting to be set up") : String(legacyLocalized: "Waiting")
         case let .running(_, script?):
-            return String(localized: "Running \(script)…")
+            return String(legacyLocalized: "Running \(script)…")
         case let .running(step, nil):
             return switch step {
-            case .verifying: String(localized: "Checking…")
-            case .removing: String(localized: "Removing…")
-            case .unpacking: String(localized: "Installing…")
-            case .configuring: String(localized: "Setting up…")
-            case .triggering: String(localized: "Processing triggers…")
+            case .verifying: String(legacyLocalized: "Checking…")
+            case .removing: String(legacyLocalized: "Removing…")
+            case .unpacking: String(legacyLocalized: "Installing…")
+            case .configuring: String(legacyLocalized: "Setting up…")
+            case .triggering: String(legacyLocalized: "Processing triggers…")
             }
         case .done where state.ignoredScriptFailure:
-            return String(localized: "Completed with warnings")
+            return String(legacyLocalized: "Completed with warnings")
         case .done where state.needsRepair:
-            return String(localized: "Needs repair")
+            return String(legacyLocalized: "Needs repair")
         case .done:
             return switch change.kind {
-            case .remove: String(localized: "Removed")
-            case .install: String(localized: "Installed")
-            case .update: String(localized: "Updated")
-            case .downgrade: String(localized: "Downgraded")
-            case .reinstall: String(localized: "Reinstalled")
+            case .remove: String(legacyLocalized: "Removed")
+            case .install: String(legacyLocalized: "Installed")
+            case .update: String(legacyLocalized: "Updated")
+            case .downgrade: String(legacyLocalized: "Downgraded")
+            case .reinstall: String(legacyLocalized: "Reinstalled")
             }
         case .failed where state.needsRepair:
-            return String(localized: "Needs repair")
+            return String(legacyLocalized: "Needs repair")
         case let .failed(step):
             // a preinst that fails stops an unpack, but nothing failed to unpack
             if let script = state.failedScript {
-                return String(localized: "The \(script) script failed")
+                return String(legacyLocalized: "The \(script) script failed")
             }
             return switch step {
-            case .removing: String(localized: "Failed while removing")
-            case .unpacking: String(localized: "Failed while installing")
-            case .configuring, .triggering: String(localized: "Failed while setting up")
-            case .verifying: String(localized: "Failed verification")
+            case .removing: String(legacyLocalized: "Failed while removing")
+            case .unpacking: String(legacyLocalized: "Failed while installing")
+            case .configuring, .triggering: String(legacyLocalized: "Failed while setting up")
+            case .verifying: String(legacyLocalized: "Failed verification")
             }
         case .incomplete:
-            return String(localized: "Unpacked, not set up")
+            return String(legacyLocalized: "Unpacked, not set up")
         case .notStarted:
-            return String(localized: "Not started")
+            return String(legacyLocalized: "Not started")
         }
     }
 }

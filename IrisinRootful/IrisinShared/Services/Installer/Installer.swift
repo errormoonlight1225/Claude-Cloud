@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Dog
@@ -30,11 +31,11 @@ final class Installer {
     /// Copies every download the plan installs into the staging directory.
     /// nil when a download is missing, the copy failed, or an operation is
     /// already running out of that directory.
-    func createOperationPayload(
+    nonisolated func createOperationPayload(
         plan: ResolutionPlan,
         ignoreScriptFailures: Bool = false,
         bootstrapInstall: Bool = false
-    ) async -> OperationPayload? {
+    ) -> OperationPayload? {
         guard !inProcessingQueue else {
             Dog.shared.join(self, "refusing to stage a payload while an operation runs", level: .warning)
             return nil
@@ -46,30 +47,30 @@ final class Installer {
         PackageQueue.shared.operationBegan()
         var sources: [(Package, URL)] = []
         do {
-            guard try await PackageQueue.currency(of: plan, index: PackageCenter.default.index) == .current else {
+            guard try PackageQueue.currency(of: plan, index: PackageCenter.default.index) == .current else {
                 // read again, so the queue is solved against what moved and
                 // Retry stages that plan, not this one again
-                await PackageCenter.default.reloadLocalPackages()
+                PackageCenter.default.reloadLocalPackages()
                 PackageQueue.shared.solveAgainNow()
-                throw ResolutionFailure(message: String(localized: "Packages changed. Review the changes and try again."))
+                throw ResolutionFailure(message: String(legacyLocalized: "Packages changed. Review the changes and try again."))
             }
             for package in plan.install {
                 var file = package.localFileURL
                 if file == nil {
-                    file = await Downloads.shared.downloadedFile(for: package)
+                    file = Downloads.shared.downloadedFile(for: package)
                 }
                 guard let file else {
                     throw MissingDownload(identity: package.identity)
                 }
                 sources.append((package, file))
             }
-            let install = try await Self.stage(sources, at: workingLocation.appendingPathComponent(plan.id.uuidString))
+            let install = try Self.stage(sources, at: workingLocation.appendingPathComponent(plan.id.uuidString))
             // checked again after the await: staging takes a while
-            guard try await PackageQueue.currency(of: plan, index: PackageCenter.default.index) == .current else {
-                await PackageCenter.default.reloadLocalPackages()
+            guard try PackageQueue.currency(of: plan, index: PackageCenter.default.index) == .current else {
+                PackageCenter.default.reloadLocalPackages()
                 PackageQueue.shared.solveAgainNow()
                 throw ResolutionFailure(
-                    message: String(localized: "Packages changed while preparing the installation. Try again.")
+                    message: String(legacyLocalized: "Packages changed while preparing the installation. Try again.")
                 )
             }
             let installing = Set(install.map(\.identity))
@@ -107,7 +108,7 @@ final class Installer {
             PackageActionReport.shared.clear()
             PackageActionReport.shared.record(
                 mismatch.report,
-                alertTitle: String(localized: "Package Does Not Match Repository")
+                alertTitle: String(legacyLocalized: "Package Does Not Match Repository")
             )
             Dog.shared.join(self, "refusing to install: \(mismatch)", level: .error)
             return nil
@@ -116,7 +117,7 @@ final class Installer {
             PackageActionReport.shared.clear()
             PackageActionReport.shared.record(
                 (error as? ResolutionFailure)?.message
-                    ?? String(localized: "Unable to prepare the installation. Try again.")
+                    ?? String(legacyLocalized: "Unable to prepare the installation. Try again.")
             )
             Dog.shared.join(self, "Cannot prepare transaction: \(error)", level: .error)
             return nil
@@ -128,46 +129,46 @@ final class Installer {
     /// and protects file ownership;
     /// package relationships are bypassed and maintainer-script failures are
     /// tolerated by the resulting transaction.
-    func createRecoveryOperationPayload(package: Package) async -> OperationPayload? {
+    nonisolated func createRecoveryOperationPayload(package: Package) -> OperationPayload? {
         guard package.localFileURL != nil,
               package.isSupportedOnDevice
         else {
             PackageActionReport.shared.clear()
             PackageActionReport.shared.record(
-                String(localized: "This package cannot be installed in Recovery Mode on this system.")
+                String(legacyLocalized: "This package cannot be installed in Recovery Mode on this system.")
             )
             return nil
         }
         do {
-            let plan = try await Self.recoveryPlan(
+            let plan = try Self.recoveryPlan(
                 for: package,
                 index: PackageCenter.default.index
             )
-            return await createOperationPayload(plan: plan)
+            return createOperationPayload(plan: plan)
         } catch {
             PackageActionReport.shared.clear()
             PackageActionReport.shared.record(
-                String(localized: "Unable to prepare the installation. Try again.")
+                String(legacyLocalized: "Unable to prepare the installation. Try again.")
             )
             Dog.shared.join(self, "Cannot prepare recovery transaction: \(error)", level: .error)
             return nil
         }
     }
 
-    func createRecoveryRemovalPayload(identity: String) async -> OperationPayload? {
+    nonisolated func createRecoveryRemovalPayload(identity: String) -> OperationPayload? {
         do {
-            let plan = try await Self.recoveryRemovalPlan(
+            let plan = try Self.recoveryRemovalPlan(
                 identity: identity,
                 index: PackageCenter.default.index,
                 allowSystemRemoval: PackageQueue.shared.allowSystemRemoval
             )
-            return await createOperationPayload(plan: plan)
+            return createOperationPayload(plan: plan)
         } catch {
             PackageActionReport.shared.clear()
             if let failure = error as? ResolutionFailure {
                 PackageActionReport.shared.record(failure.message, checks: failure.checks)
             } else {
-                PackageActionReport.shared.record(String(localized: "Unable to prepare this operation. Try again."))
+                PackageActionReport.shared.record(String(legacyLocalized: "Unable to prepare this operation. Try again."))
             }
             return nil
         }
@@ -178,7 +179,7 @@ final class Installer {
         identity: String,
         index: PackageIndex,
         allowSystemRemoval: Bool
-    ) async throws -> ResolutionPlan {
+    ) throws -> ResolutionPlan {
         try .recoveryRemoval(of: identity, in: index.resolutionSnapshot(), allowSystemRemoval: allowSystemRemoval)
     }
 
@@ -191,7 +192,7 @@ final class Installer {
     private nonisolated static func stage(
         _ sources: [(Package, URL)],
         at location: URL
-    ) async throws -> [InstallerJob.Transaction.Item] {
+    ) throws -> [InstallerJob.Transaction.Item] {
         try reset(location)
         var result: [InstallerJob.Transaction.Item] = []
         for (package, source) in sources {
@@ -215,7 +216,7 @@ final class Installer {
     private nonisolated static func recoveryPlan(
         for package: Package,
         index: PackageIndex
-    ) async throws -> ResolutionPlan {
+    ) throws -> ResolutionPlan {
         try .recoveryInstallation(of: package, in: index.resolutionSnapshot())
     }
 
@@ -230,15 +231,15 @@ final class Installer {
         guard !inProcessingQueue else {
             Dog.shared.join(self, "refusing to begin an operation while one runs", level: .warning)
             let reason = String(
-                localized: "Another operation is already running. Wait for it to finish, then try again."
+                legacyLocalized: "Another operation is already running. Wait for it to finish, then try again."
             )
             monitor.finish(.failed(reason))
             return monitor
         }
         inProcessingQueue = true
         PackageQueue.shared.operationBegan()
-        Task {
-            let (outcome, changedTweaks) = await perform(operation, monitor: monitor)
+        LegacyTask.detached {
+            let (outcome, changedTweaks) = perform(operation, monitor: monitor)
             // released before the outcome is published: whoever awaits the
             // outcome may begin the next operation straight away, and the
             // queue is settled before anyone looks at it
@@ -255,13 +256,13 @@ final class Installer {
 
     /// How the run ended, and whether it left the tweak directories
     /// different, failed or not: what it finished stays installed.
-    private func perform(
+    private nonisolated func perform(
         _ operation: OperationPayload,
         monitor: OperationMonitor
-    ) async -> (OperationMonitor.Outcome, changedTweaks: Bool) {
-        guard await (try? PackageQueue.currency(of: operation.plan, index: PackageCenter.default.index)) == .current
+    ) -> (OperationMonitor.Outcome, changedTweaks: Bool) {
+        guard (try? PackageQueue.currency(of: operation.plan, index: PackageCenter.default.index)) == .current
         else {
-            return (.failed(String(localized: "Packages changed. Review the changes and try again.")), false)
+            return (.failed(String(legacyLocalized: "Packages changed. Review the changes and try again.")), false)
         }
 
         Dog.shared.join(
@@ -279,9 +280,9 @@ final class Installer {
             // without one, the refusal that follows says it all
             monitor.append(PrivilegedBackend.localizedStatus)
         }
-        let tweaks = await TweakInjection.read()
-        let status = await PrivilegedBackend.run(.transaction(operation.transaction)) { event in
-            await monitor.record(event)
+        let tweaks = TweakInjection.read()
+        let status = PrivilegedBackend.run(.transaction(operation.transaction)) { event in
+            monitor.record(event)
         }
 
         // MARK: - FINISH UP
@@ -301,9 +302,9 @@ final class Installer {
         let sources = operation.transaction.dryRun ? [] : operation.plan.install.filter {
             configured.contains($0.identity + " " + ($0.latestVersion ?? ""))
         }
-        await PackageCenter.default.reloadLocalPackages(installedFrom: sources)
+        PackageCenter.default.reloadLocalPackages(installedFrom: sources)
 
-        let changedTweaks = await TweakInjection.read() != tweaks
+        let changedTweaks = TweakInjection.read() != tweaks
         return (.init(status: status, failure: monitor.failure), changedTweaks)
     }
 

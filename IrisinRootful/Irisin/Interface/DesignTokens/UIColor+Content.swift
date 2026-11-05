@@ -6,6 +6,7 @@
 //  A colour that means a state is in UIColor+Status.swift.
 //
 
+import LegacyCompat
 import UIKit
 
 extension UIColor {
@@ -61,5 +62,5 @@ extension UIColor {
     static let destructiveAction = UIColor.systemRed
 
     /// The ring of a selection mark on a row that is not selected.
-    static let selectionMarkIdle = UIColor.systemGray3
+    static let selectionMarkIdle = UIColor.compatSystemGray3
 }

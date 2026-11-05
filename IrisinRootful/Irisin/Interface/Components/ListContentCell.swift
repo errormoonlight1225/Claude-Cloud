@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import UIKit
 
 /// A table row drawn by a content configuration, which starts clean every
@@ -13,6 +14,6 @@ import UIKit
 final class ListContentCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
-        contentConfiguration = nil
+        legacyContentConfiguration = nil
     }
 }

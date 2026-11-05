@@ -49,7 +49,7 @@ class RepositoryAddController: UITableViewController {
     private var inputText = ""
     /// The typed source being looked up, shown under the field.
     private var probing: String?
-    private var probeTask: Task<Void, Never>?
+    private var probeTask: LegacyTask?
     private var added: Set<String> = []
     /// The repositories already registered when the sheet opened, plus what it
     /// registered since. Asking the center sorts its whole list, and every row
@@ -64,7 +64,7 @@ class RepositoryAddController: UITableViewController {
     private var offersDone = false
 
     private lazy var addButton = UIBarButtonItem(
-        title: String(localized: "Add"),
+        title: String(legacyLocalized: "Add"),
         style: .done,
         target: self,
         action: #selector(confirm)
@@ -79,7 +79,7 @@ class RepositoryAddController: UITableViewController {
 
     /// Beside Add: a repository list or a repository this app exported.
     private lazy var importButton = UIBarButtonItem(
-        title: String(localized: "Import"),
+        title: String(legacyLocalized: "Import"),
         style: .plain,
         target: self,
         action: #selector(openImport)
@@ -97,12 +97,12 @@ class RepositoryAddController: UITableViewController {
             return cell
         case .readClipboard, .advanced:
             let cell = tableView.dequeueReusableCell(withIdentifier: "action", for: indexPath)
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = row == .advanced
-                ? String(localized: "Add Advanced Source")
-                : String(localized: "Read from Clipboard")
+                ? String(legacyLocalized: "Add Advanced Source")
+                : String(legacyLocalized: "Read from Clipboard")
             content.textProperties.color = .buttonNormal
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             return cell
         case let .candidate(section, line):
             let cell = tableView
@@ -130,7 +130,7 @@ class RepositoryAddController: UITableViewController {
         self.initialInput = initialInput
         self.candidates = candidates
         candidateOrigin = origin
-        super.init(style: .insetGrouped)
+        super.init(style: .compatInsetGrouped)
     }
 
     @available(*, unavailable)
@@ -141,7 +141,7 @@ class RepositoryAddController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = String(localized: "Add Repository")
+        title = String(legacyLocalized: "Add Repository")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,
             target: self,
@@ -166,10 +166,10 @@ class RepositoryAddController: UITableViewController {
         }
         dataSource.footerTitle = { section in
             switch section {
-            case .pending: String(localized: "A repository can include apps, plugins, themes, and ringtones. Anyone can host one, and we cannot verify that its packages are safe.")
+            case .pending: String(legacyLocalized: "A repository can include apps, plugins, themes, and ringtones. Anyone can host one, and we cannot verify that its packages are safe.")
             case .paste, .candidates: nil
-            case .history: String(localized: "You added these repositories before. Swipe one to forget it.")
-            case .advanced: String(localized: "For repositories that need a suite and components.")
+            case .history: String(legacyLocalized: "You added these repositories before. Swipe one to forget it.")
+            case .advanced: String(legacyLocalized: "For repositories that need a suite and components.")
             }
         }
 
@@ -180,11 +180,11 @@ class RepositoryAddController: UITableViewController {
 
     private static func headerTitle(of section: Section) -> String? {
         switch section {
-        case .pending: String(localized: "Repository URL")
-        case .paste, .candidates(.clipboard): String(localized: "Clipboard")
-        case .candidates(.link): String(localized: "From Link")
-        case .candidates(.file): String(localized: "From File")
-        case .history: String(localized: "History")
+        case .pending: String(legacyLocalized: "Repository URL")
+        case .paste, .candidates(.clipboard): String(legacyLocalized: "Clipboard")
+        case .candidates(.link): String(legacyLocalized: "From Link")
+        case .candidates(.file): String(legacyLocalized: "From File")
+        case .history: String(legacyLocalized: "History")
         case .advanced: nil
         }
     }
@@ -253,10 +253,10 @@ class RepositoryAddController: UITableViewController {
             return known
         }
         previews[line] = .loading
-        Task { [weak self] in
+        LegacyTask.detached { [weak self] in
             var info: RepositoryPreview?
             if let source = RepositorySource(line: line) {
-                info = await RepositoryCenter.default.preview(of: source)
+                info = RepositoryCenter.default.preview(of: source)
             }
             guard let self else { return }
             previews[line] = info.map { .loaded($0) } ?? .failed
@@ -316,7 +316,7 @@ class RepositoryAddController: UITableViewController {
         candidates = found.map(\.line)
         candidateOrigin = .clipboard
         applySnapshot(animatingDifferences: true)
-        SPIndicator.present(title: String(localized: "Repositories found: \(found.count)"), preset: .done)
+        SPIndicator.present(title: String(legacyLocalized: "Repositories found: \(found.count)"), preset: .done)
     }
 
     // MARK: - IMPORT
@@ -352,7 +352,7 @@ class RepositoryAddController: UITableViewController {
         candidates = fresh
         candidateOrigin = .file
         applySnapshot(animatingDifferences: true)
-        SPIndicator.present(title: String(localized: "Repositories found: \(fresh.count)"), preset: .done)
+        SPIndicator.present(title: String(legacyLocalized: "Repositories found: \(fresh.count)"), preset: .done)
     }
 
     // MARK: - INPUT
@@ -412,9 +412,9 @@ class RepositoryAddController: UITableViewController {
         updateAddButton()
         applySnapshot(animatingDifferences: true)
         guard target != nil else { return }
-        probeTask = Task { [weak self] in
-            try? await Task.sleep(seconds: 0.6)
-            guard !Task.isCancelled, let self else { return }
+        probeTask = LegacyTask.detached { [weak self] in
+            try? Task.sleep(seconds: 0.6)
+            guard !LegacyTask.isCancelled, let self else { return }
             probing = target
             applySnapshot(animatingDifferences: true)
             updateAddButton()
@@ -504,7 +504,7 @@ class RepositoryAddController: UITableViewController {
         guard case let .candidate(.history, line) = dataSource.itemIdentifier(for: indexPath) else { return nil }
         let forget = UIContextualAction(
             style: .destructive,
-            title: String(localized: "Forget")
+            title: String(legacyLocalized: "Forget")
         ) { [weak self] _, _, completion in
             self?.forget(line)
             completion(true)

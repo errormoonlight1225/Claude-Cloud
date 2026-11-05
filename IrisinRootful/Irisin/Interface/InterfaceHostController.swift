@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import UIKit
@@ -61,8 +62,8 @@ class InterfaceHostController: UIViewController {
         super.viewDidAppear(animated)
         // The interface is on screen before the engines have loaded, and
         // onboarding asks which repositories are already added.
-        Task {
-            guard await AppBootstrap.finished() else { return }
+        LegacyTask.detached {
+            guard AppBootstrap.finished() else { return }
             // a link that opened the app gets its sheet; onboarding waits for
             // the next time the interface appears
             if WelcomeController.shouldPresent, presentedViewController == nil {

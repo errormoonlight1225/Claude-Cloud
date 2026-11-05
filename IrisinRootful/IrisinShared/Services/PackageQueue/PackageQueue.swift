@@ -6,9 +6,12 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import Foundation
 import UIKit
@@ -65,28 +68,28 @@ final class PackageQueue {
             allowSystemRemovalStore.wrappedValue = newValue
             guard plan != nil else { return }
             refreshTask?.cancel()
-            refreshTask = Task { await refresh(force: true) }
+            refreshTask = LegacyTask.detached { refresh(force: true) }
         }
     }
 
     private let allowSystemRemovalStore = Stored(key: "package.allowSystemRemoval", defaultValue: false)
 
     private var subscriptions = Set<AnyCancellable>()
-    private var refreshTask: Task<Void, Never>?
+    private var refreshTask: LegacyTask?
 
     /// The last pool read, and the generation of the read: a read started
     /// later replaces it, one started earlier never does.
     private var pool: (generation: Int, value: ResolutionPool)?
     /// The preflight's read in flight: a solve waits for it rather than
     /// reading the same pool again.
-    private var poolRead: (generation: Int, task: Task<ResolutionPool?, Never>, awaited: Bool)?
+    private var poolRead: (generation: Int, task: LegacyTask, awaited: Bool)?
     /// The packages moved and the preflight waits for them to settle.
-    private var preflightDelay: Task<Void, Never>?
+    private var preflightDelay: LegacyTask?
     private var generations = 0
     /// A repository was written while the repositories refreshed and the
     /// queue has not been solved again for it: this waits out the refresh
     /// and solves it then, unless word of the last write does first.
-    private var heldChange: Task<Void, Never>?
+    private var heldChange: LegacyTask?
 
     private init() {
         NotificationCenter.default.publisher(for: PackageCenter.packageRecordChanged)
@@ -113,12 +116,12 @@ final class PackageQueue {
     /// Solves the queue with `new` merged in: a request for a queued
     /// identity replaces the queued one, unless `keepingQueued` says the
     /// queue's own request wins. `cleanup` replaces the ticked set.
-    func propose(
+    nonisolated func propose(
         _ new: [ResolutionAction],
         cleanup: Set<String>? = nil,
         keepingQueued: Bool = false,
         notices: [String] = []
-    ) async -> Result<Proposal, ResolutionFailure> {
+    ) -> Result<Proposal, ResolutionFailure> {
         var actions = actions
         for action in new {
             if let index = actions.firstIndex(where: { $0.identity == action.identity }) {
@@ -129,7 +132,7 @@ final class PackageQueue {
                 actions.append(action)
             }
         }
-        return await proposal(actions: actions, cleanup: cleanup ?? self.cleanup, notices: notices)
+        return proposal(actions: actions, cleanup: cleanup ?? self.cleanup, notices: notices)
     }
 
     /// Takes the proposal as the queue. False when the queue or the
@@ -171,12 +174,12 @@ final class PackageQueue {
 
     /// Solves the queue without the package: its own request or tick, or
     /// the requests that bring it in. `cleanup` replaces the ticked set.
-    func proposeWithdrawal(
+    nonisolated func proposeWithdrawal(
         of identity: String,
         cleanup: Set<String>? = nil
-    ) async -> Result<Proposal, ResolutionFailure> {
-        let dropped = await requests(bringing: identity)
-        return await proposal(
+    ) -> Result<Proposal, ResolutionFailure> {
+        let dropped = requests(bringing: identity)
+        return proposal(
             actions: actions.filter { !dropped.contains($0.identity) },
             cleanup: (cleanup ?? self.cleanup).subtracting([identity]),
             notices: []
@@ -184,7 +187,7 @@ final class PackageQueue {
     }
 
     /// The queued requests the package is in the plan for.
-    private func requests(bringing identity: String) async -> Set<String> {
+    private nonisolated func requests(bringing identity: String) -> Set<String> {
         let queued = Set(actions.map(\.identity))
         guard !queued.contains(identity), let plan else { return [identity] }
         if plan.install.contains(where: { $0.identity == identity }) {
@@ -208,7 +211,7 @@ final class PackageQueue {
         // replaces this if long queues make it slow
         var found: Set<String> = []
         for action in actions {
-            let alone = await proposal(actions: [action], cleanup: [], notices: [])
+            let alone = proposal(actions: [action], cleanup: [], notices: [])
             if case let .success(alone) = alone,
                alone.plan?.remove.contains(where: { $0.identity == identity }) == true
             {
@@ -263,11 +266,11 @@ final class PackageQueue {
     /// catalogue no more than an empty answer offers Confirm at all. So it
     /// is read as it is now, the one the Updates page lists, even while the
     /// repositories refresh.
-    func updateAllActions() async -> Result<UpdateAll, ResolutionFailure> {
+    nonisolated func updateAllActions() -> Result<UpdateAll, ResolutionFailure> {
         if Self.isRefreshing {
             readPool(awaited: true)
         }
-        switch await solve(ResolutionRequest(updateAll: true)) {
+        switch solve(ResolutionRequest(updateAll: true)) {
         case let .success(plan):
             let installed = Set(plan.snapshot.installed.map(\.identity))
             let migration = plan.migration.map { found in
@@ -286,7 +289,7 @@ final class PackageQueue {
             return .success(UpdateAll(
                 actions: plan.install.filter { installed.contains($0.identity) }.map { .install($0) },
                 notices: plan.heldBack.filter { !released.contains($0) }.map {
-                    String(localized: "\($0): kept at the current version by another package or a blocked update.")
+                    String(legacyLocalized: "\($0): kept at the current version by another package or a blocked update.")
                 },
                 migration: migration
             ))
@@ -321,9 +324,9 @@ final class PackageQueue {
 
     /// Returns once the queue has been solved again against the packages
     /// as they last moved: what a failed run left is what Try Again stages.
-    func settled() async {
+    nonisolated func settled() {
         while let task = refreshTask {
-            await task.value
+            task.value
             if task == refreshTask {
                 return
             }
@@ -348,15 +351,15 @@ final class PackageQueue {
         changed()
         guard plan != nil else { return }
         refreshTask?.cancel()
-        refreshTask = Task { await refresh() }
+        refreshTask = LegacyTask.detached { refresh() }
     }
 
     private func hold() {
         guard heldChange == nil else { return }
-        heldChange = Task { [weak self] in
+        heldChange = LegacyTask.detached { [weak self] in
             do {
                 while Self.isRefreshing {
-                    try await Task.sleep(continuousSeconds: Self.settleDelay)
+                    try Task.sleep(continuousSeconds: Self.settleDelay)
                 }
             } catch {
                 return
@@ -383,21 +386,21 @@ final class PackageQueue {
     /// When solving fails the old plan stays, blocked, with the reason.
     /// `force` solves again even when the packages did not move: the rules
     /// the plan was solved under did.
-    private func refresh(force: Bool = false) async {
+    private nonisolated func refresh(force: Bool = false) {
         guard !Installer.shared.inProcessingQueue, let plan else { return }
         let revision = revision
         // current means the packages did not move
         if !force,
-           await (try? Self.isCurrent(plan: plan, index: PackageCenter.default.index)) == true
+           (try? Self.isCurrent(plan: plan, index: PackageCenter.default.index)) == true
         {
             return
         }
-        guard !Task.isCancelled, revision == self.revision else { return }
+        guard !LegacyTask.isCancelled, revision == self.revision else { return }
         // the request's own lines (held-back updates) outlive a solve; the
         // old plan's go with it and the new plan says its own
         let planned = Self.notices(of: plan)
-        let result = await proposal(actions: actions, cleanup: cleanup, notices: notices.filter { !planned.contains($0) })
-        guard !Task.isCancelled, revision == self.revision else { return }
+        let result = proposal(actions: actions, cleanup: cleanup, notices: notices.filter { !planned.contains($0) })
+        guard !LegacyTask.isCancelled, revision == self.revision else { return }
         switch result {
         case let .success(proposal):
             commit(proposal)
@@ -410,16 +413,16 @@ final class PackageQueue {
     /// Solves exactly these requests; a queue with no requests is empty,
     /// and keeps the notices that say why: an update of everything that
     /// held every update back has nothing else to show.
-    private func proposal(
+    private nonisolated func proposal(
         actions: [ResolutionAction],
         cleanup: Set<String>,
         notices: [String]
-    ) async -> Result<Proposal, ResolutionFailure> {
+    ) -> Result<Proposal, ResolutionFailure> {
         let revision = revision
         guard !actions.isEmpty else {
             return .success(Proposal(actions: [], cleanup: [], plan: nil, notices: notices, revision: revision))
         }
-        switch await solve(ResolutionRequest(actions: actions, autoremove: cleanup)) {
+        switch solve(ResolutionRequest(actions: actions, autoremove: cleanup)) {
         case let .success(plan):
             return .success(Proposal(
                 actions: actions,
@@ -438,23 +441,23 @@ final class PackageQueue {
     /// A refusal from the catalogue kept through a refresh is not the last
     /// word: what the request needs may be in a repository written since,
     /// so it is solved once more against the catalogue as it is now.
-    private func solve(_ request: ResolutionRequest) async -> Result<ResolutionPlan, ResolutionFailure> {
-        let first = await solveOnce(request)
-        guard first.refusedPinned, !Task.isCancelled else { return first.result }
+    private nonisolated func solve(_ request: ResolutionRequest) -> Result<ResolutionPlan, ResolutionFailure> {
+        let first = solveOnce(request)
+        guard first.refusedPinned, !LegacyTask.isCancelled else { return first.result }
         readPool(awaited: true)
-        return await solveOnce(request).result
+        return solveOnce(request).result
     }
 
     /// `refusedPinned` when the solver refused the request against a
     /// catalogue kept through a refresh.
-    private func solveOnce(
+    private nonisolated func solveOnce(
         _ request: ResolutionRequest
-    ) async -> (result: Result<ResolutionPlan, ResolutionFailure>, refusedPinned: Bool) {
+    ) -> (result: Result<ResolutionPlan, ResolutionFailure>, refusedPinned: Bool) {
         guard !Installer.shared.inProcessingQueue else { return (.failure(Self.busy), false) }
-        let (prepared, pinned) = await startingPool()
+        let (prepared, pinned) = startingPool()
         // the wait is for the pool, and the pool is kept: whoever asked
         // and left since is not solved for
-        guard !Task.isCancelled else { return (.failure(ResolutionFailure(.unknown)), false) }
+        guard !LegacyTask.isCancelled else { return (.failure(ResolutionFailure(.unknown)), false) }
         // read after the wait: the index carries the update settings
         let index = PackageCenter.default.index
         var request = request
@@ -462,7 +465,7 @@ final class PackageQueue {
         generations += 1
         let generation = generations
         do {
-            let (plan, read) = try await Self.resolve(
+            let (plan, read) = try Self.resolve(
                 request: request,
                 index: index,
                 pool: prepared,
@@ -473,7 +476,7 @@ final class PackageQueue {
             // which one it was solved with, and `currency(of:)` holds that
             // against the one there is before it is taken or staged
             guard !Installer.shared.inProcessingQueue,
-                  try await Self.changes(since: plan, index: PackageCenter.default.index)
+                  try Self.changes(since: plan, index: PackageCenter.default.index)
                   .isDisjoint(with: [.installed, .settings]),
                   // an operation may have begun during the status check
                   !Installer.shared.inProcessingQueue
@@ -481,7 +484,7 @@ final class PackageQueue {
                 return (.failure(Self.moved), false)
             }
             return (.success(plan), false)
-        } catch is CancellationError {
+        } catch is LegacyCancellationError {
             // whoever asked has gone and reads nothing of this
             return (.failure(ResolutionFailure(.unknown)), false)
         } catch let refusal as ResolutionFailure {
@@ -511,9 +514,9 @@ final class PackageQueue {
             read.task.cancel()
             poolRead = nil
         }
-        preflightDelay = Task { [weak self] in
+        preflightDelay = LegacyTask.detached { [weak self] in
             do {
-                try await Task.sleep(continuousSeconds: Self.settleDelay)
+                try Task.sleep(continuousSeconds: Self.settleDelay)
                 // at launch the refresh of what is out of date is queued a
                 // moment after the engines are up: not reading until then
                 // keeps a pool that refresh would make stale at once
@@ -521,7 +524,7 @@ final class PackageQueue {
                     || RepositoryCenter.default.obtainUpdateRemain() > 0
                     || Installer.shared.inProcessingQueue
                 {
-                    try await Task.sleep(continuousSeconds: Self.settleDelay)
+                    try Task.sleep(continuousSeconds: Self.settleDelay)
                 }
             } catch {
                 return
@@ -535,7 +538,7 @@ final class PackageQueue {
     /// `awaited` when a solve is about to wait for it: the packages moving
     /// in the meantime do not cancel it.
     @discardableResult
-    private func readPool(awaited: Bool = false) -> Task<ResolutionPool?, Never> {
+    private func readPool(awaited: Bool = false) -> LegacyTask {
         preflightDelay?.cancel()
         preflightDelay = nil
         poolRead?.task.cancel()
@@ -544,8 +547,8 @@ final class PackageQueue {
         let index = PackageCenter.default.index
         let previous = pool?.value
         // nobody waits for it yet; a solve that does raises it to its own
-        let task = Task(priority: .utility) { [weak self] () -> ResolutionPool? in
-            let read = await Self.readPool(index: index, previous: previous)
+        let task = LegacyTask.detached(qos: .utility) { [weak self] () -> ResolutionPool? in
+            let read = Self.readPool(index: index, previous: previous)
             if let self {
                 adopt(read, generation: generation)
                 if poolRead?.generation == generation {
@@ -562,23 +565,23 @@ final class PackageQueue {
     /// packages moved and the preflight is still waiting, or else the last
     /// one read. It may be out of date all the same (the dpkg status can
     /// change without a word); the solve then reads the one it needs.
-    private func preparedPool() async -> ResolutionPool? {
+    private nonisolated func preparedPool() -> ResolutionPool? {
         if preflightDelay != nil, !Installer.shared.inProcessingQueue {
             readPool()
         }
-        return await awaitedPool()
+        return awaitedPool()
     }
 
     /// The pool a solve starts from, and whether it is pinned: while the
     /// repositories refresh, the last one read (or the read in flight)
     /// even though the catalogue has been written since, since a read in
     /// the middle of a refresh is out of date before it ends.
-    private func startingPool() async -> (pool: ResolutionPool?, pinned: Bool) {
-        guard Self.isRefreshing else { return await (preparedPool(), false) }
+    private nonisolated func startingPool() -> (pool: ResolutionPool?, pinned: Bool) {
+        guard Self.isRefreshing else { return (preparedPool(), false) }
         if pool == nil, poolRead == nil, !Installer.shared.inProcessingQueue {
             readPool()
         }
-        return await (awaitedPool(), true)
+        return (awaitedPool(), true)
     }
 
     /// Reads the catalogue as it is now, refresh or not, for the solves
@@ -589,11 +592,11 @@ final class PackageQueue {
     }
 
     /// The read in flight, or else the last one read.
-    private func awaitedPool() async -> ResolutionPool? {
+    private nonisolated func awaitedPool() -> ResolutionPool? {
         // a read the packages moving cancelled has a newer one after it
         while let current = poolRead {
             poolRead?.awaited = true
-            if let read = await current.task.value {
+            if let read = current.task.value {
                 return read
             }
             guard poolRead.map({ $0.generation != current.generation }) == true else { break }
@@ -619,18 +622,18 @@ final class PackageQueue {
     }
 
     private static let busy = ResolutionFailure(
-        message: String(localized: "Another operation is already running. Wait for it to finish, then try again.")
+        message: String(legacyLocalized: "Another operation is already running. Wait for it to finish, then try again.")
     )
 
     private static let moved = ResolutionFailure(
-        message: String(localized: "Packages changed while checking dependencies. Try again.")
+        message: String(legacyLocalized: "Packages changed while checking dependencies. Try again.")
     )
 
     /// The plan's own lines; held-back updates come from the request.
     private static func notices(of plan: ResolutionPlan) -> [String] {
         var notices = plan.diagnostics.map(\.message)
         if plan.install.contains(where: { $0.identity == Bundle.main.bundleIdentifier }) {
-            notices.insert(String(localized: "Irisin will restart when this finishes."), at: 0)
+            notices.insert(String(legacyLocalized: "Irisin will restart when this finishes."), at: 0)
         }
         return notices
     }
@@ -648,7 +651,7 @@ final class PackageQueue {
         index: PackageIndex,
         pool: ResolutionPool?,
         pinned: Bool
-    ) async throws -> (ResolutionPlan, ResolutionPool?) {
+    ) throws -> (ResolutionPlan, ResolutionPool?) {
         let snapshot = try index.resolutionSnapshot(reusingCatalogueOf: pool?.snapshot, evenIfWritten: pinned)
         let served = pool?.serves(snapshot) == true
         var kept = pool
@@ -665,7 +668,7 @@ final class PackageQueue {
     private nonisolated static func readPool(
         index: PackageIndex,
         previous: ResolutionPool?
-    ) async -> ResolutionPool? {
+    ) -> ResolutionPool? {
         do {
             let snapshot = try index.resolutionSnapshot(reusingCatalogueOf: previous?.snapshot)
             if let previous, previous.serves(snapshot) {
@@ -678,7 +681,7 @@ final class PackageQueue {
     }
 
     @concurrent
-    nonisolated static func isCurrent(plan: ResolutionPlan, index: PackageIndex) async throws -> Bool {
+    nonisolated static func isCurrent(plan: ResolutionPlan, index: PackageIndex) throws -> Bool {
         try index.isCurrent(plan.snapshot)
     }
 
@@ -686,7 +689,7 @@ final class PackageQueue {
     private nonisolated static func changes(
         since plan: ResolutionPlan,
         index: PackageIndex
-    ) async throws -> ResolutionSnapshot.Changes {
+    ) throws -> ResolutionSnapshot.Changes {
         try index.changes(since: plan.snapshot)
     }
 
@@ -703,7 +706,7 @@ final class PackageQueue {
     }
 
     @concurrent
-    nonisolated static func currency(of plan: ResolutionPlan, index: PackageIndex) async throws -> Currency {
+    nonisolated static func currency(of plan: ResolutionPlan, index: PackageIndex) throws -> Currency {
         let changes = try index.changes(since: plan.snapshot)
         guard changes.isDisjoint(with: [.installed, .settings]) else { return .moved }
         guard changes.contains(.catalogue) else { return .current }
@@ -714,8 +717,8 @@ final class PackageQueue {
     /// The proposal's plan against the packages as they are, for Confirm;
     /// an emptied queue is always current, and a status that cannot be
     /// read is a reason to solve again.
-    func currency(of proposal: Proposal) async -> Currency {
+    nonisolated func currency(of proposal: Proposal) -> Currency {
         guard let plan = proposal.plan else { return .current }
-        return await (try? Self.currency(of: plan, index: PackageCenter.default.index)) ?? .moved
+        return (try? Self.currency(of: plan, index: PackageCenter.default.index)) ?? .moved
     }
 }

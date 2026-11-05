@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 class SearchNavigator: UINavigationController {
@@ -15,7 +16,7 @@ class SearchNavigator: UINavigationController {
         navigationBar.prefersLargeTitles = true
 
         tabBarItem = UITabBarItem(
-            title: String(localized: "Search"),
+            title: String(legacyLocalized: "Search"),
             image: UIImage.fluent(.bookSearch24Regular),
             tag: 0
         )

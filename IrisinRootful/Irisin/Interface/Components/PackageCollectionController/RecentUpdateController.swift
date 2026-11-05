@@ -28,7 +28,7 @@ class RecentUpdateController: PackageCollectionController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Recent Updates")
+        title = String(legacyLocalized: "Recent Updates")
     }
 
     override func updateGuiderOpacity() {

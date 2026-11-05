@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -19,7 +20,7 @@ final class ListFootnoteView: UICollectionReusableView {
 
     let label = UILabel().then {
         $0.font = .footnote
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.textAlignment = .center
         $0.numberOfLines = 0
     }
@@ -59,7 +60,7 @@ final class ListFootnoteView: UICollectionReusableView {
         stack.snp.makeConstraints { x in
             x.edges.equalToSuperview().inset(UIEdgeInsets(top: 16, left: 20, bottom: 16, right: 20))
         }
-        link.addAction(UIAction { [weak self] _ in self?.linkAction?() }, for: .touchUpInside)
+        link.legacyAddAction(for: .touchUpInside) { [weak self] _ in self?.linkAction?() }
     }
 
     @available(*, unavailable)

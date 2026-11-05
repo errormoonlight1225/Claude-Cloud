@@ -27,7 +27,7 @@ final class QueueBarView: UIControl {
     var count = 0 {
         didSet {
             guard count != oldValue else { return }
-            label.text = String(localized: "Packages in Queue: \(count)")
+            label.text = String(legacyLocalized: "Packages in Queue: \(count)")
             accessibilityLabel = label.text
         }
     }
@@ -98,7 +98,7 @@ final class QueueBarView: UIControl {
 
         isAccessibilityElement = true
         accessibilityTraits = .button
-        accessibilityHint = String(localized: "Opens the queue.")
+        accessibilityHint = String(legacyLocalized: "Opens the queue.")
     }
 
     @available(*, unavailable)
@@ -134,9 +134,9 @@ final class QueueBarView: UIControl {
                 $0.cornerConfiguration = .capsule()
             }
         }
-        return UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial)).then {
+        return UIVisualEffectView(effect: UIBlurEffect(style: .compatSystemMaterial)).then {
             $0.layer.cornerRadius = minimumHeight / 2
-            $0.layer.cornerCurve = .continuous
+            $0.layer.compatContinuousCorners()
             $0.clipsToBounds = true
         }
     }

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AuthenticationServices
 import Dog
@@ -57,7 +58,7 @@ final class VendorAccount {
 
         let item = ASWebAuthenticationSessionWindowProvider(window: window)
         let session = ASWebAuthenticationSession(url: authUrl, callbackURLScheme: "sileo") { url, err in
-            Task { @MainActor in
+            LegacyTask.detached {
                 defer { completionCallback() }
                 _ = item // avoid dealloc
                 if let err, (err as? ASWebAuthenticationSessionError)?.code == .canceledLogin {
@@ -66,8 +67,8 @@ final class VendorAccount {
                 }
                 guard let url, err == nil else {
                     SPIndicator.present(
-                        title: String(localized: "Sign-in failed"),
-                        message: String(localized: "Try again."),
+                        title: String(legacyLocalized: "Sign-in failed"),
+                        message: String(legacyLocalized: "Try again."),
                         preset: .error,
                         haptic: .error,
                         from: .top,
@@ -90,7 +91,7 @@ final class VendorAccount {
                 self.recordUserInformation(for: repo, token: token, secret: secret)
             }
         }
-        session.presentationContextProvider = item
+        if #available(iOS 13.0, *) { session.presentationContextProvider = item }
         session.start()
     }
 
@@ -123,8 +124,8 @@ final class VendorAccount {
         }
         let repoName = repo.url.absoluteString
         let device = DeviceIdentity.vendorDevice
-        Task {
-            guard let str = await VendorService.signOut(endpoint: endpoint, credentials: info, device: device)
+        LegacyTask.detached {
+            guard let str = VendorService.signOut(endpoint: endpoint, credentials: info, device: device)
             else {
                 Dog.shared.join("VendorAccount", "signing out on \(repoName) got no readable reply", level: .warning)
                 return
@@ -135,7 +136,7 @@ final class VendorAccount {
 
     /// The identities of the packages this account has bought, or nil when the
     /// vendor did not answer.
-    func purchasedIdentities(for repo: URL) async -> [String]? {
+    nonisolated func purchasedIdentities(for repo: URL) -> [String]? {
         guard let repo = RepositoryCenter
             .default
             .obtainImmutableRepository(withUrl: repo),
@@ -144,8 +145,8 @@ final class VendorAccount {
         else {
             return nil
         }
-        return await Self.logged(endpoint.appendingPathComponent("user_info")) { () async throws(VendorService.Failure) in
-            try await VendorService.purchasedIdentities(
+        return Self.logged(endpoint.appendingPathComponent("user_info")) { @Sendable () throws(VendorService.Failure) in
+            try VendorService.purchasedIdentities(
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
@@ -153,7 +154,7 @@ final class VendorAccount {
         }
     }
 
-    func purchaseStatus(for repo: URL, withPackageIdentity identity: String) async -> PurchaseStatus? {
+    nonisolated func purchaseStatus(for repo: URL, withPackageIdentity identity: String) -> PurchaseStatus? {
         guard let repo = RepositoryCenter
             .default
             .obtainImmutableRepository(withUrl: repo),
@@ -162,8 +163,8 @@ final class VendorAccount {
         else {
             return nil
         }
-        return await Self.logged(VendorService.package(identity, "info", at: endpoint)) { () async throws(VendorService.Failure) in
-            try await VendorService.purchaseStatus(
+        return Self.logged(VendorService.package(identity, "info", at: endpoint)) { @Sendable () throws(VendorService.Failure) in
+            try VendorService.purchaseStatus(
                 of: identity,
                 endpoint: endpoint,
                 credentials: userInfo,
@@ -172,11 +173,11 @@ final class VendorAccount {
         }
     }
 
-    func initPurchase(
+    nonisolated func initPurchase(
         for repo: URL,
         withPackageIdentity identity: String,
         window: UIWindow
-    ) async {
+    ) {
         guard let repo = RepositoryCenter
             .default
             .obtainImmutableRepository(withUrl: repo),
@@ -186,8 +187,8 @@ final class VendorAccount {
             return
         }
         // nil as well for a purchase that already went through: no page to open
-        let page = await Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { () async throws(VendorService.Failure) in
-            try await VendorService.purchasePage(
+        let page = Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { @Sendable () throws(VendorService.Failure) in
+            try VendorService.purchasePage(
                 for: identity,
                 architecture: PackagedArchitecture.architecture,
                 endpoint: endpoint,
@@ -202,7 +203,7 @@ final class VendorAccount {
         let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "sileo") { _, _ in
             _ = foo
         }
-        session.presentationContextProvider = foo
+        if #available(iOS 13.0, *) { session.presentationContextProvider = foo }
         session.start()
     }
 
@@ -210,7 +211,7 @@ final class VendorAccount {
     /// architecture: Havoc answers an architecture it has no package for
     /// with whichever it does have — the file then fails the hash the index
     /// published for ours.
-    func queryDownloadLink(withPackage package: Package) async -> URL? {
+    nonisolated func queryDownloadLink(withPackage package: Package) -> URL? {
         guard let represent = package.repoRef,
               let repo = RepositoryCenter
               .default
@@ -220,9 +221,9 @@ final class VendorAccount {
         else {
             return nil
         }
-        let link = await Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) {
-            () async throws(VendorService.Failure) in
-            try await VendorService.downloadLink(
+        let link = Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) {
+            @Sendable () throws(VendorService.Failure) in
+            try VendorService.downloadLink(
                 for: package.identity,
                 version: package.latestVersion,
                 architecture: package.architectures.first { $0 != "all" } ?? PackagedArchitecture.architecture,
@@ -239,12 +240,12 @@ final class VendorAccount {
     /// a vendor's endpoint can be seen failing. Each line says which way it
     /// failed: "the purchase did nothing" is otherwise indistinguishable from
     /// a timeout, a 500 and a vendor answering with HTML.
-    private static func logged<Value>(
+    private static nonisolated func logged<Value>(
         _ endpoint: URL,
-        _ call: () async throws(VendorService.Failure) -> Value
-    ) async -> Value? {
+        _ call: @Sendable () throws(VendorService.Failure) -> Value
+    ) -> Value? {
         do {
-            return try await call()
+            return try call()
         } catch {
             Dog.shared.join("VendorAccount", "\(endpoint.absoluteString) \(error)", level: .error)
             return nil

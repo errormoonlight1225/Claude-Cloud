@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AlertController
 import SnapKit
 import Then
@@ -37,38 +38,38 @@ final class TranslationProgressController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = AlertControllerConfiguration.backgroundColor.withAlphaComponent(0.5)
-        let material = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        let material = UIVisualEffectView(effect: UIBlurEffect(style: .compatSystemMaterial))
         view.addSubview(material)
         material.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         let artwork = UIImageView(image: AlertControllerConfiguration.alertImage).then {
             $0.contentMode = .scaleAspectFill
             $0.layer.cornerRadius = 12
-            $0.layer.cornerCurve = .continuous
+            $0.layer.compatContinuousCorners()
             $0.clipsToBounds = true
             $0.snp.makeConstraints { $0.size.equalTo(64) }
         }
         let titleLabel = UILabel().then {
-            $0.text = String(localized: "Translating…")
+            $0.text = String(legacyLocalized: "Translating…")
             $0.font = .bodyEmphasized
-            $0.textColor = .label
+            $0.textColor = .compatLabel
         }
         let messageLabel = UILabel().then {
-            $0.text = String(localized: "The system is translating this page.")
+            $0.text = String(legacyLocalized: "The system is translating this page.")
             $0.font = .footnote
-            $0.textColor = .label
+            $0.textColor = .compatLabel
         }
         for label in [titleLabel, messageLabel] {
             label.textAlignment = .center
             label.numberOfLines = 0
         }
-        let spinner = UIActivityIndicatorView(style: .medium)
+        let spinner = UIActivityIndicatorView(style: .compatMedium)
         spinner.startAnimating()
 
         // a lone action is the accent one, as the library draws it; the
         // library does not export its button
         var accent = UIButton.Configuration.filled()
-        accent.title = String(localized: "Cancel")
+        accent.title = String(legacyLocalized: "Cancel")
         accent.baseForegroundColor = AlertControllerConfiguration.accentForegroundColor
         accent.baseBackgroundColor = AlertControllerConfiguration.accentColor
         accent.background.cornerRadius = 12
@@ -80,12 +81,12 @@ final class TranslationProgressController: UIViewController {
             return outgoing
         }
         cancelButton.configuration = accent
-        cancelButton.addAction(UIAction { [weak self] _ in
+        cancelButton.legacyAddAction(for: .touchUpInside) { [weak self] _ in
             guard let self, cancelButton.isEnabled else { return }
             // once: the card is on its way out from here
             cancelButton.isEnabled = false
             onCancel()
-        }, for: .touchUpInside)
+        }
 
         let stack = UIStackView(arrangedSubviews: [
             artwork, titleLabel, messageLabel, spinner, cancelButton,

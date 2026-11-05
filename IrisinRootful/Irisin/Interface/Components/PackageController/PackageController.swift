@@ -9,7 +9,9 @@
 import LegacyCompat
 import AlertController
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import PackageDepiction
 import SnapKit
 import Then
@@ -98,7 +100,7 @@ class PackageController: UIViewController {
     /// handwriting that shows until it arrives.
     let bannerArtwork = PackageArtworkView().then {
         $0.layer.cornerRadius = 16
-        $0.layer.cornerCurve = .continuous
+        $0.layer.compatContinuousCorners()
         $0.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
     }
 
@@ -198,7 +200,7 @@ class PackageController: UIViewController {
         rowsAskingForHeight.insert(row)
         guard !rowHeightsAreStale else { return }
         rowHeightsAreStale = true
-        Task { [weak self] in
+        LegacyTask.detached { [weak self] in
             guard let self else { return }
             rowHeightsAreStale = false
             let asking = rowsAskingForHeight
@@ -239,9 +241,9 @@ class PackageController: UIViewController {
     }
 
     private func footerText() -> String {
-        var footer = String(localized: "Architecture: \(packageObject.architectures.joined(separator: ", "))")
+        var footer = String(legacyLocalized: "Architecture: \(packageObject.architectures.joined(separator: ", "))")
         if depictionIsPartial {
-            footer = String(localized: "Some of this package's content cannot be shown.") + "\n" + footer
+            footer = String(legacyLocalized: "Some of this package's content cannot be shown.") + "\n" + footer
         }
         return footer
     }
@@ -263,7 +265,7 @@ class PackageController: UIViewController {
 
     /// The translation of the depiction on show, while it is on its way. A
     /// new depiction (another version of the package) cancels it.
-    var depictionTranslation: Task<Void, Never>?
+    var depictionTranslation: LegacyTask?
 
     /// The alert the translation on its way waits behind, when the menu
     /// asked for it. One left behind by a translation since replaced is no
@@ -294,7 +296,7 @@ class PackageController: UIViewController {
     /// when the depiction is partial.
     let depictionFooter = UILabel().then {
         $0.font = .footnote
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.textAlignment = .center
         $0.numberOfLines = 0
     }
@@ -324,7 +326,7 @@ class PackageController: UIViewController {
             menu: bannerPackageView.actionMenu
         ).then {
             $0.tintColor = .textTitle
-            $0.accessibilityLabel = String(localized: "More")
+            $0.accessibilityLabel = String(legacyLocalized: "More")
         }
 
         view.addSubview(tableView)

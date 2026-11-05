@@ -8,14 +8,16 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SPIndicator
 import Then
 import UIKit
 
 class InstalledController: UICollectionViewController {
     var subscriptions = Set<AnyCancellable>()
-    var updateSetTask: Task<Void, Never>?
+    var updateSetTask: LegacyTask?
 
     // MARK: - SORT OPTION
 
@@ -26,9 +28,9 @@ class InstalledController: UICollectionViewController {
         func convertToInterfaceString() -> String {
             switch self {
             case .name:
-                String(localized: "Name")
+                String(legacyLocalized: "Name")
             case .lastModification:
-                String(localized: "Last Modified")
+                String(legacyLocalized: "Last Modified")
             }
         }
     }
@@ -47,7 +49,7 @@ class InstalledController: UICollectionViewController {
         get { sortReversedStore.wrappedValue }
         set {
             sortReversedStore.wrappedValue = newValue
-            Task { updateSource() }
+            LegacyTask.detached { updateSource() }
         }
     }
 
@@ -59,7 +61,7 @@ class InstalledController: UICollectionViewController {
         get { Set(selectedSectionsStore.wrappedValue) }
         set {
             selectedSectionsStore.wrappedValue = newValue.sorted()
-            Task { updateSource(withSearchText: searchController.searchBar.text) }
+            LegacyTask.detached { updateSource(withSearchText: searchController.searchBar.text) }
         }
     }
 
@@ -69,7 +71,7 @@ class InstalledController: UICollectionViewController {
         get { Set(selectedAuthorsStore.wrappedValue) }
         set {
             selectedAuthorsStore.wrappedValue = newValue.sorted()
-            Task { updateSource(withSearchText: searchController.searchBar.text) }
+            LegacyTask.detached { updateSource(withSearchText: searchController.searchBar.text) }
         }
     }
 
@@ -81,7 +83,7 @@ class InstalledController: UICollectionViewController {
 
     static func section(of package: Package) -> String {
         let section = package.latestMetadata?["section"] ?? ""
-        return section.isEmpty ? String(localized: "Unknown Section") : section.sectionDisplayName
+        return section.isEmpty ? String(legacyLocalized: "Unknown Section") : section.sectionDisplayName
     }
 
     /// Each author the way the package page names them: the name alone,
@@ -90,7 +92,7 @@ class InstalledController: UICollectionViewController {
         let authors = PackageCenter.authors(of: package)
             .map { PackageController.contact($0).text }
             .filter { !$0.isEmpty }
-        return authors.isEmpty ? [String(localized: "Unknown Author")] : authors
+        return authors.isEmpty ? [String(legacyLocalized: "Unknown Author")] : authors
     }
 
     // MARK: - PROPERTY
@@ -213,8 +215,8 @@ class InstalledController: UICollectionViewController {
             return
         }
         emptyStateLabel.text = isNarrowed
-            ? String(localized: "No installed packages match the search or filter.")
-            : String(localized: "No packages are installed.")
+            ? String(legacyLocalized: "No installed packages match the search or filter.")
+            : String(legacyLocalized: "No packages are installed.")
         collectionView.backgroundView = emptyStateLabel
     }
 
@@ -237,7 +239,7 @@ class InstalledController: UICollectionViewController {
     var footerText: String {
         let shown = dataSource.flatMap(\.packages)
         let sections = Set(shown.map(Self.section(of:))).count
-        return String(localized: "Packages: \(shown.count) · Sections: \(sections)")
+        return String(legacyLocalized: "Packages: \(shown.count) · Sections: \(sections)")
     }
 
     /// The count, and under it while a search narrows the list a link that
@@ -247,7 +249,7 @@ class InstalledController: UICollectionViewController {
     private func configureFooter(_ view: ListFootnoteView) {
         let query = searchController.searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         view.label.text = isEmpty ? nil : footerText
-        view.linkTitle = query.isEmpty ? nil : String(localized: "Search All Repositories")
+        view.linkTitle = query.isEmpty ? nil : String(legacyLocalized: "Search All Repositories")
         view.linkAction = { [weak self] in
             self?.present(next: SearchController(query: query))
         }
@@ -274,19 +276,19 @@ class InstalledController: UICollectionViewController {
     }
 
     func justReload() {
-        updateSource(withSearchText: searchController.searchBar.searchTextField.text)
+        updateSource(withSearchText: searchController.searchBar.compatSearchTextField.text)
         refreshUpdateSet()
     }
 
     @objc
     func refresh() {
-        Task {
-            await PackageCenter.default.reloadLocalPackages()
+        LegacyTask.detached {
+            PackageCenter.default.reloadLocalPackages()
             refreshControl.endRefreshing()
             justReload()
             SPIndicator
                 .present(
-                    title: String(localized: "Installed packages refreshed"),
+                    title: String(legacyLocalized: "Installed packages refreshed"),
                     message: "",
                     preset: .done,
                     from: .top,
@@ -313,41 +315,41 @@ class InstalledController: UICollectionViewController {
         $0.tintColor = .textTitle
         $0.showsMenuAsPrimaryAction = true
         $0.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-        $0.accessibilityLabel = String(localized: "More")
+        $0.accessibilityLabel = String(legacyLocalized: "More")
     }
 
     lazy var moreItem = UIBarButtonItem(customView: moreButton)
 
     func rebuildMoreMenu() {
-        moreButton.menu = UIMenu(identifier: .init("installed.more"), children: buildMoreMenu())
+        moreButton.menu = LegacyMenu(identifier: .init("installed.more"), children: buildMoreMenu())
     }
 
-    private func buildMoreMenu() -> [UIMenuElement] {
+    private func buildMoreMenu() -> [LegacyMenuElement] {
         // multi-selection reads better with the menu staying open, iOS 16 has that
-        var stays: UIMenuElement.Attributes = []
+        var stays: LegacyAction.Attributes = []
         if #available(iOS 16.0, *) {
             stays.insert(.keepsMenuPresented)
         }
 
         // the list sorts dates newest first when not reversed, names A to Z
-        let sort = UIMenu(
-            title: String(localized: "Sort By"),
+        let sort = LegacyMenu(
+            title: String(legacyLocalized: "Sort By"),
             subtitle: sortOption.convertToInterfaceString(),
             image: UIImage.compatSystemImage("arrow.up.arrow.down"),
             identifier: .init("installed.sort"),
             children: SortOption.allCases.map { option in
                 let ascendingIsReversed = option == .lastModification
                 let directions = [
-                    (true, String(localized: "Ascending"), "arrow.up"),
-                    (false, String(localized: "Descending"), "arrow.down"),
+                    (true, String(legacyLocalized: "Ascending"), "arrow.up"),
+                    (false, String(legacyLocalized: "Descending"), "arrow.down"),
                 ]
-                return UIMenu(
+                return LegacyMenu(
                     title: option.convertToInterfaceString(),
                     image: UIImage.compatSystemImage(option == .name ? "textformat" : "clock"),
                     identifier: .init("installed.sort.\(option.rawValue)"),
                     children: directions.map { ascending, title, icon in
                         let reversed = ascending == ascendingIsReversed
-                        return UIAction(
+                        return LegacyAction(
                             title: title,
                             image: UIImage.compatSystemImage(icon),
                             state: sortOption == option && sortReversed == reversed ? .on : .off
@@ -363,27 +365,27 @@ class InstalledController: UICollectionViewController {
 
         let filtering = !selectedSections.isEmpty || !selectedAuthors.isEmpty
         let total = sectionCounts.values.reduce(0, +)
-        let filter = UIMenu(
-            title: String(localized: "Filter"),
-            subtitle: filtering ? nil : String(localized: "\(total) Packages"),
+        let filter = LegacyMenu(
+            title: String(legacyLocalized: "Filter"),
+            subtitle: filtering ? nil : String(legacyLocalized: "\(total) Packages"),
             image: UIImage.compatSystemImage(filtering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle"
             ),
             identifier: .init("installed.filter"),
             children: [
                 choiceMenu(
-                    title: String(localized: "Section"),
+                    title: String(legacyLocalized: "Section"),
                     image: "square.grid.2x2",
                     identifier: "installed.filter.section",
-                    all: String(localized: "All Sections"),
+                    all: String(legacyLocalized: "All Sections"),
                     counts: sectionCounts,
                     selection: \.selectedSections,
                     stays: stays
                 ),
                 choiceMenu(
-                    title: String(localized: "Author"),
+                    title: String(legacyLocalized: "Author"),
                     image: "person",
                     identifier: "installed.filter.author",
-                    all: String(localized: "All Authors"),
+                    all: String(legacyLocalized: "All Authors"),
                     counts: authorCounts,
                     selection: \.selectedAuthors,
                     stays: stays
@@ -391,37 +393,37 @@ class InstalledController: UICollectionViewController {
             ]
         )
 
-        var top: [UIMenuElement] = [
-            UIAction(
+        var top: [LegacyMenuElement] = [
+            LegacyAction(
                 title: String(localized: "Refresh"),
                 image: UIImage.compatSystemImage("arrow.clockwise")
             ) { [weak self] _ in self?.refresh() },
-            UIAction(
+            LegacyAction(
                 title: String(localized: "Select"),
                 image: UIImage.compatSystemImage("checkmark.circle")
             ) { [weak self] _ in self?.setEditing(true, animated: true) },
         ]
         if updateFound {
-            top.append(UIAction(
-                title: String(localized: "Block All Updates"),
+            top.append(LegacyAction(
+                title: String(legacyLocalized: "Block All Updates"),
                 image: UIImage.compatSystemImage("hand.raised"),
                 attributes: .destructive
             ) { [weak self] _ in self?.blockUpdateAll() })
         }
 
         return [
-            UIMenu(options: .displayInline, children: top),
-            UIMenu(options: .displayInline, children: [
-                UIAction(
-                    title: String(localized: "Export Package List"),
+            LegacyMenu(options: .displayInline, children: top),
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Export Package List"),
                     image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.exportPackageList() },
-                UIAction(
-                    title: String(localized: "Export dpkg Status"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Export dpkg Status"),
                     image: UIImage.compatSystemImage("doc.text")
                 ) { [weak self] _ in self?.exportStatus() },
             ]),
-            UIMenu(options: .displayInline, children: [filter, sort]),
+            LegacyMenu(options: .displayInline, children: [filter, sort]),
         ]
     }
 
@@ -435,10 +437,10 @@ class InstalledController: UICollectionViewController {
         all: String,
         counts: [String: Int],
         selection: ReferenceWritableKeyPath<InstalledController, Set<String>>,
-        stays: UIMenuElement.Attributes
-    ) -> UIMenu {
+        stays: LegacyAction.Attributes
+    ) -> LegacyMenu {
         let selected = self[keyPath: selection]
-        let allAction = UIAction(
+        let allAction = LegacyAction(
             title: all,
             attributes: stays,
             state: selected.isEmpty ? .on : .off
@@ -446,7 +448,7 @@ class InstalledController: UICollectionViewController {
         let choices = counts.keys
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
             .map { choice in
-                UIAction(
+                LegacyAction(
                     title: choice,
                     subtitle: String(counts[choice, default: 0]),
                     attributes: stays,
@@ -460,14 +462,14 @@ class InstalledController: UICollectionViewController {
                     self[keyPath: selection] = next
                 }
             }
-        return UIMenu(
+        return LegacyMenu(
             title: title,
             subtitle: selected.isEmpty ? nil : selected.sorted().joined(separator: ", "),
             image: UIImage.compatSystemImage(image),
             identifier: .init(identifier),
             children: [
-                UIMenu(options: .displayInline, children: [allAction]),
-                UIMenu(options: .displayInline, children: choices),
+                LegacyMenu(options: .displayInline, children: [allAction]),
+                LegacyMenu(options: .displayInline, children: choices),
             ]
         )
     }
@@ -515,8 +517,8 @@ class InstalledController: UICollectionViewController {
         let nothingInstalled = isEmpty && !isNarrowed
         SPIndicator.present(
             title: nothingInstalled
-                ? String(localized: "No packages are installed.")
-                : String(localized: "All packages are up to date"),
+                ? String(legacyLocalized: "No packages are installed.")
+                : String(legacyLocalized: "All packages are up to date"),
             preset: .done
         )
     }
@@ -598,7 +600,7 @@ class InstalledController: UICollectionViewController {
         guard !isEditing else { return }
         // one name in both states; the tick is the item saying there is
         // nothing to update, which is a value and not another button
-        statusItem.accessibilityLabel = String(localized: "Updates")
+        statusItem.accessibilityLabel = String(legacyLocalized: "Updates")
         if updateFound {
             statusItem.image = .fluent(.arrowUpCircle24Filled)
             statusItem.action = #selector(sendUpdate)
@@ -608,7 +610,7 @@ class InstalledController: UICollectionViewController {
             statusItem.image = .fluent(.checkmarkCircle24Filled)
             statusItem.action = #selector(showAllUpdateToDate)
             statusItem.tintColor = .upToDate
-            statusItem.accessibilityValue = String(localized: "All packages are up to date")
+            statusItem.accessibilityValue = String(legacyLocalized: "All packages are up to date")
         }
         if placesBarItemsLeading {
             placeBarItems(leading: [statusItem, moreItem], trailing: [], animated: animated)

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AlertController
 import UIKit
 
@@ -51,7 +52,7 @@ extension UIViewController {
             let navigator = UINavigationController(rootViewController: next)
             next.navigationItem.leftBarButtonItem = UIBarButtonItem(
                 systemItem: .close,
-                primaryAction: UIAction { [weak navigator] _ in navigator?.dismiss(animated: true) }
+                primaryAction: LegacyAction { [weak navigator] _ in navigator?.dismiss(animated: true) }
             )
             navigator.preferredContentSize = preferredPopOverSize
             navigator.modalTransitionStyle = .coverVertical

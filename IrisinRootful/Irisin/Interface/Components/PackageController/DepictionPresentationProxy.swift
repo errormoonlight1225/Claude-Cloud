@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import PackageDepiction
 import SafariServices
 import UIKit
@@ -34,7 +35,7 @@ class DepictionPresentationProxy: UIViewController, DepictionRenderObserver {
            !(viewControllerToPresent is SFSafariViewController)
         {
             if viewControllerToPresent.title?.count ?? 0 < 1 {
-                viewControllerToPresent.title = String(localized: "Details")
+                viewControllerToPresent.title = String(legacyLocalized: "Details")
             }
             navigator.pushViewController(viewControllerToPresent, animated: true)
         } else {

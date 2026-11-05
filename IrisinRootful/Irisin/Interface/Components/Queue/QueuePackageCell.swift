@@ -34,7 +34,7 @@ final class QueuePackageCell: UITableViewCell {
 
     private let status = UIView()
 
-    private let spinner = UIActivityIndicatorView(style: .medium).then {
+    private let spinner = UIActivityIndicatorView(style: .compatMedium).then {
         $0.hidesWhenStopped = true
     }
 
@@ -51,7 +51,7 @@ final class QueuePackageCell: UITableViewCell {
     private let chevron = UIImageView(image: UIImage.compatSystemImage("chevron.right",
         withConfiguration: LegacySymbolConfiguration(font: .type(.footnote, emphasized: true), scale: .small)
     )).then {
-        $0.tintColor = .tertiaryLabel
+        $0.tintColor = .compatTertiaryLabel
         $0.contentMode = .right
     }
 
@@ -60,7 +60,7 @@ final class QueuePackageCell: UITableViewCell {
     /// Wide enough for the longest word the trailing edge says.
     private static let statusWidth: CGFloat = {
         let font = UIFont.footnote.monospacedDigitFont
-        let words = [String(localized: "Downloaded"), String(localized: "Failed"), "99%"]
+        let words = [String(legacyLocalized: "Downloaded"), String(legacyLocalized: "Failed"), "99%"]
         let widest = words.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
         return ceil(widest) + 8
     }()
@@ -76,13 +76,12 @@ final class QueuePackageCell: UITableViewCell {
         // the fill keeps to the card's rounded corners
         clipsToBounds = true
         // a state update would put the opaque colour back over the fill
-        automaticallyUpdatesBackgroundConfiguration = false
         var background = standardBackground()
         ground.backgroundColor = background.resolvedBackgroundColor(for: tintColor)
         ground.addSubview(progressFill)
         background.backgroundColor = .clear
         background.customView = ground
-        backgroundConfiguration = background
+        legacyBackgroundConfiguration = background
 
         // the word, then the chevron's column; a row with no download
         // narrows the status to the column alone
@@ -124,11 +123,11 @@ final class QueuePackageCell: UITableViewCell {
     /// `defaultBackgroundConfiguration()`; there it is the grouped list
     /// cell's, which the queue's inset grouped table uses, on the card
     /// colour: a configuration with no colour resolves to the tint.
-    private func standardBackground() -> UIBackgroundConfiguration {
+    private func standardBackground() -> LegacyBackgroundConfiguration {
         if #available(iOS 16, *) {
             return defaultBackgroundConfiguration()
         }
-        var background = UIBackgroundConfiguration.listGroupedCell()
+        var background = LegacyBackgroundConfiguration.listGroupedCell()
         if background.backgroundColor == nil {
             background.backgroundColor = .cardBackground
         }
@@ -144,8 +143,8 @@ final class QueuePackageCell: UITableViewCell {
     /// Shows the row, and the download of `download` at its trailing edge.
     /// A row with no download says here whether it `opens`; one with a
     /// download opens once the file is here.
-    func apply(_ configuration: UIListContentConfiguration, download: Package?, opens: Bool) {
-        contentConfiguration = configuration
+    func apply(_ configuration: LegacyListContentConfiguration, download: Package?, opens: Bool) {
+        legacyContentConfiguration = configuration
         self.download = download
         label.isHidden = download == nil
         chevron.isHidden = !opens
@@ -186,9 +185,9 @@ final class QueuePackageCell: UITableViewCell {
         spinner.stopAnimating()
         label.textColor = status.errorDescription == nil ? .textSubtitle : .operationFailed
         if status.errorDescription != nil {
-            show(String(localized: "Failed"))
+            show(String(legacyLocalized: "Failed"))
         } else if status.completed {
-            show(String(localized: "Downloaded"))
+            show(String(legacyLocalized: "Downloaded"))
         } else {
             // 1 to 99: the first byte is already progress, the last is not done
             show("\(min(max(Int(status.fractionCompleted * 100), 1), 99))%")

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import CommonCrypto
 import Foundation
 
@@ -32,7 +33,7 @@ nonisolated extension String {
     /// its key is extracted. `String(localized:)` on a parameter makes the
     /// localization sync warn that it skipped a key it was never meant to
     /// find there; the unapplied initializer is the same call, unremarked.
-    init(resolving value: String.LocalizationValue) {
+    init(resolving value: LegacyLocalizationValue) {
         let resolve = String.init(localized:table:bundle:locale:comment:)
         self = resolve(value, nil, nil, .current, nil)
     }

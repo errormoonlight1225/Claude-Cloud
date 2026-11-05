@@ -17,7 +17,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
         case recoveryRemoval
     }
 
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
     private var dataSource: LegacyTableViewDiffableDataSource<Section, Row>!
     private var report: [ResolutionCheck] = []
     private var summary = ""
@@ -48,7 +48,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Unable to Prepare Installation")
+        title = String(legacyLocalized: "Unable to Prepare Installation")
         navigationItem.largeTitleDisplayMode = .never
         // the sheet's ground, whether the page is its root or pushed in it
         view.backgroundColor = .groupedBackground
@@ -58,12 +58,12 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             target: self,
             action: #selector(shareReport)
         )
-        share.accessibilityLabel = String(localized: "Share")
+        share.accessibilityLabel = String(legacyLocalized: "Share")
         navigationItem.rightBarButtonItem = share
         if closesSheet {
             navigationItem.leftBarButtonItem = UIBarButtonItem(
                 systemItem: .close,
-                primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
+                primaryAction: LegacyAction { [weak self] _ in self?.dismiss(animated: true) }
             )
         }
 
@@ -92,14 +92,14 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
         dataSource = LegacyTableViewDiffableDataSource(tableView: tableView) { [unowned self] table, indexPath, row in
             let cell = table.dequeueReusableCell(withIdentifier: "requirement", for: indexPath)
             guard case let .check(check) = row else {
-                var content = cell.defaultContentConfiguration()
+                var content = cell.legacyDefaultContentConfiguration()
                 content.text = row == .recoveryRemoval
-                    ? String(localized: "Remove Using Recovery Mode")
-                    : String(localized: "Install Using Recovery Mode")
+                    ? String(legacyLocalized: "Remove Using Recovery Mode")
+                    : String(legacyLocalized: "Install Using Recovery Mode")
                 content.textProperties.font = .body
                 content.textProperties.color = row == .recoveryRemoval ? .swipeDelete : .buttonNormal
                 content.textProperties.numberOfLines = 0
-                cell.contentConfiguration = content
+                cell.legacyContentConfiguration = content
                 cell.backgroundColor = .cardBackground
                 cell.selectionStyle = .default
                 // the row is the control: one stop, activated by the row's
@@ -116,7 +116,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             cell.accessibilityTraits = .staticText
             let isSummary = check.package.isEmpty && check.requirement == summary
             let detail = isSummary ? "" : check.detailText
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = check.requirement
             content.textProperties.font = .rounded(.body, emphasized: true)
             content.textProperties.color = .textTitle
@@ -128,7 +128,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             content.image = UIImage.compatSystemImage(check.outcome == .matched ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
             )
             content.imageProperties.tintColor = check.outcome == .matched ? .requirementMatched : .requirementIssue
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             cell.backgroundColor = .cardBackground
             cell.accessibilityLabel = [check.requirement, detail].filter { !$0.isEmpty }.joined(separator: ". ")
             return cell
@@ -164,7 +164,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
     func tableView(_: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         guard case let .report(identity) = dataSource.snapshot().sectionIdentifiers[section] else { return nil }
         let header = UITableViewHeaderFooterView(reuseIdentifier: nil)
-        header.textLabel?.text = identity.isEmpty ? String(localized: "What Happened") : identity
+        header.textLabel?.text = identity.isEmpty ? String(legacyLocalized: "What Happened") : identity
         header.textLabel?.font = .rounded(.subheadline, emphasized: true)
         header.textLabel?.textColor = .textTitle
         header.textLabel?.numberOfLines = 0
@@ -229,25 +229,25 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             title: "Preparing…",
             message: "Checking packages…"
         )
-        Task { [weak self] in
-            guard await OperationConfirmation.confirm(), let self else { return }
-            await withCheckedContinuation { ready in
+        LegacyTask.detached { [weak self] in
+            guard OperationConfirmation.confirm(), let self else { return }
+            withCheckedContinuation { ready in
                 present(progress, animated: true) { ready.resume() }
             }
             let payload: Installer.OperationPayload? = if removing, let recoveryRemoval {
-                await Installer.shared.createRecoveryRemovalPayload(identity: recoveryRemoval)
+                Installer.shared.createRecoveryRemovalPayload(identity: recoveryRemoval)
             } else if let recoveryPackage {
-                await Installer.shared.createRecoveryOperationPayload(package: recoveryPackage)
+                Installer.shared.createRecoveryOperationPayload(package: recoveryPackage)
             } else {
                 nil
             }
-            await progress.dismissFinishing(animated: true)
+            progress.dismissFinishing(animated: true)
             guard let payload else {
                 let report = PackageActionReport.shared.allAvailable()
                 presentNotice(
                     title: "Unable to Prepare Installation",
                     message: report.isEmpty
-                        ? String(localized: "Unable to prepare the installation. Try again.")
+                        ? String(legacyLocalized: "Unable to prepare the installation. Try again.")
                         : report
                 )
                 return
@@ -256,7 +256,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             guard let host = sheet.presentingViewController else { return }
             let console = UINavigationController(rootViewController: OperationController(operation: payload))
             console.modalPresentationStyle = traitCollection.userInterfaceIdiom == .pad ? .formSheet : .fullScreen
-            await sheet.dismissFinishing(animated: true)
+            sheet.dismissFinishing(animated: true)
             guard host.view.window != nil else { return }
             host.present(console, animated: true)
         }

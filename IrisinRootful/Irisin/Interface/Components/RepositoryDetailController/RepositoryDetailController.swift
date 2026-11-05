@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import OrderedCollections
 import SPIndicator
 import Then
@@ -77,16 +79,16 @@ class RepositoryDetailController: UIViewController {
         case let .filter(filter):
             let cell = collectionView
                 .dequeueReusableCell(withReuseIdentifier: "filter", for: indexPath) as! UICollectionViewListCell
-            var content = UIListContentConfiguration.valueCell()
+            var content = LegacyListContentConfiguration.valueCell()
             switch filter {
             case .all:
-                content.text = String(localized: "All")
+                content.text = String(legacyLocalized: "All")
                 content.secondaryText = String(repo.packageCount)
             case let .section(key):
                 content.text = key.sectionDisplayName
                 content.secondaryText = String(sections[key] ?? 0)
             }
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             cell.accessories = [.disclosureIndicator()]
             return cell
         }
@@ -105,15 +107,15 @@ class RepositoryDetailController: UIViewController {
     /// The system's grouped header or footer text for a section.
     private func configure(_ cell: UICollectionViewListCell, ofKind kind: String, for section: Section?) {
         if kind == UICollectionView.elementKindSectionHeader {
-            var content = UIListContentConfiguration.groupedHeader()
+            var content = LegacyListContentConfiguration.groupedHeader()
             content.text = headerText(for: section)
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
         } else {
-            var content = UIListContentConfiguration.groupedFooter()
+            var content = LegacyListContentConfiguration.groupedFooter()
             content.text = footerText(for: section)
             // the counts close the page, centred; the description reads on
             content.textProperties.alignment = section == .sections ? .center : .natural
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
         }
     }
 
@@ -147,7 +149,7 @@ class RepositoryDetailController: UIViewController {
 
         let more = UIBarButtonItem(image: UIImage.compatSystemImage("ellipsis"), menu: moreMenu).then {
             $0.tintColor = .textTitle
-            $0.accessibilityLabel = String(localized: "More")
+            $0.accessibilityLabel = String(legacyLocalized: "More")
         }
         navigationItem.rightBarButtonItems = [more]
         if paymentEndpoint != nil {
@@ -204,13 +206,13 @@ class RepositoryDetailController: UIViewController {
     private func updateAccountItem() {
         guard let more = navigationItem.rightBarButtonItems?.first else { return }
         let elements = VendorAccount.shared.accountMenu(for: repo) { [weak self] in self }
-        let only = elements.count == 1 ? elements.first as? UIAction : nil
+        let only = elements.count == 1 ? elements.first as? LegacyAction : nil
         let account = UIBarButtonItem(
             image: UIImage.compatSystemImage("person.crop.circle"),
             primaryAction: only,
-            menu: only == nil ? UIMenu(children: elements) : nil
+            menu: only == nil ? LegacyMenu(children: elements) : nil
         )
-        account.accessibilityLabel = String(localized: "Account")
+        account.accessibilityLabel = String(legacyLocalized: "Account")
         navigationItem.rightBarButtonItems = [more, account]
     }
 
@@ -283,7 +285,7 @@ class RepositoryDetailController: UIViewController {
     /// The row's packages in name order, from a copy of the index: a large
     /// repository is a query and a sort that do not belong on the main actor.
     @concurrent
-    private nonisolated static func packages(for filter: Filter, in url: URL, index: PackageIndex) async -> [Package] {
+    private nonisolated static func packages(for filter: Filter, in url: URL, index: PackageIndex) -> [Package] {
         let list = switch filter {
         case let .section(key): index.obtainPackageList(in: url, section: key)
         case .all: index.obtainPackageList(in: url)
@@ -296,8 +298,8 @@ class RepositoryDetailController: UIViewController {
     /// carry no header.
     private func headerText(for section: Section?) -> String? {
         switch section {
-        case .all: String(localized: "Packages")
-        case .sections: String(localized: "Sections")
+        case .all: String(legacyLocalized: "Packages")
+        case .sections: String(legacyLocalized: "Sections")
         case .featured, nil: nil
         }
     }
@@ -308,7 +310,7 @@ class RepositoryDetailController: UIViewController {
         switch section {
         case .all:
             return repo.repositoryDescription.flatMap { $0.isEmpty ? nil : $0 }
-                ?? String(localized: "No description.")
+                ?? String(legacyLocalized: "No description.")
         case .sections:
             let formatter = DateFormatter().then {
                 $0.formatterBehavior = .behavior10_4
@@ -317,10 +319,10 @@ class RepositoryDetailController: UIViewController {
             }
             let updated = repo.lastUpdatePackage.timeIntervalSince1970 > 0
                 ? formatter.string(from: repo.lastUpdatePackage)
-                : String(localized: "Never")
+                : String(legacyLocalized: "Never")
             return ([
-                String(localized: "Packages: \(repo.packageCount) · Sections: \(sections.count)"),
-                String(localized: "Last updated: \(updated)"),
+                String(legacyLocalized: "Packages: \(repo.packageCount) · Sections: \(sections.count)"),
+                String(legacyLocalized: "Last updated: \(updated)"),
             ] + [refreshExplanation(formatter)].compactMap(\.self)).joined(separator: "\n")
         case .featured, nil:
             return nil
@@ -335,7 +337,7 @@ class RepositoryDetailController: UIViewController {
         let refreshed = formatter.string(from: report.date)
         var sentences = report.issues.map { $0.sentence(refreshed: refreshed) }
         if report.didNotConnect, repo.packageCount > 0, repo.lastUpdatePackage.timeIntervalSince1970 > 0 {
-            sentences.append(String(localized: "These packages are from \(formatter.string(from: repo.lastUpdatePackage))."))
+            sentences.append(String(legacyLocalized: "These packages are from \(formatter.string(from: repo.lastUpdatePackage))."))
         }
         return "\n" + sentences.uniqued().joined(separator: " ")
     }
@@ -344,17 +346,17 @@ class RepositoryDetailController: UIViewController {
 
     /// Refresh, then Share as a submenu, then Delete on its own: the
     /// repository list's context menu, for the repository on this page.
-    private var moreMenu: UIMenu {
-        UIMenu(children: [
-            UIMenu(options: .displayInline, children: [
-                UIAction(
-                    title: String(localized: "Refresh"),
+    private var moreMenu: LegacyMenu {
+        LegacyMenu(children: [
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Refresh"),
                     image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.refresh() },
                 shareMenu,
             ]),
-            UIAction(
-                title: String(localized: "Delete"),
+            LegacyAction(
+                title: String(legacyLocalized: "Delete"),
                 image: UIImage.compatSystemImage("trash"),
                 attributes: .destructive
             ) { [weak self] _ in self?.confirmDelete() },
@@ -363,7 +365,7 @@ class RepositoryDetailController: UIViewController {
 
     private func refresh() {
         RepositoryCenter.default.dispatchUpdateOnRepository(withUrl: repo.url)
-        SPIndicator.present(title: String(localized: "Refreshing…"), preset: .done)
+        SPIndicator.present(title: String(legacyLocalized: "Refreshing…"), preset: .done)
     }
 
     /// Asks first, as the list does; the page leaves once the repository is
@@ -372,15 +374,15 @@ class RepositoryDetailController: UIViewController {
         let url = repo.url
         presentConfirmation(
             title: "Delete Repository?",
-            message: String.LocalizationValue(
-                String(localized: "Its packages will no longer be listed. This cannot be undone.")
+            message: LegacyLocalizationValue(
+                String(legacyLocalized: "Its packages will no longer be listed. This cannot be undone.")
                     + "\n\n" + repo.nickName
             ),
             confirmTitle: "Delete",
             destructive: true
         ) {
             RepositoriesController.remove(url)
-            SPIndicator.present(title: String(localized: "Deleted"), preset: .done)
+            SPIndicator.present(title: String(legacyLocalized: "Deleted"), preset: .done)
         }
     }
 
@@ -388,25 +390,25 @@ class RepositoryDetailController: UIViewController {
 
     /// The address three ways (copied bare, copied as a sources.list line,
     /// shared), then the whole catalogue as a file.
-    private var shareMenu: UIMenu {
-        UIMenu(title: String(localized: "Share"), image: UIImage.compatSystemImage("square.and.arrow.up"), children: [
-            UIMenu(options: .displayInline, children: [
-                UIAction(
-                    title: String(localized: "Copy Address"),
+    private var shareMenu: LegacyMenu {
+        LegacyMenu(title: String(legacyLocalized: "Share"), image: UIImage.compatSystemImage("square.and.arrow.up"), children: [
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Copy Address"),
                     image: UIImage.compatSystemImage("link")
                 ) { [weak self] _ in self?.copy(self?.repo.url.absoluteString) },
-                UIAction(
-                    title: String(localized: "Copy APT Source"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Copy APT Source"),
                     image: UIImage.compatSystemImage("doc.on.doc")
                 ) { [weak self] _ in self?.copy(self?.repo.source.line) },
-                UIAction(
-                    title: String(localized: "Share"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Share"),
                     image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.openShareView() },
             ]),
-            UIMenu(options: .displayInline, children: [
-                UIAction(
-                    title: String(localized: "Export Packages"),
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Export Packages"),
                     image: UIImage.compatSystemImage("doc.plaintext")
                 ) { [weak self] _ in self?.exportPackages() },
                 ExportFile.exportRepositoryAction(
@@ -436,7 +438,7 @@ class RepositoryDetailController: UIViewController {
     private func copy(_ text: String?) {
         guard let text else { return }
         UIPasteboard.general.string = text
-        SPIndicator.present(title: String(localized: "Copied"), preset: .done)
+        SPIndicator.present(title: String(legacyLocalized: "Copied"), preset: .done)
     }
 
     private func openShareView() {
@@ -450,8 +452,8 @@ extension RepositoryDetailController: UICollectionViewDelegate {
         guard case let .filter(filter) = dataSource.itemIdentifier(for: indexPath) else { return }
         let index = PackageCenter.default.index
         let url = repo.url
-        Task { [weak self] in
-            let packages = await Self.packages(for: filter, in: url, index: index)
+        LegacyTask.detached { [weak self] in
+            let packages = Self.packages(for: filter, in: url, index: index)
             guard let self else { return }
             guard !packages.isEmpty else {
                 presentNotice(

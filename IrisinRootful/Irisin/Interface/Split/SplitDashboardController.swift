@@ -6,12 +6,13 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 class SplitDashboardController: DashboardController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Dashboard")
+        title = String(legacyLocalized: "Dashboard")
         navigationItem.largeTitleDisplayMode = .never
         // the iPhone has a search tab; here the field is in the bar
         navigationItem.searchController = SearchController.searchController(hostedBy: self)

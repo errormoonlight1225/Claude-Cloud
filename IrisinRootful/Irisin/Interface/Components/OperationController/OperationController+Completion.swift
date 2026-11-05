@@ -9,43 +9,43 @@ extension OperationController {
     func menuItem() -> UIBarButtonItem {
         let more = UIBarButtonItem(
             image: UIImage.compatSystemImage("ellipsis"),
-            menu: UIMenu(children: [
-                UIDeferredMenuElement.uncached { [weak self] completion in
+            menu: LegacyMenu(children: [
+                LegacyDeferredMenuElement.uncached { [weak self] completion in
                     completion(self?.menuElements() ?? [])
                 },
             ])
         )
-        more.accessibilityLabel = String(localized: "More")
+        more.accessibilityLabel = String(legacyLocalized: "More")
         return more
     }
 
-    private func menuElements() -> [UIMenuElement] {
-        let log = UIAction(title: String(localized: "View Full Log"), image: UIImage.compatSystemImage("scroll")) { [weak self] _ in
+    private func menuElements() -> [LegacyMenuElement] {
+        let log = LegacyAction(title: String(legacyLocalized: "View Full Log"), image: UIImage.compatSystemImage("scroll")) { [weak self] _ in
             guard let self, let monitor else { return }
             navigationController?.pushViewController(OperationLogController(monitor: monitor), animated: true)
         }
         guard let monitor else { return [log] }
         if monitor.outcome?.succeeded == false, !isRecoveryMode {
-            let ignore = UIAction(
-                title: String(localized: "Ignore Script Errors and Retry"),
+            let ignore = LegacyAction(
+                title: String(legacyLocalized: "Ignore Script Errors and Retry"),
                 image: UIImage.compatSystemImage("exclamationmark.shield"),
                 attributes: retrying ? .disabled : []
             ) { [weak self] _ in
                 self?.retryIgnoringScriptFailures()
             }
-            return [log, UIMenu(options: .displayInline, children: [ignore])]
+            return [log, LegacyMenu(options: .displayInline, children: [ignore])]
         }
         // home screen work follows an install that happened, not one that is running or did not
         guard monitor.outcome?.succeeded == true, !monitor.requiresExit else { return [log] }
         return [
             log,
-            UIMenu(options: .displayInline, children: [
-                UIAction(
-                    title: String(localized: "Rebuild Icons"),
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Rebuild Icons"),
                     image: UIImage.compatSystemImage("square.grid.2x2")
                 ) { [weak self] _ in self?.rebuildIcons() },
-                UIAction(
-                    title: String(localized: "Reload Home Screen"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Reload Home Screen"),
                     image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.reloadHomeScreen() },
             ]),
@@ -60,7 +60,7 @@ extension OperationController {
         case .close, .updateApp:
             UIBarButtonItem(
                 image: UIImage.compatSystemImage("checkmark"),
-                primaryAction: UIAction { [weak self] _ in
+                primaryAction: LegacyAction { [weak self] _ in
                     guard let self else { return }
                     if ending == .updateApp {
                         exitForUpgrade()
@@ -68,27 +68,27 @@ extension OperationController {
                         dismiss(animated: true)
                     }
                 }
-            ).then { $0.accessibilityLabel = String(localized: "Done") }
+            ).then { $0.accessibilityLabel = String(legacyLocalized: "Done") }
         }
         button.style = .done
         // Try Again tapped before the button came holds it too (`retrying`)
         button.isEnabled = !retrying
         button.accessibilityValue = succeeded
-            ? String(localized: "Operation completed.")
-            : String(localized: "Operation failed. Try again.")
+            ? String(legacyLocalized: "Operation completed.")
+            : String(legacyLocalized: "Operation failed. Try again.")
         navigationItem.rightBarButtonItems = [button]
     }
 
     /// The tweaks changed: a tap reloads the home screen, and touching and
     /// holding offers to close the page without it.
     private func reloadButton() -> UIBarButtonItem {
-        let reason = String(localized: "Changed tweaks take effect after the home screen reloads.")
+        let reason = String(legacyLocalized: "Changed tweaks take effect after the home screen reloads.")
         let button = UIBarButtonItem(
             title: String(localized: "Reload Home Screen"),
             image: nil,
-            primaryAction: UIAction { [weak self] _ in self?.reloadHomeScreen() },
-            menu: UIMenu(title: reason, children: [
-                UIAction(
+            primaryAction: LegacyAction { [weak self] _ in self?.reloadHomeScreen() },
+            menu: LegacyMenu(title: reason, children: [
+                LegacyAction(
                     title: String(localized: "Skip for Now"),
                     image: UIImage.compatSystemImage("xmark")
                 ) { [weak self] _ in self?.dismiss(animated: true) },
@@ -102,7 +102,7 @@ extension OperationController {
     private func reloadHomeScreen() {
         dismiss(animated: true) {
             UIApplication.prepareForExitAndSuspend()
-            Task { await PrivilegedBackend.run(.respring) }
+            LegacyTask.detached { PrivilegedBackend.run(.respring) }
         }
     }
 
@@ -112,8 +112,8 @@ extension OperationController {
             message: "Rebuilding home screen icons will take some time."
         )
         present(progress, animated: true) { [weak self] in
-            Task { [weak self] in
-                let outcome = await PrivilegedBackend.runMaintenance(.rebuildIconCache)
+            LegacyTask.detached { [weak self] in
+                let outcome = PrivilegedBackend.runMaintenance(.rebuildIconCache)
                 progress.dismiss(animated: true) {
                     self?.report(outcome, succeeded: "Icons rebuilt", failed: "Unable to Rebuild Icons")
                 }

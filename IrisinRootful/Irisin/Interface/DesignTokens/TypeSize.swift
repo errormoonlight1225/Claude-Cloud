@@ -69,7 +69,7 @@ extension UIFont {
     static func rounded(_ size: TypeSize, emphasized: Bool = false) -> UIFont {
         let weight: UIFont.Weight = emphasized ? .semibold : .regular
         var font = systemFont(ofSize: size.rawValue, weight: weight)
-        if let descriptor = font.fontDescriptor.withDesign(.rounded) {
+        if let descriptor = font.fontDescriptor.compatWithDesign(.rounded) {
             font = UIFont(descriptor: descriptor, size: size.rawValue)
         }
         return size.metrics.scaledFont(for: font)
@@ -77,7 +77,7 @@ extension UIFont {
 
     static func monospaced(_ size: TypeSize, emphasized: Bool = false) -> UIFont {
         size.metrics.scaledFont(
-            for: monospacedSystemFont(ofSize: size.rawValue, weight: emphasized ? .semibold : .regular)
+            for: compatMonospacedSystemFont(ofSize: size.rawValue, weight: emphasized ? .semibold : .regular)
         )
     }
 

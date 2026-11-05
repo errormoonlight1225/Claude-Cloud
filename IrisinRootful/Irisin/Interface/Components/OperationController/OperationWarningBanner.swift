@@ -10,7 +10,7 @@ final class OperationWarningBanner: UIView {
     private let icon = UIImageView(image: UIImage.compatSystemImage("exclamationmark.triangle.fill"))
     private let label = UILabel()
 
-    init(title: String.LocalizationValue) {
+    init(title: LegacyLocalizationValue) {
         super.init(frame: .zero)
         autoresizingMask = [.flexibleWidth]
         backgroundColor = .clear

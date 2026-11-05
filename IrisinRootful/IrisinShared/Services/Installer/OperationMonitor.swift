@@ -1,4 +1,7 @@
-import Combine
+import LegacyCompat
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Foundation
 import IrisinProtocol
 
@@ -34,8 +37,8 @@ final class OperationMonitor {
                 self = .failed(failure.localizedDescription)
             } else {
                 self = .failed(status == nil
-                    ? String(localized: "The installer could not be started. Try again.")
-                    : String(localized: "Operation failed. Try again."))
+                    ? String(legacyLocalized: "The installer could not be started. Try again.")
+                    : String(legacyLocalized: "Operation failed. Try again."))
             }
         }
 
@@ -110,13 +113,13 @@ final class OperationMonitor {
 
     /// The outcome, once there is one.
     var finished: Outcome {
-        get async {
-            for await value in $outcome.values {
+        get {
+            for value in $outcome.values {
                 if let value {
                     return value
                 }
             }
-            return .failed(String(localized: "Operation failed. Try again."))
+            return .failed(String(legacyLocalized: "Operation failed. Try again."))
         }
     }
 
@@ -169,7 +172,7 @@ final class OperationMonitor {
         self.changedTweaks = changedTweaks
         switch result {
         case .succeeded:
-            lines.append(String(localized: "Operation completed."))
+            lines.append(String(legacyLocalized: "Operation completed."))
         case let .failed(reason) where failure?.localizedDescription == reason:
             break
         case let .failed(reason):

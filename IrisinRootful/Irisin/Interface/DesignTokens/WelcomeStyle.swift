@@ -43,17 +43,17 @@ enum WelcomeStyle {
 
     /// The system sheet ground of the original welcome page.
     static var background: UIColor {
-        .systemBackground
+        .compatSystemBackground
     }
 
     /// Primary system label text, as in the original welcome page.
     static var titleColor: UIColor {
-        .label
+        .compatLabel
     }
 
     /// Secondary system label text, as in the original welcome page.
     static var detailColor: UIColor {
-        .secondaryLabel
+        .compatSecondaryLabel
     }
 
     /// The app icon's shadow in the original welcome page.

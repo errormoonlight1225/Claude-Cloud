@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import ImageIO
 import UIKit
 
@@ -26,7 +27,7 @@ enum RepositoryAvatar {
     /// One small picture per repository: a hundred of them are a few
     /// megabytes, so nothing is ever let go.
     private static var entries: [URL: Entry] = [:]
-    private static var decoding: [URL: (data: Data, task: Task<UIImage?, Never>)] = [:]
+    private static var decoding: [URL: (data: Data, task: LegacyTask)] = [:]
 
     /// The icon made from `data` if it has been made; `.some(nil)` when the
     /// data is no picture.
@@ -36,16 +37,16 @@ enum RepositoryAvatar {
     }
 
     /// The icon made from `data`, made at most once however many rows ask.
-    static func icon(for url: URL, data: Data) async -> UIImage? {
+    static nonisolated func icon(for url: URL, data: Data) -> UIImage? {
         if let cached = cached(for: url, data: data) {
             return cached
         }
         if let pending = decoding[url], pending.data == data {
-            return await pending.task.value
+            return pending.task.value
         }
-        let task = Task { await downsample(data, to: pixelSize) }
+        let task = LegacyTask.detached { downsample(data, to: pixelSize) }
         decoding[url] = (data, task)
-        let image = await task.value
+        let image = task.value
         entries[url] = Entry(data: data, image: image)
         if decoding[url]?.data == data {
             decoding[url] = nil
@@ -56,7 +57,7 @@ enum RepositoryAvatar {
     /// Decodes only as many pixels as the icon shows: a JPEG is read at a
     /// fraction of its size, and nothing full size stays in memory.
     @concurrent
-    private nonisolated static func downsample(_ data: Data, to pixelSize: Int) async -> UIImage? {
+    private nonisolated static func downsample(_ data: Data, to pixelSize: Int) -> UIImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                   kCGImageSourceCreateThumbnailFromImageAlways: true,

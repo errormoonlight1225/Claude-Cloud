@@ -30,7 +30,7 @@ struct SettingsItem {
     var value: (() -> String)?
     var isOn: (() -> Bool)?
     var setOn: ((Bool) -> Void)?
-    var menu: (() -> [UIMenuElement])?
+    var menu: (() -> [LegacyMenuElement])?
     var action: (() -> Void)?
 }
 
@@ -44,7 +44,7 @@ class SettingsCell: UITableViewCell {
 
     let titleLabel = UILabel().then {
         $0.font = .body
-        $0.textColor = .label
+        $0.textColor = .compatLabel
         // a title is never cut: it wraps and the row grows around it
         $0.numberOfLines = 0
     }
@@ -103,8 +103,8 @@ class SettingsCell: UITableViewCell {
         menuButton.accessibilityLabel = item.title
         if let menu = item.menu {
             menuButton.isHidden = false
-            menuButton.menu = UIMenu(children: [
-                UIDeferredMenuElement.uncached { completion in completion(menu()) },
+            menuButton.menu = LegacyMenu(children: [
+                LegacyDeferredMenuElement.uncached { completion in completion(menu()) },
             ])
         } else {
             menuButton.isHidden = true
@@ -143,7 +143,7 @@ final class SettingsValueCell: SettingsCell {
     private let valueLabel = RollingLabel().then {
         $0.clipsToBounds = false
         $0.font = UIFont.rounded(.body, emphasized: true).monospacedDigitFont
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.textAlignment = .trailing
     }
 

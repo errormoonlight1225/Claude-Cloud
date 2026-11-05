@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import IrisinProtocol
 import SnapKit
 import Then
@@ -65,7 +67,7 @@ class SettingsController: UITableViewController {
     private let footer = SettingsFooterView()
 
     init() {
-        super.init(style: .insetGrouped)
+        super.init(style: .compatInsetGrouped)
     }
 
     @available(*, unavailable)
@@ -75,32 +77,32 @@ class SettingsController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Settings")
+        title = String(legacyLocalized: "Settings")
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: UIImage.compatSystemImage("ellipsis"),
-            menu: UIMenu(children: [
-                UIAction(
+            menu: LegacyMenu(children: [
+                LegacyAction(
                     title: String(localized: "Welcome Page"),
                     image: UIImage.compatSystemImage("hand.wave")
                 ) { [weak self] _ in
                     self?.present(WelcomeController.makeNavigator(), animated: true)
                 },
-                UIAction(
+                LegacyAction(
                     title: String(localized: "System Settings"),
                     image: UIImage.compatSystemImage("gear")
                 ) { _ in
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 },
-                UIAction(
+                LegacyAction(
                     title: String(localized: "Get Test Update"),
                     image: UIImage.compatSystemImage("shippingbox")
                 ) { [weak self] _ in
                     self?.getTestUpdate()
                 },
                 // below a divider: the files this app hands out
-                UIMenu(options: .displayInline, children: [
+                LegacyMenu(options: .displayInline, children: [
                     ExportFile.menu(from: self) { [weak self] in
                         (self?.navigationItem.rightBarButtonItem).map { PopoverAnchor($0) }
                     },
@@ -119,12 +121,12 @@ class SettingsController: UITableViewController {
         tableView.separatorStyle = .none
         dataSource.headerTitle = { section in
             switch section {
-            case .accounts: String(localized: "Vendor Accounts")
-            case .repositories: String(localized: "Repositories")
-            case .packages: String(localized: "Packages")
-            case .downloads: String(localized: "Downloads")
-            case .system: String(localized: "System")
-            case .support: String(localized: "Support")
+            case .accounts: String(legacyLocalized: "Vendor Accounts")
+            case .repositories: String(legacyLocalized: "Repositories")
+            case .packages: String(legacyLocalized: "Packages")
+            case .downloads: String(legacyLocalized: "Downloads")
+            case .system: String(legacyLocalized: "System")
+            case .support: String(legacyLocalized: "Support")
             }
         }
 
@@ -231,8 +233,8 @@ class SettingsController: UITableViewController {
     }
 
     /// A one-item menu: tapping the row asks once more before `confirm` runs.
-    func confirmMenu(_ text: String, confirm: @escaping () -> Void) -> [UIMenuElement] {
-        [UIAction(title: text, attributes: .destructive) { _ in confirm() }]
+    func confirmMenu(_ text: String, confirm: @escaping () -> Void) -> [LegacyMenuElement] {
+        [LegacyAction(title: text, attributes: .destructive) { _ in confirm() }]
     }
 
     /// Suspends the app and asks the daemon for a job that ends it: a
@@ -248,9 +250,9 @@ class SettingsController: UITableViewController {
             return
         }
         UIApplication.prepareForExitAndSuspend()
-        Task {
-            try? await Task.sleep(seconds: 1)
-            await PrivilegedBackend.run(job)
+        LegacyTask.detached {
+            try? Task.sleep(seconds: 1)
+            PrivilegedBackend.run(job)
         }
     }
 
@@ -290,13 +292,13 @@ final class SettingsFooterView: UIView {
 
     private let licenseButton = UIButton(type: .system).then {
         $0.titleLabel?.font = .rounded(.caption, emphasized: true)
-        $0.setTitle(String(localized: "License"), for: .normal)
+        $0.setTitle(String(legacyLocalized: "License"), for: .normal)
         $0.contentHorizontalAlignment = .leading
     }
 
     private let label = UILabel().then {
         $0.font = .rounded(.caption2)
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.numberOfLines = 0
     }
 

@@ -152,21 +152,21 @@ final class PathListController: UITableViewController {
     ) -> UIContextMenuConfiguration? {
         guard let path = dataSource.itemIdentifier(for: indexPath) else { return nil }
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
-            UIMenu(title: path, children: [
-                UIAction(
-                    title: String(localized: "Copy Name"),
+            LegacyMenu(title: path, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Copy Name"),
                     image: UIImage.compatSystemImage("doc.on.doc")
                 ) { _ in
                     UIPasteboard.general.string = (path as NSString).lastPathComponent
                 },
-                UIAction(
-                    title: String(localized: "Copy Path"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Copy Path"),
                     image: UIImage.compatSystemImage("doc.on.clipboard")
                 ) { _ in
                     UIPasteboard.general.string = path
                 },
-                UIAction(
-                    title: String(localized: "Reveal in Fila"),
+                LegacyAction(
+                    title: String(legacyLocalized: "Reveal in Fila"),
                     image: UIImage.compatSystemImage("folder")
                 ) { [weak self] _ in
                     // Fila browses the raw filesystem, so the path a package
@@ -230,7 +230,7 @@ private final class PathCell: UITableViewCell {
         let name = (path as NSString).lastPathComponent
         let text = NSMutableAttributedString(string: isDirectory ? name + "/" : name, attributes: [
             .font: UIFont.monospaced(.subheadline),
-            .foregroundColor: UIColor.label,
+            .foregroundColor: UIColor.compatLabel,
         ])
         if let search, !search.isEmpty {
             let match = (name as NSString).range(

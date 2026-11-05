@@ -24,7 +24,7 @@ final class RepositoryAddAdvancedController: UITableViewController {
     private var components = ""
 
     private lazy var addButton = UIBarButtonItem(
-        title: String(localized: "Add"),
+        title: String(legacyLocalized: "Add"),
         style: .done,
         target: self,
         action: #selector(confirm)
@@ -56,13 +56,13 @@ final class RepositoryAddAdvancedController: UITableViewController {
     }
 
     static func sheet() -> UINavigationController {
-        .halfSheet(root: RepositoryAddAdvancedController(style: .insetGrouped))
+        .halfSheet(root: RepositoryAddAdvancedController(style: .compatInsetGrouped))
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = String(localized: "Advanced Source")
+        title = String(legacyLocalized: "Advanced Source")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,
             target: self,
@@ -76,17 +76,17 @@ final class RepositoryAddAdvancedController: UITableViewController {
         tableView.dataSource = dataSource
         dataSource.headerTitle = { section in
             switch section {
-            case .url: String(localized: "URL")
-            case .suite: String(localized: "Suite")
-            case .components: String(localized: "Components")
+            case .url: String(legacyLocalized: "URL")
+            case .suite: String(legacyLocalized: "Suite")
+            case .components: String(legacyLocalized: "Components")
             }
         }
         dataSource.footerTitle = { section in
             switch section {
             case .url: nil
             case .suite:
-                String(localized: "The distribution under dists/, or a path ending in / for a flat repository.")
-            case .components: String(localized: "Separated by spaces. Leave empty for a flat repository.")
+                String(legacyLocalized: "The distribution under dists/, or a path ending in / for a flat repository.")
+            case .components: String(legacyLocalized: "Separated by spaces. Leave empty for a flat repository.")
             }
         }
 

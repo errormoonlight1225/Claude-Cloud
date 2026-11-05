@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import LocalAuthentication
 import UIKit
 
@@ -22,10 +23,10 @@ enum OperationConfirmation {
         /// in Chinese), kept on one line wherever a sentence wraps it.
         var name: String {
             let name = switch self {
-            case .faceID: String(localized: "Face ID")
-            case .touchID: String(localized: "Touch ID")
-            case .opticID: String(localized: "Optic ID")
-            case .passcode: String(localized: "Passcode")
+            case .faceID: String(legacyLocalized: "Face ID")
+            case .touchID: String(legacyLocalized: "Touch ID")
+            case .opticID: String(legacyLocalized: "Optic ID")
+            case .passcode: String(legacyLocalized: "Passcode")
             }
             return name.replacingOccurrences(of: " ", with: "\u{00A0}")
         }
@@ -68,17 +69,17 @@ enum OperationConfirmation {
 
     /// True when the change may go ahead: the owner confirmed, the setting
     /// is off, or the device has no passcode to ask for.
-    static func confirm() async -> Bool {
+    static nonisolated func confirm() -> Bool {
         guard isEnabled, method != nil else { return true }
-        return await authenticate()
+        return authenticate()
     }
 
     /// Asks whatever the setting says; turning the setting on or off is
     /// confirmed the same way.
-    static func authenticate() async -> Bool {
-        let reason = String(localized: "Verify that you own this device to change packages.")
+    static nonisolated func authenticate() -> Bool {
+        let reason = String(legacyLocalized: "Verify that you own this device to change packages.")
         let context = LAContext()
-        let success = await withCheckedContinuation { finished in
+        let success = withCheckedContinuation { finished in
             context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
                 finished.resume(returning: success)
             }

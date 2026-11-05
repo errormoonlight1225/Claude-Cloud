@@ -6,9 +6,12 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AlertController
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import UIKit
 
@@ -37,7 +40,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         #if !DEBUG
             UserDefaults.standard.set(false, forKey: "_UIConstraintBasedLayoutLogUnsatisfiable")
         #endif
-        UITableView.appearance().sectionHeaderTopPadding = 0.0
+        if #available(iOS 15.0, *) { UITableView.appearance().sectionHeaderTopPadding = 0.0 }
         adoptDynamicTypeEverywhere()
 
         AppBootstrap.start()

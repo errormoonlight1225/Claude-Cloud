@@ -8,8 +8,6 @@
 
 import LegacyCompat
 import AptRepository
-import Runestone
-import RunestoneLanguageSupport
 import UIKit
 
 /// One queued package, opened from its row on the queue page: what the
@@ -35,16 +33,16 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
     private let change: QueueChange
     private var inspection: QueuePackageInspection?
     private var failed = false
-    private var work: Task<Void, Never>?
+    private var work: LegacyTask?
     private lazy var icons = PackageIconCache { [weak self] in self?.render(animated: false) }
 
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
 
     private lazy var dataSource: EditableTableDiffableDataSource<Section, Row> = .init(
         tableView: tableView
     ) { [unowned self] table, indexPath, row in
         let cell = table.dequeueReusableCell(withIdentifier: "row", for: indexPath)
-        cell.contentConfiguration = content(for: row)
+        cell.legacyContentConfiguration = content(for: row)
         let opens = opens(row)
         cell.selectionStyle = opens ? .default : .none
         cell.accessoryType = opens ? .disclosureIndicator : .none
@@ -52,7 +50,7 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         return cell
     }
 
-    private let spinner = UIActivityIndicatorView(style: .medium)
+    private let spinner = UIActivityIndicatorView(style: .compatMedium)
 
     init(change: QueueChange) {
         self.change = change
@@ -60,8 +58,8 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         title = change.name
         // not hashed: the page only looks
         let archive = change.package.fileOnDisk
-        work = Task { [weak self] in
-            let inspection = try? await QueuePackageInspection.inspect(change, archive: archive)
+        work = LegacyTask.detached { [weak self] in
+            let inspection = try? QueuePackageInspection.inspect(change, archive: archive)
             guard let self else { return }
             work = nil
             self.inspection = inspection
@@ -80,8 +78,8 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
     /// Waits for the package to be read, up to `budget`, so a quick read
     /// arrives with the page and only a slow one fades in after it. A large
     /// package takes seconds to read; the page does not wait for that.
-    func prepare(within budget: TimeInterval) async {
-        await work?.wait(upTo: budget)
+    nonisolated func prepare(within budget: TimeInterval) {
+        work?.wait(upTo: budget)
     }
 
     override func viewDidLoad() {
@@ -95,8 +93,8 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         dataSource.defaultRowAnimation = .fade
         dataSource.headerTitle = { section in
             switch section {
-            case .files: String(localized: "Files")
-            case .scripts: String(localized: "Scripts")
+            case .files: String(legacyLocalized: "Files")
+            case .scripts: String(legacyLocalized: "Scripts")
             case .package, .reading: nil
             }
         }
@@ -104,10 +102,10 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
             guard let inspection else { return nil }
             switch section {
             case .files where inspection.otherOwned > 0:
-                let owners = ListFormatter.localizedString(byJoining: inspection.otherOwners)
-                return String(localized: "\(inspection.otherOwned) of the replaced files belong to \(owners).")
+                let owners = LegacyListFormatter.localizedString(byJoining: inspection.otherOwners)
+                return String(legacyLocalized: "\(inspection.otherOwned) of the replaced files belong to \(owners).")
             case .scripts where !inspection.scripts.isEmpty:
-                return String(localized: "The scripts run as root, in this order.")
+                return String(legacyLocalized: "The scripts run as root, in this order.")
             default:
                 return nil
             }
@@ -160,15 +158,15 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
 
     private func title(of row: Row) -> String {
         switch row {
-        case .added: String(localized: "New Files")
-        case .replaced: String(localized: "Replaced Files")
-        case .deleted: String(localized: "Deleted Files")
+        case .added: String(legacyLocalized: "New Files")
+        case .replaced: String(legacyLocalized: "Replaced Files")
+        case .deleted: String(legacyLocalized: "Deleted Files")
         default: ""
         }
     }
 
-    private func content(for row: Row) -> UIListContentConfiguration {
-        var content = UIListContentConfiguration.valueCell()
+    private func content(for row: Row) -> LegacyListContentConfiguration {
+        var content = LegacyListContentConfiguration.valueCell()
         content.textProperties.font = .body
         content.secondaryTextProperties.font = .body.monospacedDigitFont
         content.secondaryTextProperties.color = .textSubtitle
@@ -179,10 +177,10 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
                 details: [change.versions, change.kind.title(dependencies: false)]
             )
         case .reading:
-            content.text = String(localized: "Reading the package…")
+            content.text = String(legacyLocalized: "Reading the package…")
             content.textProperties.color = .textSubtitle
         case .failure:
-            content.text = String(localized: "Unable to read this package.")
+            content.text = String(legacyLocalized: "Unable to read this package.")
             content.textProperties.color = .operationFailed
             content.image = UIImage.compatSystemImage("exclamationmark.triangle")
             content.imageProperties.tintColor = .operationFailed
@@ -201,12 +199,12 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
             content.textProperties.font = .monospaced(.subheadline)
             content.textProperties.numberOfLines = 1
             content.textProperties.lineBreakMode = .byTruncatingMiddle
-            let origin = script.installed ? String(localized: "Installed") : String(localized: "Incoming")
-            content.secondaryText = script.text == nil ? String(localized: "\(origin) · Binary") : origin
+            let origin = script.installed ? String(legacyLocalized: "Installed") : String(legacyLocalized: "Incoming")
+            content.secondaryText = script.text == nil ? String(legacyLocalized: "\(origin) · Binary") : origin
             content.secondaryTextProperties.font = .footnote
             content.prefersSideBySideTextAndSecondaryText = true
         case .noScripts:
-            content.text = String(localized: "No scripts")
+            content.text = String(legacyLocalized: "No scripts")
             content.textProperties.color = .textSubtitle
         }
         return content
@@ -221,29 +219,9 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         tableView.deselectRow(at: indexPath, animated: true)
         guard let row = dataSource.itemIdentifier(for: indexPath), opens(row) else { return }
         if case let .script(index) = row, let script = inspection?.scripts[index], let text = script.text {
-            present(next: TextReaderController(title: script.invocation, text: text, language: Self.language(of: text)))
+            present(next: TextReaderController(title: script.invocation, text: text))
         } else {
             present(next: PathListController(title: title(of: row), paths: paths(for: row)))
         }
-    }
-
-    /// Shells the bash grammar reads well enough to colour.
-    private static let shells: Set<Substring> = ["sh", "bash", "dash", "ash", "zsh", "ksh"]
-
-    /// The bash grammar for a shell script, and nothing for any other
-    /// interpreter the first line names: the app carries no other grammar,
-    /// and bash's forced onto Perl would colour it wrong. A maintainer script
-    /// is a shell script unless it says otherwise, so that is also what no
-    /// first line means.
-    private static func language(of text: String) -> TreeSitterLanguage? {
-        let first = text.prefix(256).prefix { $0 != "\n" && $0 != "\r" }
-        guard first.hasPrefix("#!") else { return .bash }
-        // `#!/bin/sh -e`, `#!/usr/bin/env bash`: the program, or what env runs
-        let words = first.dropFirst(2).split(whereSeparator: \.isWhitespace)
-        guard var program = words.first?.split(separator: "/").last else { return .bash }
-        if program == "env", words.count > 1 {
-            program = words[1]
-        }
-        return shells.contains(program) ? .bash : nil
     }
 }

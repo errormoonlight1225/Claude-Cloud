@@ -46,11 +46,11 @@ final nonisolated class DownloadTaskRelay: NSObject, URLSessionDataDelegate, @un
         task.resume()
     }
 
-    func urlSession(
+    nonisolated func urlSession(
         _: URLSession,
         dataTask _: URLSessionDataTask,
         didReceive response: URLResponse
-    ) async -> URLSession.ResponseDisposition {
+    ) -> URLSession.ResponseDisposition {
         guard let response = response as? HTTPURLResponse else {
             continuation.finish(throwing: DownloadError.malformedResponse)
             return .cancel

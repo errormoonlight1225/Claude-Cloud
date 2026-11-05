@@ -7,24 +7,24 @@
 //
 
 import LegacyCompat
-import Runestone
-import RunestoneThemeSupport
 import SnapKit
 import Then
 import UIKit
 
-/// Text to read, the way Fila opens a file: Runestone's text view with line
-/// numbers, lines that run past the edge until the toggle wraps them, and
-/// Share. A maintainer script brings its grammar; a package's control fields
-/// are plain text. Nothing here edits.
+/// Text to read: a maintainer script or a package's control fields, in a
+/// monospaced, selectable text view whose lines run past the edge until the
+/// toggle wraps them, with Share. Nothing here edits.
+///
+/// iOS 12 port: a UITextView where the upstream reader is Runestone's text
+/// view (which stands on UITextInteraction, iOS 13), so there are no line
+/// numbers and no syntax colours.
 final class TextReaderController: UIViewController {
     private let text: String
-    private let language: TreeSitterLanguage?
-    private let textView = TextView()
+    private let textView = UITextView()
+    private var wrapsLines = false
 
-    init(title: String, text: String, language: TreeSitterLanguage? = nil) {
+    init(title: String, text: String) {
         self.text = text
-        self.language = language
         super.init(nibName: nil, bundle: nil)
         self.title = title
     }
@@ -37,67 +37,72 @@ final class TextReaderController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         navigationItem.largeTitleDisplayMode = .never
-        let wrap = UIBarButtonItem().then {
-            $0.image = UIImage.compatSystemImage("arrow.turn.down.left")
-            $0.accessibilityLabel = String(localized: "Wrap Lines")
+        let wrap = UIBarButtonItem(
+            legacyTitle: String(legacyLocalized: "Wrap Lines"),
+            image: UIImage.compatSystemImage("arrow.turn.down.left")
+        ) { [weak self] item in
+            guard let self else { return }
+            wrapsLines.toggle()
+            applyWrapping()
+            item.tintColor = wrapsLines ? nil : .textSubtitle
         }
-        wrap.primaryAction = UIAction(image: wrap.image) { [weak self, weak wrap] _ in
-            guard let self, let wrap else { return }
-            textView.isLineWrappingEnabled.toggle()
-            wrap.isSelected = textView.isLineWrappingEnabled
-        }
-        navigationItem.rightBarButtonItems = [
-            UIBarButtonItem(
-                image: UIImage.compatSystemImage("square.and.arrow.up"),
-                primaryAction: UIAction { [weak self] _ in self?.share() }
-            ).then { $0.accessibilityLabel = String(localized: "Share") },
-            wrap,
-        ]
+        wrap.tintColor = .textSubtitle
+        let share = UIBarButtonItem(
+            legacyTitle: String(legacyLocalized: "Share"),
+            image: UIImage.compatSystemImage("square.and.arrow.up")
+        ) { [weak self] _ in self?.share() }
+        navigationItem.rightBarButtonItems = [share, wrap]
 
-        // a reader shows the text, not the whitespace inside it
         textView.do {
-            $0.showTabs = false
-            $0.showSpaces = false
-            $0.showNonBreakingSpaces = false
-            $0.showLineBreaks = false
-            $0.showSoftLineBreaks = false
-            $0.showLineNumbers = true
-            $0.gutterLeadingPadding = 8
-            $0.gutterTrailingPadding = 8
-            $0.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-            $0.lineHeightMultiplier = 1.2
-            $0.spellCheckingType = .no
-            $0.lineSelectionDisplayType = .line
-            $0.isLineWrappingEnabled = false
             $0.isEditable = false
+            $0.isSelectable = true
             $0.alwaysBounceVertical = true
+            $0.font = UIFont.monospaced(.footnote)
+            $0.textColor = .textTitle
+            $0.backgroundColor = .pageBackground
+            $0.textContainerInset = UIEdgeInsets(top: 12, left: 8, bottom: 12, right: 8)
+            $0.autocorrectionType = .no
+            $0.spellCheckingType = .no
+            $0.dataDetectorTypes = []
+            $0.text = text
         }
+        view.backgroundColor = .pageBackground
         view.addSubview(textView)
         textView.snp.makeConstraints { x in
             x.edges.equalToSuperview()
         }
-
-        // text, theme and grammar in one state: set apart, each parses again
-        let theme = ReaderTheme(for: traitCollection)
-        if let language {
-            textView.setState(TextViewState(text: text, theme: theme, language: language))
-        } else {
-            textView.setState(TextViewState(text: text, theme: theme))
-        }
-        textView.backgroundColor = theme.backgroundColor
-        view.backgroundColor = theme.backgroundColor
+        applyWrapping()
     }
 
-    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
-        super.traitCollectionDidChange(previous)
-        guard previous?.userInterfaceStyle != traitCollection.userInterfaceStyle
-            || previous?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory
-        else { return }
-        // the theme alone: a new state would parse the text again
-        let theme = ReaderTheme(for: traitCollection)
-        textView.theme = theme
-        textView.backgroundColor = theme.backgroundColor
-        view.backgroundColor = theme.backgroundColor
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if !wrapsLines { applyWrapping() }
+    }
+
+    /// Unwrapped, the text container is as wide as the longest line and the
+    /// text view scrolls sideways; wrapped, it follows the view's width.
+    private func applyWrapping() {
+        let container = textView.textContainer
+        if wrapsLines {
+            container.widthTracksTextView = true
+            container.lineBreakMode = .byWordWrapping
+            container.size = CGSize(width: textView.bounds.width, height: .greatestFiniteMagnitude)
+        } else {
+            container.widthTracksTextView = false
+            container.lineBreakMode = .byClipping
+            let font = textView.font ?? UIFont.monospaced(.footnote)
+            let longest = text.split(separator: "\n", omittingEmptySubsequences: false)
+                .map { ($0 as Substring).count }.max() ?? 0
+            let advance = ("M" as NSString).size(withAttributes: [.font: font]).width
+            let width = max(textView.bounds.width, CGFloat(longest) * advance + 32)
+            container.size = CGSize(width: width, height: .greatestFiniteMagnitude)
+        }
+        textView.layoutManager.ensureLayout(for: container)
+        let used = textView.layoutManager.usedRect(for: container)
+        textView.contentSize = CGSize(
+            width: wrapsLines ? textView.bounds.width : container.size.width,
+            height: used.height + textView.textContainerInset.top + textView.textContainerInset.bottom
+        )
     }
 
     private func share() {
@@ -106,90 +111,5 @@ final class TextReaderController: UIViewController {
             anchor: navigationItem.rightBarButtonItem.map { PopoverAnchor($0) },
             from: self
         )
-    }
-}
-
-/// One of Runestone's palettes under the app's own monospaced token: the
-/// themes ship a fixed point size, and the type ramp follows Dynamic Type.
-/// Everything but the font is the base theme's, forwarded.
-private final class ReaderTheme: EditorTheme {
-    private let base: EditorTheme
-    let font = UIFont.monospaced(.footnote)
-    let lineNumberFont = UIFont.monospaced(.footnote)
-
-    init(for traits: UITraitCollection) {
-        base = traits.userInterfaceStyle == .dark ? OneDarkTheme() : TomorrowTheme()
-    }
-
-    var backgroundColor: UIColor {
-        base.backgroundColor
-    }
-
-    var userInterfaceStyle: UIUserInterfaceStyle {
-        base.userInterfaceStyle
-    }
-
-    var textColor: UIColor {
-        base.textColor
-    }
-
-    var gutterBackgroundColor: UIColor {
-        base.gutterBackgroundColor
-    }
-
-    var gutterHairlineColor: UIColor {
-        base.gutterHairlineColor
-    }
-
-    var gutterHairlineWidth: CGFloat {
-        base.gutterHairlineWidth
-    }
-
-    var lineNumberColor: UIColor {
-        base.lineNumberColor
-    }
-
-    var selectedLineBackgroundColor: UIColor {
-        base.selectedLineBackgroundColor
-    }
-
-    var selectedLinesLineNumberColor: UIColor {
-        base.selectedLinesLineNumberColor
-    }
-
-    var selectedLinesGutterBackgroundColor: UIColor {
-        base.selectedLinesGutterBackgroundColor
-    }
-
-    var invisibleCharactersColor: UIColor {
-        base.invisibleCharactersColor
-    }
-
-    var pageGuideHairlineColor: UIColor {
-        base.pageGuideHairlineColor
-    }
-
-    var pageGuideHairlineWidth: CGFloat {
-        base.pageGuideHairlineWidth
-    }
-
-    var pageGuideBackgroundColor: UIColor {
-        base.pageGuideBackgroundColor
-    }
-
-    var markedTextBackgroundColor: UIColor {
-        base.markedTextBackgroundColor
-    }
-
-    var markedTextBackgroundCornerRadius: CGFloat {
-        base.markedTextBackgroundCornerRadius
-    }
-
-    func textColor(for highlightName: String) -> UIColor? {
-        base.textColor(for: highlightName)
-    }
-
-    func fontTraits(for highlightName: String) -> FontTraits {
-        base.fontTraits(for: highlightName)
     }
 }

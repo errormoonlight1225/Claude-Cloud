@@ -14,11 +14,11 @@ import UIKit
 extension DashboardController {
     @objc
     func refresh() {
-        Task {
-            await reload(animated: true)
+        LegacyTask.detached {
+            reload(animated: true)
             refreshControl.endRefreshing()
             SPIndicator.present(
-                title: String(localized: "Refreshed"),
+                title: String(legacyLocalized: "Refreshed"),
                 message: nil,
                 preset: .done,
                 haptic: .success,
@@ -28,14 +28,14 @@ extension DashboardController {
         }
     }
 
-    func reload(
+    nonisolated func reload(
         animated: Bool,
-        load: () async -> [DashboardController.Section] = DashboardController.sections
-    ) async {
+        load: @Sendable () -> [DashboardController.Section] = DashboardController.sections
+    ) {
         let requestID = UUID()
         reloadID = requestID
-        let sections = await load()
-        guard reloadID == requestID, !Task.isCancelled else { return }
+        let sections = load()
+        guard reloadID == requestID, !LegacyTask.isCancelled else { return }
         dataSource = sections
         applySnapshot(
             animatingDifferences: animated && collectionView.shouldAnimateDiff
@@ -59,8 +59,8 @@ extension DashboardController {
         diffableDataSource.apply(snapshot, animatingDifferences: animatingDifferences)
         if snapshot.numberOfItems == 0 {
             emptyStateLabel.text = RepositoryCenter.default.obtainRepositoryCount() == 0
-                ? String(localized: "Add a repository to get started.")
-                : String(localized: "Nothing to show yet. Refresh your repositories.")
+                ? String(legacyLocalized: "Add a repository to get started.")
+                : String(legacyLocalized: "Nothing to show yet. Refresh your repositories.")
             collectionView.backgroundView = emptyStateLabel
         } else {
             collectionView.backgroundView = nil

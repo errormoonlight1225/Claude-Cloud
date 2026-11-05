@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import SDWebImage
 import UIKit
@@ -39,7 +40,7 @@ class PackageCollectionCell: UICollectionViewListCell {
 
     override init(frame _: CGRect) {
         super.init(frame: CGRect())
-        backgroundConfiguration = .clear()
+        legacyBackgroundConfiguration = .clear()
         // the section has the page's inset already
         preservesSuperviewLayoutMargins = false
         directionalLayoutMargins = .zero
@@ -59,7 +60,7 @@ class PackageCollectionCell: UICollectionViewListCell {
     /// The ground stays clear through every state: the page's own shows.
     override func updateConfiguration(using state: UICellConfigurationState) {
         super.updateConfiguration(using: state)
-        backgroundConfiguration = .clear()
+        legacyBackgroundConfiguration = .clear()
     }
 
     /// A list section measures its rows; a row is as tall as

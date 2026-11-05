@@ -6,6 +6,7 @@
 //  accent.
 //
 
+import LegacyCompat
 import UIKit
 
 extension UIColor {
@@ -48,13 +49,13 @@ extension UIColor {
     static let upToDate = UIColor.systemGreen
 
     /// The repository offers only a version older than the installed one.
-    static let versionOlder = UIColor.systemGray2
+    static let versionOlder = UIColor.compatSystemGray2
 
     /// A version that cannot be compared with the installed one.
     static let versionInvalid = UIColor.systemRed
 
     /// The queue installs the package: the badge's arrow into it.
-    static let queuedInstall = UIColor.systemIndigo
+    static let queuedInstall = UIColor.compatSystemIndigo
 
     /// The queue removes the package: the badge's cross.
     static let queuedRemoval = UIColor.systemRed
@@ -77,7 +78,7 @@ extension UIColor {
     /// Log viewer lines by level: a verbose line is dimmed; a warning, an
     /// error and a critical line are red, the last two on a red wash.
     static let logVerbose = UIColor.systemGray
-    static let logVerboseDetail = UIColor.systemGray2
+    static let logVerboseDetail = UIColor.compatSystemGray2
     static let logProblem = UIColor.systemRed
     static let logProblemDetail = UIColor.systemRed.withAlphaComponent(0.7)
     static let logErrorBackground = UIColor.systemRed.withAlphaComponent(0.05)

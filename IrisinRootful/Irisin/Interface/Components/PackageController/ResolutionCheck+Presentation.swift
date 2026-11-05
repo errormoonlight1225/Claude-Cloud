@@ -1,3 +1,4 @@
+import LegacyCompat
 import AptRepository
 import AptResolver
 import UIKit
@@ -5,13 +6,13 @@ import UIKit
 extension ResolutionCheck {
     var statusText: String {
         switch outcome {
-        case .matched: String(localized: "Matching Package Found")
-        case .missing: String(localized: "Not Found in Installed Packages or Repositories")
-        case .incompatibleArchitecture: String(localized: "Found for a Different Architecture")
-        case .noMatchingVersion: String(localized: "No Version Meets This Requirement")
-        case .invalidMetadata: String(localized: "Package Metadata Could Not Be Read")
-        case .conflictingRequirements: String(localized: "Requirements Conflict")
-        case .requiredBySystem: String(localized: "Required by the System")
+        case .matched: String(legacyLocalized: "Matching Package Found")
+        case .missing: String(legacyLocalized: "Not Found in Installed Packages or Repositories")
+        case .incompatibleArchitecture: String(legacyLocalized: "Found for a Different Architecture")
+        case .noMatchingVersion: String(legacyLocalized: "No Version Meets This Requirement")
+        case .invalidMetadata: String(legacyLocalized: "Package Metadata Could Not Be Read")
+        case .conflictingRequirements: String(legacyLocalized: "Requirements Conflict")
+        case .requiredBySystem: String(legacyLocalized: "Required by the System")
         }
     }
 
@@ -19,7 +20,7 @@ extension ResolutionCheck {
         var lines = [statusText]
         if outcome == .incompatibleArchitecture {
             let device = AptEnvironment.current.deviceArchitecture
-            lines.append(String(localized: "This device supports \(device)."))
+            lines.append(String(legacyLocalized: "This device supports \(device)."))
         }
         return (lines + candidates).joined(separator: "\n")
     }

@@ -9,7 +9,9 @@
 import LegacyCompat
 import AptRepository
 import AptResolver
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import UIKit
 
@@ -44,15 +46,15 @@ final class QueueController: UIViewController, UITableViewDelegate {
         case failure(String)
     }
 
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
     private let listUpdates = WindowedListUpdates()
     private lazy var icons = PackageIconCache { [weak self] in self?.redraw() }
-    private let emptyState = EmptyStateView(text: String(localized: "No packages in the queue"))
+    private let emptyState = EmptyStateView(text: String(legacyLocalized: "No packages in the queue"))
     private let executeButton = UIBarButtonItem()
     private let busyItem: UIBarButtonItem = {
-        let spinner = UIActivityIndicatorView(style: .medium)
+        let spinner = UIActivityIndicatorView(style: .compatMedium)
         spinner.isAccessibilityElement = true
-        spinner.accessibilityLabel = String(localized: "Operation in Progress")
+        spinner.accessibilityLabel = String(legacyLocalized: "Operation in Progress")
         spinner.startAnimating()
         return UIBarButtonItem(customView: spinner)
     }()
@@ -61,13 +63,13 @@ final class QueueController: UIViewController, UITableViewDelegate {
     /// installs to be here, and that changes under an open page.
     private lazy var menuItem = UIBarButtonItem(
         image: UIImage.compatSystemImage("ellipsis"),
-        menu: UIMenu(children: [
-            UIDeferredMenuElement.uncached { [weak self] completion in
+        menu: LegacyMenu(children: [
+            LegacyDeferredMenuElement.uncached { [weak self] completion in
                 completion(self.map { [$0.exportAction()] } ?? [])
             },
-            UIMenu(options: .displayInline, children: [
-                UIAction(
-                    title: String(localized: "Clear Queue"),
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
+                    title: String(legacyLocalized: "Clear Queue"),
                     image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in PackageQueue.shared.clear() },
@@ -78,10 +80,10 @@ final class QueueController: UIViewController, UITableViewDelegate {
     private var subscriptions = Set<AnyCancellable>()
     /// The poll that follows the downloads, while the page is on screen or
     /// a tap is waiting for them.
-    private var watch: Task<Void, Never>?
-    private var staging: Task<Void, Never>?
+    private var watch: LegacyTask?
+    private var staging: LegacyTask?
     /// A tapped row whose page is not pushed yet; a second tap waits for it.
-    private var opening: Task<Void, Never>?
+    private var opening: LegacyTask?
     /// Execute was tapped while files were still downloading: it
     /// runs the moment they are here.
     private var committed = false {
@@ -133,20 +135,20 @@ final class QueueController: UIViewController, UITableViewDelegate {
             return cell
         case let .failure(text):
             let cell = table.dequeueReusableCell(withIdentifier: "failure", for: indexPath)
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = text
             content.textProperties.font = .footnote
             content.textProperties.color = .operationFailed
             content.image = UIImage.compatSystemImage("exclamationmark.triangle")
             content.imageProperties.tintColor = .operationFailed
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             return cell
         }
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Queue")
+        title = String(legacyLocalized: "Queue")
         navigationItem.largeTitleDisplayMode = .always
 
         tableView.backgroundColor = .groupedBackground
@@ -173,15 +175,15 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
 
         // the title is the bar's to set: Execute or Retry
-        executeButton.primaryAction = UIAction { [weak self] _ in self?.primaryAction() }
-        executeButton.menu = UIMenu(children: [
-            UIDeferredMenuElement.uncached { [weak self] completion in
+        executeButton.primaryAction = LegacyAction { [weak self] _ in self?.primaryAction() }
+        executeButton.menu = LegacyMenu(children: [
+            LegacyDeferredMenuElement.uncached { [weak self] completion in
                 // nothing to offer beside Cancel Auto Install
                 guard let self, let plan = PackageQueue.shared.plan, !committed,
                       plan.allowsBootstrapInstall
                 else { return completion([]) }
-                completion([UIAction(
-                    title: String(localized: "Bootstrap Install"),
+                completion([LegacyAction(
+                    title: String(legacyLocalized: "Bootstrap Install"),
                     image: UIImage.compatSystemImage("shippingbox")
                 ) { [weak self] _ in self?.primaryAction(bootstrapInstall: true) }])
             },
@@ -189,7 +191,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         if #available(iOS 26.0, *) {
             executeButton.style = .prominent
         }
-        menuItem.accessibilityLabel = String(localized: "More")
+        menuItem.accessibilityLabel = String(legacyLocalized: "More")
         navigationItem.rightBarButtonItems = [executeButton, busyItem, menuItem]
         updateBar()
 
@@ -293,13 +295,13 @@ final class QueueController: UIViewController, UITableViewDelegate {
         let busy = stage == .staging
         let retries = stage == .downloadFailed || stage == .stagingFailed
         executeButton.title = if retries {
-            String(localized: "Retry")
+            String(legacyLocalized: "Retry")
         } else if autoInstall {
-            String(localized: "Cancel Auto Install")
+            String(legacyLocalized: "Cancel Auto Install")
         } else if stage == .downloading {
-            String(localized: "Queue Install")
+            String(legacyLocalized: "Queue Install")
         } else {
-            String(localized: "Execute")
+            String(legacyLocalized: "Execute")
         }
         executeButton.tintColor = autoInstall ? .swipeDelete : nil
         executeButton.isEnabled = stage != .blocked
@@ -325,19 +327,19 @@ final class QueueController: UIViewController, UITableViewDelegate {
 
     /// Every package file the queue installs, to the share sheet. Grey with
     /// the reason under it while a file is missing or nothing is installed.
-    private func exportAction() -> UIAction {
+    private func exportAction() -> LegacyAction {
         let installs = PackageQueue.shared.plan?.install ?? []
         let files = installs.compactMap { package in package.fileOnDisk.map { (package, $0) } }
-        // said in the initializer: UIAction's subtitle setter is iOS 16
+        // said in the initializer: LegacyAction's subtitle setter is iOS 16
         let reason: String? = if installs.isEmpty {
-            String(localized: "The queue installs nothing.")
+            String(legacyLocalized: "The queue installs nothing.")
         } else if files.count < installs.count {
-            String(localized: "Available once the downloads finish.")
+            String(legacyLocalized: "Available once the downloads finish.")
         } else {
             nil
         }
-        return UIAction(
-            title: String(localized: "Export All Packages"),
+        return LegacyAction(
+            title: String(legacyLocalized: "Export All Packages"),
             subtitle: reason,
             image: UIImage.compatSystemImage("square.and.arrow.up"),
             attributes: reason == nil ? [] : .disabled
@@ -345,8 +347,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
     }
 
     private func export(_ files: [(Package, URL)]) {
-        Task { [weak self] in
-            let copies = await Self.namedCopies(of: files)
+        LegacyTask.detached { [weak self] in
+            let copies = Self.namedCopies(of: files)
             guard let self else { return }
             guard let copies else {
                 // the copies took a while; the queue may have left by now
@@ -361,7 +363,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
     }
 
     @concurrent
-    private nonisolated static func namedCopies(of files: [(Package, URL)]) async -> [URL]? {
+    private nonisolated static func namedCopies(of files: [(Package, URL)]) -> [URL]? {
         try? files.map { try DownloadArchiveController.namedCopy(of: $1, for: $0) }
     }
 
@@ -406,8 +408,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
               change.isInspectable, opening == nil
         else { return }
         let page = QueuePackageController(change: change)
-        opening = Task { [weak self] in
-            await page.prepare(within: 0.2)
+        opening = LegacyTask.detached { [weak self] in
+            page.prepare(within: 0.2)
             guard let self else { return }
             opening = nil
             // the page was left while the package was read
@@ -427,11 +429,11 @@ final class QueueController: UIViewController, UITableViewDelegate {
         else { return nil }
         let action = UIContextualAction(
             style: .normal,
-            title: String(localized: "Remove from Queue")
+            title: String(legacyLocalized: "Remove from Queue")
         ) { [weak self] _, _, completion in
             completion(true)
             guard let self else { return }
-            Task { await QueueChangeController.show(.withdraw(change.package.identity), from: self) }
+            LegacyTask.detached { QueueChangeController.show(.withdraw(change.package.identity), from: self) }
         }
         action.backgroundColor = .swipeDelete
         return UISwipeActionsConfiguration(actions: [action])
@@ -458,7 +460,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         case .stagingFailed, .ready, .downloading:
             // Retry after staging repeats a Bootstrap Install as one
             let bootstrap = bootstrapInstall || (stage == .stagingFailed && bootstrapRequested)
-            Task { await checkAndCommit(plan, bootstrapInstall: bootstrap) }
+            LegacyTask.detached { checkAndCommit(plan, bootstrapInstall: bootstrap) }
         case .empty, .blocked, .staging:
             break
         }
@@ -468,11 +470,11 @@ final class QueueController: UIViewController, UITableViewDelegate {
     /// dpkg asks how to go on. Then now if every file is here, and as soon
     /// as they are if not. The downloads may land while the alert is up;
     /// the answer holds all the same.
-    private func checkAndCommit(_ plan: ResolutionPlan, bootstrapInstall: Bool) async {
+    private nonisolated func checkAndCommit(_ plan: ResolutionPlan, bootstrapInstall: Bool) {
         var bootstrap = bootstrapInstall
         var withoutDpkg = false
         if !bootstrap, !QueueInstallChecks.hasDpkg(plan) {
-            switch await askWithoutDpkg(offersBootstrap: plan.allowsBootstrapInstall) {
+            switch askWithoutDpkg(offersBootstrap: plan.allowsBootstrapInstall) {
             case .cancel: return
             case .bootstrapInstall: bootstrap = true
             case .installAnyway: withoutDpkg = true
@@ -510,8 +512,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
         failure = nil
         stage = .staging
-        staging = Task { [weak self] in
-            let names = await QueueInstallChecks.packagesRunningScripts(in: plan)
+        staging = LegacyTask.detached { [weak self] in
+            let names = QueueInstallChecks.packagesRunningScripts(in: plan)
             guard let self else { return }
             staging = nil
             guard PackageQueue.shared.plan?.id == plan.id else {
@@ -556,19 +558,19 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
         stage = .downloading
         refreshVisibleProgress()
-        watch = Task { [weak self] in
-            let failure = await Downloads.shared.awaitFiles(of: pending, in: plan.id) { [weak self] in
+        watch = LegacyTask.detached { [weak self] in
+            let failure = Downloads.shared.awaitFiles(of: pending, in: plan.id) { [weak self] in
                 self?.refreshVisibleProgress()
             }
             // a plan that replaced this one has a watch of its own
-            guard !Task.isCancelled, let self, PackageQueue.shared.plan?.id == plan.id else { return }
+            guard !LegacyTask.isCancelled, let self, PackageQueue.shared.plan?.id == plan.id else { return }
             watch = nil
             refreshVisibleProgress()
             if let failure {
                 Dog.shared.join("Queue", "download failed: \(failure)", level: .error)
                 let purchased = pending.contains { $0.latestMetadata?["tag"]?.contains("cydia::commercial") ?? false }
                 self.failure = purchased
-                    ? failure + "\n" + String(localized: "A purchased package's download link expires. Remove it from the queue and add it again.")
+                    ? failure + "\n" + String(legacyLocalized: "A purchased package's download link expires. Remove it from the queue and add it again.")
                     : failure
                 committed = false
                 stage = .downloadFailed
@@ -587,21 +589,21 @@ final class QueueController: UIViewController, UITableViewDelegate {
         failure = nil
         guard !Installer.shared.inProcessingQueue else {
             return stagingFailed(
-                String(localized: "Another operation is already running. Wait for it to finish, then try again.")
+                String(legacyLocalized: "Another operation is already running. Wait for it to finish, then try again.")
             )
         }
         stage = .staging
-        staging = Task { [weak self] in
+        staging = LegacyTask.detached { [weak self] in
             // the owner says yes before anything is staged; a cancel leaves
             // the queue as it was, every file still here
-            guard await OperationConfirmation.confirm() else {
+            guard OperationConfirmation.confirm() else {
                 guard let self else { return }
                 staging = nil
                 committed = false
                 stage = .ready
                 return reload()
             }
-            let payload = await Installer.shared.createOperationPayload(
+            let payload = Installer.shared.createOperationPayload(
                 plan: plan,
                 bootstrapInstall: bootstrapInstall
             )
@@ -615,10 +617,10 @@ final class QueueController: UIViewController, UITableViewDelegate {
             guard let payload, !payload.transaction.stages.isEmpty else {
                 // staging said why in the report when it could
                 let report = PackageActionReport.shared.allAvailable()
-                stagingFailed(report.isEmpty ? String(localized: "Unable to prepare this operation. Try again.") : report)
+                stagingFailed(report.isEmpty ? String(legacyLocalized: "Unable to prepare this operation. Try again.") : report)
                 // a reason that asked to be an alert is one as well as the row
                 if let title = PackageActionReport.shared.alertTitle {
-                    presentNotice(title: String.LocalizationValue(title), message: report)
+                    presentNotice(title: LegacyLocalizationValue(title), message: report)
                 }
                 return
             }

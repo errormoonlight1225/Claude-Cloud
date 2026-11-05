@@ -1,3 +1,4 @@
+import LegacyCompat
 import Dog
 import Foundation
 import IrisinProtocol
@@ -18,13 +19,13 @@ enum OwnRegistration {
     /// session of its own and finishes whatever this process does next;
     /// the transcript is only logged. The daemon that answers is the one the
     /// update just loaded, which may still be starting.
-    static func request(within timeout: TimeInterval = 15) async -> Bool {
+    static nonisolated func request(within timeout: TimeInterval = 15) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while true {
             do {
-                let transcript = try await PrivilegedBackend.link.run(.registerOwnApplication)
-                Task.detached {
-                    for await event in transcript.events {
+                let transcript = try PrivilegedBackend.link.run(.registerOwnApplication)
+                LegacyTask.detached {
+                    for event in transcript.events {
                         Dog.shared.join("OwnRegistration", event.description, level: .info)
                     }
                 }
@@ -35,7 +36,7 @@ enum OwnRegistration {
                     return false
                 }
                 PrivilegedBackend.link.invalidate()
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                try? LegacyTask.sleep(seconds: Double(500_000_000) / 1_000_000_000)
             }
         }
     }

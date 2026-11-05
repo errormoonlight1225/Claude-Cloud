@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AlertController
 import UIKit
 
@@ -18,9 +19,9 @@ import UIKit
 /// catalog and comes back unchanged, as intended.
 extension UIViewController {
     func presentNotice(
-        title: String.LocalizationValue,
-        message: String.LocalizationValue,
-        dismissTitle: String.LocalizationValue = "Dismiss",
+        title: LegacyLocalizationValue,
+        message: LegacyLocalizationValue,
+        dismissTitle: LegacyLocalizationValue = "Dismiss",
         onDismiss: @escaping () -> Void = {}
     ) {
         present(AlertViewController(title: title, message: message) { context in
@@ -32,22 +33,22 @@ extension UIViewController {
 
     @_disfavoredOverload
     func presentNotice(
-        title: String.LocalizationValue,
+        title: LegacyLocalizationValue,
         message: String,
-        dismissTitle: String.LocalizationValue = "Dismiss",
+        dismissTitle: LegacyLocalizationValue = "Dismiss",
         onDismiss: @escaping () -> Void = {}
     ) {
         presentNotice(
             title: title,
-            message: String.LocalizationValue(message),
+            message: LegacyLocalizationValue(message),
             dismissTitle: dismissTitle,
             onDismiss: onDismiss
         )
     }
 
     func presentNotice(
-        title: String.LocalizationValue,
-        dismissTitle: String.LocalizationValue = "Dismiss",
+        title: LegacyLocalizationValue,
+        dismissTitle: LegacyLocalizationValue = "Dismiss",
         onDismiss: @escaping () -> Void = {}
     ) {
         presentNotice(title: title, message: String(), dismissTitle: dismissTitle, onDismiss: onDismiss)
@@ -58,9 +59,9 @@ extension UIViewController {
     /// accent for all and reads it while the sheet is built, so the swap
     /// lasts exactly that long and cannot leak into the next alert.
     func presentConfirmation(
-        title: String.LocalizationValue,
-        message: String.LocalizationValue,
-        confirmTitle: String.LocalizationValue = "Confirm",
+        title: LegacyLocalizationValue,
+        message: LegacyLocalizationValue,
+        confirmTitle: LegacyLocalizationValue = "Confirm",
         destructive: Bool = false,
         onConfirm: @escaping () -> Void
     ) {
@@ -84,15 +85,15 @@ extension UIViewController {
     /// leave. Three buttons stack in the order they are added. Returns once
     /// the alert is gone, so whatever comes next can be presented. The
     /// message and `anywayTitle` arrive in the user's language.
-    func askRecommendation(
-        title: String.LocalizationValue,
+    nonisolated func askRecommendation(
+        title: LegacyLocalizationValue,
         message: String,
         anywayTitle: String
-    ) async -> RecommendationChoice {
+    ) -> RecommendationChoice {
         // a second tap while the first alert is up, or a page on its way
         // out: nothing would come up, and nothing would ever answer
         guard presentedViewController == nil, view.window != nil else { return .cancel }
-        return await withCheckedContinuation { continuation in
+        return withCheckedContinuation { continuation in
             let alert = AlertViewController(title: title, message: String.LocalizationValue(message)) { context in
                 context.addAction(title: "Select Recommended", attribute: .accent) {
                     context.dispose { continuation.resume(returning: .recommended) }
@@ -112,9 +113,9 @@ extension UIViewController {
     /// `dismiss(animated:completion:)` `NS_SWIFT_DISABLE_ASYNC`, so an
     /// `await` on it returns at once, while the sheet is still leaving and
     /// the next `present` would be refused.
-    func dismissFinishing(animated: Bool) async {
+    nonisolated func dismissFinishing(animated: Bool) {
         guard presentingViewController != nil else { return }
-        await withCheckedContinuation { continuation in
+        withCheckedContinuation { continuation in
             dismiss(animated: animated) { continuation.resume() }
         }
     }
@@ -133,8 +134,8 @@ enum RecommendationChoice {
 /// AlertController resolves at run time but never reaches
 /// `Localizable.xcstrings`, so it ships untranslated.
 func progressAlert(
-    title: String.LocalizationValue,
-    message: String.LocalizationValue
+    title: LegacyLocalizationValue,
+    message: LegacyLocalizationValue
 ) -> AlertProgressIndicatorViewController {
     .init(title: title, message: message)
 }

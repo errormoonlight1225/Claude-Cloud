@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import SnapKit
 import Then
 import UIKit
@@ -16,7 +17,7 @@ import UIKit
 final class RepositoryAddSectionHeaderView: UITableViewHeaderFooterView {
     /// What the list's own header is drawn with: a label of ours wears it,
     /// so the button has a baseline to sit on.
-    private static let style = UIListContentConfiguration.groupedHeader()
+    private static let style = LegacyListContentConfiguration.groupedHeader()
 
     private let label = UILabel().then {
         let properties = RepositoryAddSectionHeaderView.style.textProperties
@@ -32,7 +33,7 @@ final class RepositoryAddSectionHeaderView: UITableViewHeaderFooterView {
         configuration.buttonSize = .small
         configuration.contentInsets = .init(top: 6, leading: 12, bottom: 6, trailing: 0)
         configuration.baseForegroundColor = .buttonNormal
-        configuration.title = String(localized: "Add All")
+        configuration.title = String(legacyLocalized: "Add All")
         $0.configuration = configuration
     }
 

@@ -6,6 +6,7 @@
 //  page, a card on either, a sheet.
 //
 
+import LegacyCompat
 import UIKit
 
 extension UIColor {
@@ -23,22 +24,22 @@ extension UIColor {
 
     /// A plain page, whose rows and text sit on the ground itself: white in
     /// light mode, in the dark as `.pageBackground`.
-    static let plainBackground = ground(light: .systemBackground)
+    static let plainBackground = ground(light: .compatSystemBackground)
 
     /// An inset-grouped list's ground, a half-height form sheet's among
     /// them: `.systemGroupedBackground` in light mode, so the rows read as
     /// cards, in the dark as `.pageBackground`. A colour of our own, since a
     /// sheet clears the system one and turns to glass on iOS 26.
-    static let groupedBackground = ground(light: .systemGroupedBackground)
+    static let groupedBackground = ground(light: .compatSystemGroupedBackground)
 
     /// A card, a step above the ground it sits on: the iPad sidebar's
     /// navigation tiles and repository rows alike. White in light mode; in
     /// the dark, the inset-grouped cell of the ground's level.
-    static let cardBackground = UIColor.secondarySystemGroupedBackground
+    static let cardBackground = UIColor.compatSecondarySystemGroupedBackground
 
     /// A photo's ground while it loads, a step off `.plainBackground` in
     /// both modes and at either level.
-    static let sheetBackground = UIColor.secondarySystemBackground
+    static let sheetBackground = UIColor.compatSecondarySystemBackground
 
     /// The shadow under a bar that floats over a page (`QueueBarView` before
     /// iOS 26, where glass casts its own): black in both modes, faint enough
@@ -53,8 +54,8 @@ extension UIColor {
     /// `light` in light mode; in the dark, black at the base level and
     /// `elevatedGround` above it.
     private static func ground(light: UIColor) -> UIColor {
-        UIColor { trait in
-            guard trait.userInterfaceStyle == .dark else { return light.resolvedColor(with: trait) }
+        UIColor.compatDynamic { trait in
+            guard trait.userInterfaceStyle == .dark else { return light.compatResolvedColor(with: trait) }
             return trait.userInterfaceLevel == .elevated ? elevatedGround : .black
         }
     }

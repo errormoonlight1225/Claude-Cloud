@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 class DashboardSectionHeader: UICollectionReusableView {
@@ -29,7 +30,7 @@ class DashboardSectionHeader: UICollectionReusableView {
         label.accessibilityTraits = .header
         addSubview(label)
         button.setImage(.fluent(.arrowRightCircle24Filled), for: .normal)
-        button.accessibilityLabel = String(localized: "See All")
+        button.accessibilityLabel = String(legacyLocalized: "See All")
         button.addTarget(self, action: #selector(presentFullPackage), for: .touchUpInside)
         addSubview(button)
         updateLayout()

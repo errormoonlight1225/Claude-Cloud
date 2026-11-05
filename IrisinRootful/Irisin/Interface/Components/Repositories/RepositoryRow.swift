@@ -6,8 +6,11 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SnapKit
 import Then
 import UIKit
@@ -149,7 +152,7 @@ class RepositoryRow: UIView {
 
     /// The repository whose avatar `icon` shows, nil for the stand-in.
     private var iconUrl: URL?
-    private var iconTask: Task<Void, Never>?
+    private var iconTask: LegacyTask?
 
     /// A row redrawn for its own repository keeps its picture while a new
     /// avatar is made; one reused for another shows the stand-in until then.
@@ -163,9 +166,9 @@ class RepositoryRow: UIView {
         if iconUrl != url {
             setIcon(nil, of: nil)
         }
-        iconTask = Task { [weak self] in
-            let icon = await RepositoryAvatar.icon(for: url, data: data)
-            guard !Task.isCancelled, let self, repoUrl == url else { return }
+        iconTask = LegacyTask.detached { [weak self] in
+            let icon = RepositoryAvatar.icon(for: url, data: data)
+            guard !LegacyTask.isCancelled, let self, repoUrl == url else { return }
             setIcon(icon, of: url)
         }
     }
@@ -183,8 +186,8 @@ class RepositoryRow: UIView {
         repoUrl = nil
         indicator.backgroundColor = .clear
         arrow.isHidden = true
-        title.text = String(localized: "No repositories")
-        subtitle.text = String(localized: "Use the add button above to add a repository.")
+        title.text = String(legacyLocalized: "No repositories")
+        subtitle.text = String(legacyLocalized: "Use the add button above to add a repository.")
         iconTask?.cancel()
         iconTask = nil
         setIcon(nil, of: nil)
@@ -198,8 +201,8 @@ class RepositoryRow: UIView {
     /// and what the dot says when it says something is wrong.
     private func describe(_ health: RepositoryHealth? = nil) -> String {
         let state: String? = switch health {
-        case .degraded: String(localized: "Partly available")
-        case .failed: String(localized: "Unavailable")
+        case .degraded: String(legacyLocalized: "Partly available")
+        case .failed: String(legacyLocalized: "Unavailable")
         case .pending, .ready, nil: nil
         }
         return ([title.text, subtitle.text, state] as [String?])

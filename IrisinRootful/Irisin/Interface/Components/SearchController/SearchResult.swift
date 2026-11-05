@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import Foundation
@@ -52,11 +53,11 @@ nonisolated struct SearchResult: Hashable, Sendable {
 /// which a newer keystroke does.
 nonisolated extension SearchResult {
     @concurrent
-    static func search(
+    static nonisolated func search(
         key: String,
         in index: PackageIndex,
         repositories: [URL: Repository]
-    ) async -> [[SearchResult]] {
+    ) -> [[SearchResult]] {
         let context = Context(key: key, index: index, repositories: repositories)
         var result = [[SearchResult]]()
         for part in [
@@ -65,7 +66,7 @@ nonisolated extension SearchResult {
             context.repositories(),
             context.authors(),
         ] {
-            if Task.isCancelled {
+            if LegacyTask.isCancelled {
                 return []
             }
             result.append(part)
@@ -104,7 +105,7 @@ nonisolated extension SearchResult {
             var result = [(String, SearchResult)]()
             autoreleasepool {
                 for package in packages {
-                    if Task.isCancelled {
+                    if LegacyTask.isCancelled {
                         return
                     }
                     let searchableContent = """
@@ -152,7 +153,7 @@ nonisolated extension SearchResult {
         func repositories() -> [SearchResult] {
             var result = [SearchResult]()
             for (url, repo) in repositoryTable.sorted(by: { $0.key.absoluteString < $1.key.absoluteString }) {
-                if Task.isCancelled {
+                if LegacyTask.isCancelled {
                     return result
                 }
                 let searchableContent = """
@@ -177,7 +178,7 @@ nonisolated extension SearchResult {
         func packages() -> [SearchResult] {
             var result = [(String, SearchResult)]()
             for hit in index.search(key) {
-                if Task.isCancelled {
+                if LegacyTask.isCancelled {
                     return []
                 }
                 let searchableContent = """
@@ -207,7 +208,7 @@ nonisolated extension SearchResult {
             var result = [SearchResult]()
             autoreleasepool {
                 for author in index.obtainAuthorList() {
-                    if Task.isCancelled {
+                    if LegacyTask.isCancelled {
                         return
                     }
                     let searchableContent = author.lowercased()

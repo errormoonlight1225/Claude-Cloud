@@ -4,7 +4,9 @@
 //
 
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SnapKit
 import Then
 import UIKit

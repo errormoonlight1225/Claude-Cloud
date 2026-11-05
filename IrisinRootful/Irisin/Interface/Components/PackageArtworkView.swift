@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import SDWebImage
 import SnapKit
@@ -21,7 +22,7 @@ final class PackageArtworkView: UIView {
 
     /// Written, held for a second, unwritten, and written again.
     private let scribble = ScribbleLetterView().then {
-        $0.color = .label
+        $0.color = .compatLabel
         $0.timing = .tween(duration: 2, curve: .easeInOut)
         $0.loops = true
         $0.loopPause = 1
@@ -102,7 +103,7 @@ final class PackageArtworkView: UIView {
     }
 
     /// An uncached picture waiting for its moment (`load(_:uncachedNotBefore:)`).
-    private var pendingLoad: Task<Void, Never>?
+    private var pendingLoad: LegacyTask?
 
     /// Shows the picture at `url`. The one on show stays until the new one
     /// has arrived; no `url` takes it away and the handwriting shows again.
@@ -126,9 +127,9 @@ final class PackageArtworkView: UIView {
             fetch(url)
             return
         }
-        pendingLoad = Task { [weak self] in
-            try? await deadline.sleep()
-            guard !Task.isCancelled else { return }
+        pendingLoad = LegacyTask.detached { [weak self] in
+            try? deadline.sleep()
+            guard !LegacyTask.isCancelled else { return }
             self?.fetch(url)
         }
     }

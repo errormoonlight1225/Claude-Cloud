@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import UIKit
 
 /// Writes `text` out as continuous handwriting. Supports lowercase a–z with hand-tuned glyphs;
@@ -42,7 +43,7 @@ final class ScribbleLetterView: UIView {
         }
     }
 
-    var color: UIColor = .label {
+    var color: UIColor = .compatLabel {
         didSet {
             if color != oldValue {
                 applyColor()
@@ -173,9 +174,9 @@ final class ScribbleLetterView: UIView {
         guard id == playbackID else { return }
         guard loops, loopPause > 0 else { return continueLoop() }
         guard loopPause.isFinite else { return }
-        Task { [weak self, loopPause] in
+        LegacyTask.detached { [weak self, loopPause] in
             // Capped at about 31 years so the nanosecond count fits in UInt64.
-            try? await Task.sleep(nanoseconds: UInt64(min(loopPause, 1e9) * 1e9))
+            try? LegacyTask.sleep(seconds: Double(UInt64(min(loopPause, 1e9) * 1e9)) / 1_000_000_000)
             guard let self, id == playbackID else { return }
             continueLoop()
         }
@@ -353,7 +354,7 @@ final class ScribbleLetterView: UIView {
     #endif
 
     private func applyColor() {
-        let resolved = color.resolvedColor(with: traitCollection).cgColor
+        let resolved = color.compatResolvedColor(with: traitCollection).cgColor
         for (item, shape) in zip(layout.items, shapeLayers) {
             shape.fillColor = item.dot == nil ? nil : resolved
             shape.strokeColor = item.dot == nil ? resolved : nil

@@ -13,10 +13,10 @@ extension LogViewerController {
         menuButton.setImage(UIImage.compatSystemImage("ellipsis"), for: .normal)
         menuButton.tintColor = .textTitle
         // the bar item is only a wrapper; the button is what a reader lands on
-        menuButton.accessibilityLabel = String(localized: "More")
+        menuButton.accessibilityLabel = String(legacyLocalized: "More")
         menuButton.showsMenuAsPrimaryAction = true
-        menuButton.menu = UIMenu(children: [
-            UIDeferredMenuElement.uncached { [weak self] completion in
+        menuButton.menu = LegacyMenu(children: [
+            LegacyDeferredMenuElement.uncached { [weak self] completion in
                 completion(self?.createMenu().children ?? [])
             },
         ])
@@ -24,9 +24,9 @@ extension LogViewerController {
         navigationItem.rightBarButtonItem = UIBarButtonItem(customView: menuButton)
     }
 
-    private func createMenu() -> UIMenu {
+    private func createMenu() -> LegacyMenu {
         let levelActions = [Dog.DogLevel.verbose, .info, .warning, .error, .critical].map { level in
-            UIAction(
+            LegacyAction(
                 title: level.rawValue,
                 image: selectedLevels.contains(level) ? UIImage.compatSystemImage("checkmark") : nil,
                 handler: { [weak self] _ in
@@ -34,17 +34,17 @@ extension LogViewerController {
                 }
             )
         }
-        let levelMenu = UIMenu(
-            title: String(localized: "Filter by Level"),
+        let levelMenu = LegacyMenu(
+            title: String(legacyLocalized: "Filter by Level"),
             image: UIImage.compatSystemImage("slider.horizontal.3"),
             children: levelActions
         )
 
-        var categoryActions: [UIAction] = []
+        var categoryActions: [LegacyAction] = []
         let categories = allCategories
         if !categories.isEmpty {
-            categoryActions.append(UIAction(
-                title: String(localized: "All Categories"),
+            categoryActions.append(LegacyAction(
+                title: String(legacyLocalized: "All Categories"),
                 image: selectedCategories.isEmpty ? UIImage.compatSystemImage("checkmark") : nil,
                 handler: { [weak self] _ in
                     self?.selectedCategories.removeAll()
@@ -52,7 +52,7 @@ extension LogViewerController {
                 }
             ))
             categoryActions.append(contentsOf: categories.sorted().map { category in
-                UIAction(
+                LegacyAction(
                     title: category,
                     image: selectedCategories.contains(category) ? UIImage.compatSystemImage("checkmark") : nil,
                     handler: { [weak self] _ in
@@ -61,15 +61,15 @@ extension LogViewerController {
                 )
             })
         }
-        let emptyCategories = [UIAction(title: String(localized: "No Categories"), handler: { _ in })]
-        let categoryMenu = UIMenu(
-            title: String(localized: "Filter by Category"),
+        let emptyCategories = [LegacyAction(title: String(legacyLocalized: "No Categories"), handler: { _ in })]
+        let categoryMenu = LegacyMenu(
+            title: String(legacyLocalized: "Filter by Category"),
             image: UIImage.compatSystemImage("tag"),
             children: categoryActions.isEmpty ? emptyCategories : categoryActions
         )
 
-        let onlyFailuresAction = UIAction(
-            title: String(localized: "Errors Only"),
+        let onlyFailuresAction = LegacyAction(
+            title: String(legacyLocalized: "Errors Only"),
             image: UIImage.compatSystemImage("exclamationmark.triangle"),
             state: selectedLevels == [.error, .critical] ? .on : .off,
             handler: { [weak self] _ in
@@ -81,16 +81,16 @@ extension LogViewerController {
             }
         )
 
-        let shareAction = UIAction(
-            title: String(localized: "Share"),
+        let shareAction = LegacyAction(
+            title: String(legacyLocalized: "Share"),
             image: UIImage.compatSystemImage("square.and.arrow.up"),
             handler: { [weak self] _ in
                 self?.shareLog()
             }
         )
 
-        let clearAction = UIAction(
-            title: String(localized: "Clear"),
+        let clearAction = LegacyAction(
+            title: String(legacyLocalized: "Clear"),
             image: UIImage.compatSystemImage("trash"),
             attributes: .destructive,
             handler: { [weak self] _ in
@@ -98,11 +98,11 @@ extension LogViewerController {
             }
         )
 
-        return UIMenu(children: [
+        return LegacyMenu(children: [
             levelMenu,
             categoryMenu,
-            UIMenu(options: .displayInline, children: [onlyFailuresAction]),
-            UIMenu(options: .displayInline, children: [shareAction, clearAction]),
+            LegacyMenu(options: .displayInline, children: [onlyFailuresAction]),
+            LegacyMenu(options: .displayInline, children: [shareAction, clearAction]),
         ])
     }
 
@@ -155,21 +155,21 @@ extension LogViewerController {
         guard let logLine = dataSource.itemIdentifier(for: indexPath)?.line else { return nil }
 
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
-            let copyAction = UIAction(
-                title: String(localized: "Copy"),
+            let copyAction = LegacyAction(
+                title: String(legacyLocalized: "Copy"),
                 image: UIImage.compatSystemImage("doc.on.doc")
             ) { _ in
                 UIPasteboard.general.string = logLine.fullText
             }
 
-            let copyMessageAction = UIAction(
-                title: String(localized: "Copy Message"),
+            let copyMessageAction = LegacyAction(
+                title: String(legacyLocalized: "Copy Message"),
                 image: UIImage.compatSystemImage("text.quote")
             ) { _ in
                 UIPasteboard.general.string = logLine.message
             }
 
-            return UIMenu(children: [copyAction, copyMessageAction])
+            return LegacyMenu(children: [copyAction, copyMessageAction])
         }
     }
 }

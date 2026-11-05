@@ -34,9 +34,9 @@ class PackageVersionPickerController: UITableViewController {
         tableView: tableView
     ) { [unowned self] tableView, indexPath, package in
         let cell = tableView.dequeueReusableCell(withIdentifier: "version", for: indexPath)
-        var content = cell.defaultContentConfiguration()
-        content.text = package.latestVersion ?? String(localized: "Unknown")
-        cell.contentConfiguration = content
+        var content = cell.legacyDefaultContentConfiguration()
+        content.text = package.latestVersion ?? String(legacyLocalized: "Unknown")
+        cell.legacyContentConfiguration = content
         cell.accessoryType = isCurrent(package) ? .checkmark : .none
         return cell
     }
@@ -59,7 +59,7 @@ class PackageVersionPickerController: UITableViewController {
         available = OrderedDictionary(uniqueKeysWithValues: byName.map { url, _ in
             (url, center.versionTrimmedSingleSubPackages(of: summary[url]!))
         })
-        super.init(style: .insetGrouped)
+        super.init(style: .compatInsetGrouped)
     }
 
     @available(*, unavailable)
@@ -70,10 +70,10 @@ class PackageVersionPickerController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = String(localized: "Choose Version")
+        title = String(legacyLocalized: "Choose Version")
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             systemItem: .cancel,
-            primaryAction: UIAction { [weak self] _ in self?.dismiss(animated: true) }
+            primaryAction: LegacyAction { [weak self] _ in self?.dismiss(animated: true) }
         )
 
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "version")
@@ -81,7 +81,7 @@ class PackageVersionPickerController: UITableViewController {
         dataSource.headerTitle = { section in
             switch section {
             case .localSelectionNotice:
-                String(localized: "Current Selection: Local Version")
+                String(legacyLocalized: "Current Selection: Local Version")
             case let .repository(url):
                 RepositoryCenter.default.obtainImmutableRepository(withUrl: url)?.nickName
             }

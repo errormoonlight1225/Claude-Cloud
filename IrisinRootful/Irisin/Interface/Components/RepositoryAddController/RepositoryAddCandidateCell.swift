@@ -28,21 +28,21 @@ final class RepositoryAddCandidateCell: UITableViewCell {
         $0.layer.cornerRadius = 8
         $0.clipsToBounds = true
         $0.contentMode = .scaleAspectFill
-        $0.backgroundColor = .tertiarySystemFill
+        $0.backgroundColor = .compatTertiarySystemFill
     }
 
-    private let spinner = UIActivityIndicatorView(style: .medium).then {
+    private let spinner = UIActivityIndicatorView(style: .compatMedium).then {
         $0.hidesWhenStopped = true
     }
 
     private let title = UILabel().then {
         $0.font = .bodyEmphasized
-        $0.textColor = .label
+        $0.textColor = .compatLabel
     }
 
     private let subtitle = UILabel().then {
         $0.font = .footnote
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.lineBreakMode = .byTruncatingMiddle
     }
 
@@ -130,7 +130,7 @@ final class RepositoryAddCandidateCell: UITableViewCell {
             // nothing answered, so there is no icon to show; the title says so
             icon.image = nil
             spinner.stopAnimating()
-            title.text = String(localized: "Repository Unreachable")
+            title.text = String(legacyLocalized: "Repository Unreachable")
         }
 
         var configuration: UIButton.Configuration = added ? .plain() : .tinted()
@@ -140,12 +140,12 @@ final class RepositoryAddCandidateCell: UITableViewCell {
         if added {
             configuration.image = UIImage.compatSystemImage("checkmark.circle.fill")
         } else {
-            configuration.title = String(localized: "Add")
+            configuration.title = String(legacyLocalized: "Add")
         }
         // the checkmark carries no title of its own
         button.accessibilityLabel = added
-            ? String(localized: "Already Added")
-            : String(localized: "Add")
+            ? String(legacyLocalized: "Already Added")
+            : String(legacyLocalized: "Add")
         button.configuration = configuration
         button.isUserInteractionEnabled = !added
     }

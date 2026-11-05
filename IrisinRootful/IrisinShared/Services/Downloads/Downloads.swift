@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import Foundation
@@ -55,7 +56,7 @@ final class Downloads {
     /// A download in flight and the token its task clears the slot with.
     private struct Running {
         let token: UUID
-        let task: Task<Void, Never>
+        let task: LegacyTask
     }
 
     private var running: [URL: Running] = [:]
@@ -85,8 +86,8 @@ final class Downloads {
 
     /// Repoints the completed list at this container and drops every entry
     /// whose file is gone. What is left is hashed the next time it is used.
-    func load() async {
-        completedFiles = await Self.existing(in: completedFiles.mapValues {
+    nonisolated func load() {
+        completedFiles = Self.existing(in: completedFiles.mapValues {
             workingLocation.appendingPathComponent($0.lastPathComponent)
         })
         Dog.shared.join(self, "reporting \(completedFiles.count) download caches")
@@ -162,11 +163,11 @@ final class Downloads {
             // a cancelled task still runs to its end; it must clear only its
             // own slot, never the slot of the download that replaced it
             let token = UUID()
-            running[url] = Running(token: token, task: Task { await self.download(package, from: url, token: token) })
+            running[url] = Running(token: token, task: LegacyTask.detached { self.download(package, from: url, token: token) })
         }
     }
 
-    private func download(_ package: Package, from url: URL, token: UUID) async {
+    private nonisolated func download(_ package: Package, from url: URL, token: UUID) {
         defer {
             if running[url]?.token == token {
                 running[url] = nil
@@ -174,7 +175,7 @@ final class Downloads {
         }
 
         if let cached = completedFiles[url], FileManager.default.fileExists(atPath: cached.path) {
-            if await Self.verify(package, at: cached) {
+            if Self.verify(package, at: cached) {
                 Dog.shared.join(self, "\(package.identity) is already downloaded to \(cached.path)")
                 let size = (try? FileManager.default.attributesOfItem(atPath: cached.path)[.size] as? Int64) ?? 0
                 publish(Status(
@@ -197,7 +198,7 @@ final class Downloads {
 
         do {
             let headers = RepositoryCenter.default.networkingHeaders
-            for try await event in Downloader.download(from: url, headers: headers) {
+            for try event in Downloader.download(from: url, headers: headers) {
                 switch event {
                 case let .progress(completedBytes, totalBytes, bytesPerSecond):
                     status.completedBytes = completedBytes
@@ -208,10 +209,10 @@ final class Downloads {
                     publish(status)
                 case let .finished(file):
                     status.bytesPerSecond = 0
-                    guard let checkout = await Self.checkout(package, from: file, into: workingLocation) else {
+                    guard let checkout = Self.checkout(package, from: file, into: workingLocation) else {
                         discard(url)
                         status.errorDescription = String(
-                            localized: "This package failed verification. Try downloading again."
+                            legacyLocalized: "This package failed verification. Try downloading again."
                         )
                         publish(status)
                         return
@@ -223,7 +224,7 @@ final class Downloads {
                 }
             }
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !LegacyTask.isCancelled else { return }
             Dog.shared.join(
                 self,
                 "download of \(url.lastPathComponent) failed: \(error.localizedDescription)",
@@ -251,11 +252,11 @@ final class Downloads {
     /// The file to install for this package: on record, on disk, and still
     /// hashing to what the repository published. Anything else is thrown away
     /// so the next request downloads it again.
-    func downloadedFile(for package: Package) async -> URL? {
+    nonisolated func downloadedFile(for package: Package) -> URL? {
         let url = package.obtainDownloadLink()
         guard let file = completedFiles[url] else { return nil }
         guard FileManager.default.fileExists(atPath: file.path),
-              await Self.verify(package, at: file)
+              Self.verify(package, at: file)
         else {
             Dog.shared.join(self, "dropping unusable download for \(package.identity)", level: .warning)
             discard(url)
@@ -272,7 +273,7 @@ final class Downloads {
     }
 
     @concurrent
-    private nonisolated static func existing(in lookup: [URL: URL]) async -> [URL: URL] {
+    private nonisolated static func existing(in lookup: [URL: URL]) -> [URL: URL] {
         lookup.filter { _, file in
             var isDirectory = ObjCBool(false)
             if FileManager.default.fileExists(atPath: file.path, isDirectory: &isDirectory), !isDirectory.boolValue {
@@ -288,7 +289,7 @@ final class Downloads {
     /// against that instead, and one that publishes nothing has to be taken on
     /// trust.
     @concurrent
-    nonisolated static func verify(_ package: Package, at file: URL) async -> Bool {
+    nonisolated static func verify(_ package: Package, at file: URL) -> Bool {
         guard let data = try? Data(contentsOf: file, options: .mappedIfSafe) else {
             Dog.shared.join("Downloads", "failed to read \(package.identity) from \(file.path)", level: .error)
             return false
@@ -323,8 +324,8 @@ final class Downloads {
     /// Checks the finished download and moves it next to the others, under a
     /// name that says what it is. Nil when it did not hash.
     @concurrent
-    private nonisolated static func checkout(_ package: Package, from source: URL, into directory: URL) async -> URL? {
-        guard await verify(package, at: source) else {
+    private nonisolated static func checkout(_ package: Package, from source: URL, into directory: URL) -> URL? {
+        guard verify(package, at: source) else {
             try? FileManager.default.removeItem(at: source)
             return nil
         }

@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import Foundation
 import notify
@@ -22,7 +23,7 @@ enum CommandLineChanges {
         guard token == NOTIFY_TOKEN_INVALID else { return }
         notify_register_dispatch(name, &token, .main) { _ in
             MainActor.assumeIsolated {
-                _ = Task { await PackageCenter.default.reloadLocalPackages() }
+                _ = LegacyTask.detached { PackageCenter.default.reloadLocalPackages() }
             }
         }
     }

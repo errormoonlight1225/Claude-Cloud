@@ -41,7 +41,7 @@ final class TranslationStatusView: UIView {
         ) { self.apply() }
     }
 
-    private let spinner = UIActivityIndicatorView(style: .medium).then {
+    private let spinner = UIActivityIndicatorView(style: .compatMedium).then {
         $0.color = .textSubtitle
         $0.hidesWhenStopped = true
         // the system's smallest spinner is a size above a footnote
@@ -109,12 +109,12 @@ final class TranslationStatusView: UIView {
         case .none:
             break // the words stay while the row leaves
         case .translating:
-            caption.text = String(localized: "Translating…")
+            caption.text = String(legacyLocalized: "Translating…")
         case .translated:
-            caption.text = String(localized: "This page is translated.")
+            caption.text = String(legacyLocalized: "This page is translated.")
             symbol.image = UIImage.compatSystemImage("character.bubble")
         case .failed:
-            caption.text = String(localized: "Unable to translate this page.")
+            caption.text = String(legacyLocalized: "Unable to translate this page.")
             symbol.image = UIImage.compatSystemImage("exclamationmark.bubble")
         }
         if status == .translating {

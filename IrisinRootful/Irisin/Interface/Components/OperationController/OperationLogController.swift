@@ -1,5 +1,7 @@
 import LegacyCompat
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 /// Every line the helper said, in order: the page behind the operation's
@@ -31,12 +33,12 @@ final class OperationLogController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Operation Log")
+        title = String(legacyLocalized: "Operation Log")
         view.backgroundColor = .pageBackground
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             systemItem: .action,
-            primaryAction: UIAction { [weak self] _ in self?.share() }
+            primaryAction: LegacyAction { [weak self] _ in self?.share() }
         )
 
         tableView.backgroundColor = .pageBackground

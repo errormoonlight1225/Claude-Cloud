@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import UIKit
 
@@ -48,7 +50,7 @@ class SearchController: UITableViewController {
     }
 
     /// The search in flight; a newer keystroke cancels it.
-    private var searchTask: Task<Void, Never>?
+    private var searchTask: LegacyTask?
 
     nonisolated enum Section: Hashable {
         case results(SearchResult.Section)
@@ -73,7 +75,7 @@ class SearchController: UITableViewController {
 
     let guider = EmptyStateView(
         icon: .bookSearch24Regular,
-        text: String(localized: "Search packages, repositories and authors.")
+        text: String(legacyLocalized: "Search packages, repositories and authors.")
     )
 
     private var subscriptions = Set<AnyCancellable>()
@@ -108,7 +110,7 @@ class SearchController: UITableViewController {
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in self?.searchAgain() }
         .store(in: &subscriptions)
-        title = String(localized: "Search")
+        title = String(legacyLocalized: "Search")
         view.backgroundColor = .plainBackground
 
         tableView.separatorColor = .clear
@@ -139,9 +141,9 @@ class SearchController: UITableViewController {
     }
 
     private func configureSearchController() {
-        searchController.searchBar.placeholder = String(localized: "Search")
+        searchController.searchBar.placeholder = String(legacyLocalized: "Search")
         searchController.searchBar.setValue(
-            String(localized: "Cancel"),
+            String(legacyLocalized: "Cancel"),
             forKey: "cancelButtonText"
         )
         searchController.searchResultsUpdater = self
@@ -150,11 +152,11 @@ class SearchController: UITableViewController {
         // the bar is focused on arrival; without this the title and the
         // scroll edge under the status bar go with it
         searchController.hidesNavigationBarDuringPresentation = false
-        searchController.searchBar.searchTextField.autocapitalizationType = .none
-        searchController.searchBar.searchTextField.autocorrectionType = .no
-        searchController.searchBar.searchTextField.smartQuotesType = .no
-        searchController.searchBar.searchTextField.smartDashesType = .no
-        searchController.searchBar.searchTextField.smartInsertDeleteType = .no
+        searchController.searchBar.compatSearchTextField.autocapitalizationType = .none
+        searchController.searchBar.compatSearchTextField.autocorrectionType = .no
+        searchController.searchBar.compatSearchTextField.smartQuotesType = .no
+        searchController.searchBar.compatSearchTextField.smartDashesType = .no
+        searchController.searchBar.compatSearchTextField.smartInsertDeleteType = .no
     }
 
     private var hasFocusedSearchBar = false
@@ -189,13 +191,13 @@ class SearchController: UITableViewController {
         }
         switch kind {
         case .author:
-            label.text = String(localized: "Authors")
+            label.text = String(legacyLocalized: "Authors")
         case .installed:
-            label.text = String(localized: "Installed")
+            label.text = String(legacyLocalized: "Installed")
         case .package:
-            label.text = String(localized: "Packages")
+            label.text = String(legacyLocalized: "Packages")
         case .repository:
-            label.text = String(localized: "Repositories")
+            label.text = String(legacyLocalized: "Repositories")
         }
         return box
     }
@@ -345,14 +347,14 @@ extension SearchController: UISearchControllerDelegate, UISearchResultsUpdating,
         searchTask?.cancel()
         let index = PackageCenter.default.index
         let repositories = RepositoryCenter.default.repositories
-        searchTask = Task {
-            let results = await SearchResult.search(
+        searchTask = LegacyTask.detached {
+            let results = SearchResult.search(
                 key: text,
                 in: index,
                 repositories: repositories
             )
             // a newer keystroke owns the table now
-            guard !Task.isCancelled else { return }
+            guard !LegacyTask.isCancelled else { return }
             setSearchResult(with: results)
         }
     }
@@ -374,8 +376,8 @@ extension SearchController: UISearchControllerDelegate, UISearchResultsUpdating,
             guard let source = RepositorySource(line: url.absoluteString) else {
                 return
             }
-            Task { [weak self] in
-                try? await Task.sleep(seconds: 0.6)
+            LegacyTask.detached { [weak self] in
+                try? Task.sleep(seconds: 0.6)
                 guard let self else { return }
                 // the user may have tapped a row, cancelled or left during the
                 // wait; the search is no longer on screen and must not put the

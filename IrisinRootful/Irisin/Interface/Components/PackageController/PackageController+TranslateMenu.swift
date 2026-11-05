@@ -21,9 +21,9 @@ extension PackageController {
 
         var title: String {
             switch self {
-            case .original: String(localized: "Original")
-            case .translated: String(localized: "Translated")
-            case .compared: String(localized: "Compared")
+            case .original: String(legacyLocalized: "Original")
+            case .translated: String(legacyLocalized: "Translated")
+            case .compared: String(legacyLocalized: "Compared")
             }
         }
     }
@@ -31,10 +31,10 @@ extension PackageController {
     /// Translate, in the page's menu under Select Version: how the page
     /// reads, checked, then the two languages, each a list of what the
     /// engine offers. nil on a system with no engine to ask.
-    var translateMenu: UIMenu? {
+    var translateMenu: LegacyMenu? {
         guard SystemTranslator.isPresent else { return nil }
         let modes = TranslationMode.allCases.map { mode in
-            UIAction(title: mode.title, state: mode == translationMode ? .on : .off) { [weak self] _ in
+            LegacyAction(title: mode.title, state: mode == translationMode ? .on : .off) { [weak self] _ in
                 self?.translationMode = mode
                 self?.showTranslation(asked: true)
             }
@@ -44,7 +44,7 @@ extension PackageController {
         let targetIdentifier = AutomaticTranslation.targetIdentifier
         let languages = [
             languageMenu(
-                title: String(localized: "Source Language"),
+                title: String(legacyLocalized: "Source Language"),
                 chosen: translationSource,
                 detects: true,
                 list: \.sources
@@ -54,7 +54,7 @@ extension PackageController {
                 self?.translationSource = source
             },
             languageMenu(
-                title: String(localized: "Target Language"),
+                title: String(legacyLocalized: "Target Language"),
                 chosen: target,
                 detects: false,
                 list: \.targets
@@ -66,12 +66,12 @@ extension PackageController {
                 AutomaticTranslation.targetIdentifier = targetIdentifier
             },
         ]
-        return UIMenu(
-            title: String(localized: "Translate"),
+        return LegacyMenu(
+            title: String(legacyLocalized: "Translate"),
             image: UIImage.compatSystemImage("character.bubble"),
             children: [
-                UIMenu(options: .displayInline, children: modes),
-                UIMenu(options: .displayInline, children: languages),
+                LegacyMenu(options: .displayInline, children: modes),
+                LegacyMenu(options: .displayInline, children: languages),
             ]
         )
     }
@@ -87,11 +87,11 @@ extension PackageController {
         list: KeyPath<(sources: [Locale], targets: [Locale]), [Locale]>,
         choose: @escaping (Locale?) -> Void,
         restore: @escaping () -> Void
-    ) -> UIMenu {
+    ) -> LegacyMenu {
         func name(_ locale: Locale) -> String {
             Locale.current.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
         }
-        func action(_ locale: Locale?, title: String) -> UIAction {
+        func action(_ locale: Locale?, title: String) -> LegacyAction {
             // the user's own language is "zh-Hans" where the engine lists "zh_CN"
             let isChosen = switch (locale, chosen) {
             case (nil, nil): true
@@ -105,15 +105,15 @@ extension PackageController {
                 }
             default: false
             }
-            return UIAction(title: title, state: isChosen ? .on : .off) { [weak self] _ in
+            return LegacyAction(title: title, state: isChosen ? .on : .off) { [weak self] _ in
                 choose(locale)
                 guard let self, translationMode != .original else { return }
                 showTranslation(asked: true, onCancel: restore)
             }
         }
-        let options = UIDeferredMenuElement.uncached { completion in
-            Task {
-                let locales = await SystemTranslator.languages()?[keyPath: list] ?? []
+        let options = LegacyDeferredMenuElement.uncached { completion in
+            LegacyTask.detached {
+                let locales = SystemTranslator.languages()?[keyPath: list] ?? []
                 completion(
                     locales
                         .map { (locale: $0, name: name($0)) }
@@ -122,15 +122,15 @@ extension PackageController {
                 )
             }
         }
-        var children: [UIMenuElement] = [options]
+        var children: [LegacyMenuElement] = [options]
         if detects {
             children.insert(
-                UIMenu(options: .displayInline, children: [action(nil, title: String(localized: "Detect Language"))]),
+                LegacyMenu(options: .displayInline, children: [action(nil, title: String(legacyLocalized: "Detect Language"))]),
                 at: 0
             )
         }
-        let menu = UIMenu(title: title, children: children)
-        menu.subtitle = chosen.map(name) ?? String(localized: "Detect Language")
+        let menu = LegacyMenu(title: title, children: children)
+        menu.subtitle = chosen.map(name) ?? String(legacyLocalized: "Detect Language")
         return menu
     }
 }

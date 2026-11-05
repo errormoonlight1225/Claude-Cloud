@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import Foundation
 
 /// The newest Irisin published on GitHub, a pre-release included, in the
@@ -38,10 +39,10 @@ nonisolated enum TestUpdate {
     /// temporary directory and named as the release names it: the caller's
     /// to move.
     @concurrent
-    static func download(architecture: String) async throws(Failure) -> URL {
+    static nonisolated func download(architecture: String) throws(Failure) -> URL {
         var request = URLRequest(url: releases, timeoutInterval: 30)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
+        guard let (data, response) = try? URLSession.shared.compatData(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let newest = try? JSONDecoder().decode([Release].self, from: data).first
         else { throw .unreachable }
@@ -49,7 +50,7 @@ nonisolated enum TestUpdate {
             throw .noPackage
         }
         do {
-            let (downloaded, answer) = try await URLSession.shared.download(from: asset.browserDownloadURL)
+            let (downloaded, answer) = try URLSession.shared.download(from: asset.browserDownloadURL)
             guard (answer as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.unreachable }
             let directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("TestUpdate-\(UUID().uuidString)", isDirectory: true)

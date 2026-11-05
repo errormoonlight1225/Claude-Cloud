@@ -1,3 +1,4 @@
+import LegacyCompat
 import UIKit
 
 extension OwnRegistration {
@@ -9,13 +10,13 @@ extension OwnRegistration {
             message: "Preparing the app update. The app will exit when it finishes."
         )
         controller.present(progress, animated: true) {
-            Task {
+            LegacyTask.detached {
                 if registering {
-                    _ = await request()
+                    _ = request()
                 }
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000)
                 UIApplication.prepareForExitAndSuspend()
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000)
                 exit(0)
             }
         }

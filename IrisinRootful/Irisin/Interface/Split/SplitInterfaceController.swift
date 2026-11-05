@@ -72,7 +72,7 @@ class SplitInterfaceController: UISplitViewController {
             }
             items.insert(SidebarToggleItem(
                 image: UIImage.compatSystemImage("sidebar.leading"),
-                primaryAction: UIAction { [weak self] _ in self?.show(.primary) }
+                primaryAction: LegacyAction { [weak self] _ in self?.show(.primary) }
             ).then { $0.accessibilityLabel = String(localized: "Show Sidebar") }, at: 0)
         }
         item.leftBarButtonItems = items.isEmpty ? nil : items

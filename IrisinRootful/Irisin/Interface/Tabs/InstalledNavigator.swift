@@ -6,13 +6,16 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 class InstalledNavigator: UINavigationController {
     private var subscriptions = Set<AnyCancellable>()
-    private var updateCountTask: Task<Void, Never>?
+    private var updateCountTask: LegacyTask?
 
     init() {
         super.init(rootViewController: InstalledController())
@@ -20,7 +23,7 @@ class InstalledNavigator: UINavigationController {
         navigationBar.prefersLargeTitles = true
 
         tabBarItem = UITabBarItem(
-            title: String(localized: "Installed"),
+            title: String(legacyLocalized: "Installed"),
             image: UIImage.fluent(.textChangeAccept24Filled),
             tag: 0
         )
@@ -34,9 +37,9 @@ class InstalledNavigator: UINavigationController {
 
     func updateAvailableUpdateBadge() {
         updateCountTask?.cancel()
-        updateCountTask = Task { [weak self] in
-            let count = await Self.updateCount(in: PackageCenter.default.index)
-            guard !Task.isCancelled, let self else { return }
+        updateCountTask = LegacyTask.detached { [weak self] in
+            let count = Self.updateCount(in: PackageCenter.default.index)
+            guard !LegacyTask.isCancelled, let self else { return }
             setTabBadge(count > 0 ? String(count) : nil)
         }
     }
@@ -44,7 +47,7 @@ class InstalledNavigator: UINavigationController {
     /// A walk of the whole installed list, so it runs off the main actor on
     /// a copy of the index.
     @concurrent
-    private nonisolated static func updateCount(in index: PackageIndex) async -> Int {
+    private nonisolated static func updateCount(in index: PackageIndex) -> Int {
         index.updateCandidates().count
     }
 

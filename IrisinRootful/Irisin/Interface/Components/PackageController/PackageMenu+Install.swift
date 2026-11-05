@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Dog
@@ -16,7 +17,7 @@ extension PackageMenu {
     static func presentUnsupportedArchitecture(of package: Package, from host: UIViewController) {
         host.presentNotice(
             title: "Unsupported Architecture",
-            message: String(localized: "This package is built for \(package.architectures.joined(separator: ", ")). This device uses \(PackagedArchitecture.architecture). Choose a compatible package, or use Apelin to rebuild this one for this device.")
+            message: String(legacyLocalized: "This package is built for \(package.architectures.joined(separator: ", ")). This device uses \(PackagedArchitecture.architecture). Choose a compatible package, or use Apelin to rebuild this one for this device.")
         )
     }
 
@@ -40,14 +41,14 @@ extension PackageMenu {
         }
         // before a purchase is checked: nobody pays for the record the
         // alert is about to talk them out of
-        guard await keeps(selected, from: host) else { return }
+        guard keeps(selected, from: host) else { return }
         if selected.localFileURL != nil {
-            await enqueue([.install(selected)], from: host)
+            enqueue([.install(selected)], from: host)
             return
         }
 
         guard selected.isCommercial else {
-            await enqueue([.install(selected)], from: host)
+            enqueue([.install(selected)], from: host)
             return
         }
         guard let repoUrl = signedInStore(of: selected, from: host) else { return }
@@ -57,17 +58,17 @@ extension PackageMenu {
         )
         // on screen before the check: a quick answer would dismiss it while
         // it is still coming in, which UIKit ignores
-        await withCheckedContinuation { done in
+        withCheckedContinuation { done in
             host.present(alert, animated: true) { done.resume() }
         }
         // the requests time out on their own; nothing waits forever
-        let check = await checkPurchase(of: selected, in: repoUrl)
+        let check = checkPurchase(of: selected, in: repoUrl)
         // gone before the next sheet: the host cannot present while it is leaving
-        await alert.dismissFinishing(animated: true)
+        alert.dismissFinishing(animated: true)
         if case let .purchased(purchased) = check {
-            await enqueue([.install(purchased)], from: host)
+            enqueue([.install(purchased)], from: host)
         } else {
-            await present(check, from: host)
+            present(check, from: host)
         }
     }
 
@@ -76,7 +77,7 @@ extension PackageMenu {
     /// version. Taking a recommendation opens its
     /// page and queues nothing: the request for it is made there, by the
     /// user, with the package in front of them.
-    static func keeps(_ selected: Package, from host: UIViewController) async -> Bool {
+    static nonisolated func keeps(_ selected: Package, from host: UIViewController) -> Bool {
         let center = PackageCenter.default
         let advice = PackageSelectionAdvice(
             selected: selected,
@@ -90,9 +91,9 @@ extension PackageMenu {
         if !center.blockedUpdateTable.contains(selected.identity),
            let newer = advice.newerAlternative(installedVersion: installed)
         {
-            let choice = await host.askRecommendation(
+            let choice = host.askRecommendation(
                 title: "Newer Version Available",
-                message: String(localized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
+                message: String(legacyLocalized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
                 anywayTitle: anyway
             )
             switch choice {
@@ -109,15 +110,15 @@ extension PackageMenu {
     /// The button that goes on as asked, named after the menu item that asked.
     private static func anywayTitle(for selected: Package, installedVersion: String?) -> String {
         if PackageQueue.shared.queuedPackage(of: selected.identity) != nil {
-            return String(localized: "Replace Anyway")
+            return String(legacyLocalized: "Replace Anyway")
         }
         guard let installedVersion, let version = selected.latestVersion else {
-            return String(localized: "Install Anyway")
+            return String(legacyLocalized: "Install Anyway")
         }
         return switch Package.compareVersion(version, b: installedVersion) {
-        case .aIsBiggerThenB: String(localized: "Update Anyway")
-        case .aIsSmallerThenB: String(localized: "Downgrade Anyway")
-        default: String(localized: "Reinstall Anyway")
+        case .aIsBiggerThenB: String(legacyLocalized: "Update Anyway")
+        case .aIsSmallerThenB: String(legacyLocalized: "Downgrade Anyway")
+        default: String(legacyLocalized: "Reinstall Anyway")
         }
     }
 
@@ -163,8 +164,8 @@ extension PackageMenu {
     }
 
     /// `package` is trimmed to the version the user picked.
-    static func checkPurchase(of package: Package, in repoUrl: URL) async -> PurchaseCheck {
-        guard let info = await VendorAccount.shared.purchaseStatus(
+    static nonisolated func checkPurchase(of package: Package, in repoUrl: URL) -> PurchaseCheck {
+        guard let info = VendorAccount.shared.purchaseStatus(
             for: repoUrl,
             withPackageIdentity: package.identity
         ) else {
@@ -180,7 +181,7 @@ extension PackageMenu {
         guard info.purchased == true else {
             return info.available == true ? .forSale(identity: package.identity, repository: repoUrl) : .unavailable
         }
-        guard let download = await VendorAccount.shared.queryDownloadLink(withPackage: package),
+        guard let download = VendorAccount.shared.queryDownloadLink(withPackage: package),
               let version = package.latestVersion,
               var meta = package.latestMetadata
         else {
@@ -192,12 +193,12 @@ extension PackageMenu {
     }
 
     /// Everything but `.purchased`: the purchase to start, or why not.
-    static func present(_ check: PurchaseCheck, from host: UIViewController) async {
+    static nonisolated func present(_ check: PurchaseCheck, from host: UIViewController) {
         switch check {
         case .purchased:
             break
         case let .forSale(identity, repository):
-            _ = await VendorAccount.shared.initPurchase(
+            _ = VendorAccount.shared.initPurchase(
                 for: repository,
                 withPackageIdentity: identity,
                 window: host.view.window ?? UIWindow()

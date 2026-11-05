@@ -8,6 +8,7 @@
 //  page's button finishes.
 //
 
+import LegacyCompat
 import AlertController
 import SnapKit
 import Then
@@ -16,8 +17,8 @@ import UIKit
 class WelcomeController: UIViewController {
     struct Feature {
         let symbol: String
-        let title: String.LocalizationValue
-        let detail: String.LocalizationValue
+        let title: LegacyLocalizationValue
+        let detail: LegacyLocalizationValue
     }
 
     /// Raise it when onboarding changes enough to be shown again. 2 added
@@ -133,7 +134,7 @@ class WelcomeController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .formSheet
         modalTransitionStyle = .coverVertical
-        isModalInPresentation = true
+        if #available(iOS 13.0, *) { isModalInPresentation = true }
         preferredContentSize = CGSize(width: 520, height: 620)
     }
 
@@ -171,7 +172,7 @@ class WelcomeController: UIViewController {
     }
 
     private func setupLayout() {
-        let actionBar = WelcomeActionBar(title: String(localized: "Next")) { [weak self] in
+        let actionBar = WelcomeActionBar(title: String(legacyLocalized: "Next")) { [weak self] in
             self?.showNextPage()
         }
 
@@ -204,7 +205,7 @@ class WelcomeController: UIViewController {
         let icon = UIImageView(image: AlertControllerConfiguration.alertImage).then {
             $0.contentMode = .scaleAspectFill
             $0.layer.cornerRadius = 14
-            $0.layer.cornerCurve = .continuous
+            $0.layer.compatContinuousCorners()
             $0.layer.shadowColor = WelcomeStyle.iconShadow.cgColor
             $0.layer.shadowRadius = 4
             $0.layer.shadowOffset = .zero
@@ -224,7 +225,7 @@ class WelcomeController: UIViewController {
 
         // the translation places the line break and the name; the name is
         // tinted wherever it lands
-        let title = String(localized: "Welcome to\nIrisin")
+        let title = String(legacyLocalized: "Welcome to\nIrisin")
         let titleText = NSMutableAttributedString(string: title, attributes: [
             .font: WelcomeStyle.titleFont,
             .foregroundColor: WelcomeStyle.titleColor,
@@ -239,13 +240,13 @@ class WelcomeController: UIViewController {
         })
 
         stackView.addArrangedSubview(UILabel().then {
-            $0.text = String(localized: "Find, install and manage tweaks.")
+            $0.text = String(legacyLocalized: "Find, install and manage tweaks.")
             $0.font = WelcomeStyle.subtitleFont
             $0.textColor = WelcomeStyle.detailColor
             $0.numberOfLines = 0
         })
 
-        let rule = UIView().then { $0.backgroundColor = .separator }
+        let rule = UIView().then { $0.backgroundColor = .compatSeparator }
         rule.snp.makeConstraints { x in
             x.height.equalTo(0.75)
         }

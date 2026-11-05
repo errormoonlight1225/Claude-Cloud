@@ -11,6 +11,8 @@ line breaks; `import LegacyCompat` is added where anything changed.
   UICollectionView.SupplementaryRegistration -> LegacySupplementaryRegistration
   .dequeueConfiguredReusableCell(using:     -> .legacyDequeueConfiguredReusableCell(using:
   .dequeueConfiguredReusableSupplementary(  -> .legacyDequeueConfiguredReusableSupplementary(
+  UIListContentConfiguration, contentConfiguration, defaultContentConfiguration(),
+  UIBackgroundConfiguration, backgroundConfiguration -> their Legacy* forms
 
 Usage: symbols_rewrite.py PATH...
 """
@@ -34,6 +36,12 @@ RULES = [
     (re.compile(r"\bUICollectionView\.SupplementaryRegistration\b"), "LegacySupplementaryRegistration"),
     (re.compile(r"\.dequeueConfiguredReusableCell\(using:"), ".legacyDequeueConfiguredReusableCell(using:"),
     (re.compile(r"\.dequeueConfiguredReusableSupplementary\("), ".legacyDequeueConfiguredReusableSupplementary("),
+    (re.compile(r"\bUIListContentConfiguration\b"), "LegacyListContentConfiguration"),
+    (re.compile(r"\bUIBackgroundConfiguration\b"), "LegacyBackgroundConfiguration"),
+    (re.compile(r"(?<![\w])defaultContentConfiguration\(\)"), "legacyDefaultContentConfiguration()"),
+    (re.compile(r"(?<![\w])contentConfiguration\b"), "legacyContentConfiguration"),
+    (re.compile(r"(?<![\w])backgroundConfiguration\b"), "legacyBackgroundConfiguration"),
+    (re.compile(r"^[ \t]*[\w.$]*automaticallyUpdates(?:Background|Content)Configuration\s*=\s*\w+[ \t]*\n", re.M), ""),
 ]
 
 changed = 0

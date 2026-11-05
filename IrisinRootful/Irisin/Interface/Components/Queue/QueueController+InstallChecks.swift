@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AlertController
 import UIKit
 
@@ -10,15 +11,15 @@ extension QueueController {
     /// Bootstrap Install (when the plan allows it), Install Anyway or
     /// Cancel. Returns once the alert is gone, so what comes next can be
     /// presented.
-    func askWithoutDpkg(offersBootstrap: Bool) async -> QueueInstallChecks.DpkgAnswer {
+    nonisolated func askWithoutDpkg(offersBootstrap: Bool) -> QueueInstallChecks.DpkgAnswer {
         // a second tap while the first alert is up, or a page on its way
         // out: nothing would come up, and nothing would ever answer
         guard presentedViewController == nil, view.window != nil else { return .cancel }
-        var message = String(localized: "dpkg is not installed on this system, so the tools the packages' scripts need may be missing.")
+        var message = String(legacyLocalized: "dpkg is not installed on this system, so the tools the packages' scripts need may be missing.")
         if offersBootstrap {
-            message += "\n\n" + String(localized: "Bootstrap Install places every package's files before any script runs.")
+            message += "\n\n" + String(legacyLocalized: "Bootstrap Install places every package's files before any script runs.")
         }
-        return await withCheckedContinuation { continuation in
+        return withCheckedContinuation { continuation in
             let alert = AlertViewController(
                 title: String.LocalizationValue(String(localized: "dpkg Is Not Installed")),
                 message: String.LocalizationValue(message)
@@ -42,11 +43,11 @@ extension QueueController {
     /// The packages that run scripts, before a queue with no dpkg under it
     /// goes on. `onConfirm` runs on Install Anyway.
     func warnAboutScripts(_ names: [String], onConfirm: @escaping () -> Void) {
-        let list = ListFormatter.localizedString(byJoining: names)
+        let list = LegacyListFormatter.localizedString(byJoining: names)
         presentConfirmation(
             title: "Installation Likely to Fail",
-            message: String.LocalizationValue(
-                String(localized: "These packages run scripts that this system may not be able to run: \(list). The installation is likely to fail.")
+            message: LegacyLocalizationValue(
+                String(legacyLocalized: "These packages run scripts that this system may not be able to run: \(list). The installation is likely to fail.")
             ),
             confirmTitle: "Install Anyway",
             destructive: true,

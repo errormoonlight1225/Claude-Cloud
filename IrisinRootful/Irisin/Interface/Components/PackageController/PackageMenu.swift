@@ -34,33 +34,33 @@ enum PackageMenu {
         func describe() -> String {
             switch self {
             case .dequeue:
-                String(localized: "Remove from Queue")
+                String(legacyLocalized: "Remove from Queue")
             case .replace:
-                String(localized: "Replace")
+                String(legacyLocalized: "Replace")
             case .directInstall:
-                String(localized: "Direct Install")
+                String(legacyLocalized: "Direct Install")
             case .install:
-                String(localized: "Install")
+                String(legacyLocalized: "Install")
             case .reinstall:
-                String(localized: "Reinstall")
+                String(legacyLocalized: "Reinstall")
             case .downgrade:
-                String(localized: "Downgrade")
+                String(legacyLocalized: "Downgrade")
             case .update:
-                String(localized: "Update")
+                String(legacyLocalized: "Update")
             case .remove:
-                String(localized: "Remove")
+                String(legacyLocalized: "Remove")
             case .versionControl:
-                String(localized: "Choose Version")
+                String(legacyLocalized: "Choose Version")
             case .blockUpdate:
-                String(localized: "Block Update")
+                String(legacyLocalized: "Block Update")
             case .unblockUpdate:
-                String(localized: "Unblock Update")
+                String(legacyLocalized: "Unblock Update")
             case .download:
-                String(localized: "Download Archive")
+                String(legacyLocalized: "Download Archive")
             case .viewMeta:
-                String(localized: "View Package Info")
+                String(legacyLocalized: "View Package Info")
             case .revealFiles:
-                String(localized: "Reveal Files")
+                String(legacyLocalized: "Reveal Files")
             }
         }
 
@@ -103,7 +103,7 @@ enum PackageMenu {
         /// Runs with the page the menu belongs to, which presents what the
         /// action shows, and what the user touched to get here, for an
         /// action that ends in a popover on the iPad.
-        typealias Block = @MainActor (Package, UIViewController, PopoverAnchor?) async -> Void
+        typealias Block = @MainActor @Sendable (Package, UIViewController, PopoverAnchor?) -> Void
 
         let block: Block
         let eligibleForPerform: (Package) -> (Bool)
@@ -147,26 +147,26 @@ enum PackageMenu {
         for package: Package,
         from host: UIViewController,
         anchor: PopoverAnchor? = nil
-    ) -> [UIMenuElement] {
+    ) -> [LegacyMenuElement] {
         let actions = eligibleActions(for: package)
-        func children(of section: [Action]) -> [UIAction] {
+        func children(of section: [Action]) -> [LegacyAction] {
             actions
                 .filter { section.contains($0.descriptor) }
                 .map { action in
-                    UIAction(
+                    LegacyAction(
                         title: action.descriptor.describe(),
                         image: action.descriptor.icon(),
                         attributes: destructiveActions.contains(action.descriptor) ? .destructive : []
                     ) { [weak host] chosen in
                         guard let host else { return }
                         let anchor = anchor ?? PopoverAnchor(sender: chosen.sender)
-                        Task { await action.block(package, host, anchor) }
+                        LegacyTask.detached { action.block(package, host, anchor) }
                     }
                 }
         }
-        var elements: [UIMenuElement] = menuSections.compactMap { section in
+        var elements: [LegacyMenuElement] = menuSections.compactMap { section in
             let children = children(of: section)
-            return children.isEmpty ? nil : UIMenu(options: .displayInline, children: children)
+            return children.isEmpty ? nil : LegacyMenu(options: .displayInline, children: children)
         }
         // the package page reads in another language; a cell has no page
         if let translate = (host as? PackageController)?.translateMenu {
@@ -174,8 +174,8 @@ enum PackageMenu {
         }
         let advanced = children(of: advancedSection)
         if !advanced.isEmpty {
-            elements.append(UIMenu(
-                title: String(localized: "Advanced"),
+            elements.append(LegacyMenu(
+                title: String(legacyLocalized: "Advanced"),
                 image: UIImage.compatSystemImage("ellipsis.circle"),
                 children: advanced
             ))
@@ -203,8 +203,8 @@ enum PackageMenu {
 
     /// Every request in the app goes here: the change sheet shows what it
     /// does to the queue and adds it. Returns once the sheet is on its way in.
-    static func enqueue(_ actions: [ResolutionAction], from host: UIViewController) async {
-        await QueueChangeController.show(.actions(actions), from: host)
+    static nonisolated func enqueue(_ actions: [ResolutionAction], from host: UIViewController) {
+        QueueChangeController.show(.actions(actions), from: host)
     }
 }
 
@@ -229,7 +229,7 @@ extension PackageMenu {
             // record. The preview above stays the row's: the package page
             // finds that record itself, as it does when the row is tapped.
             let requested = requestPackage(for: package)
-            return UIMenu(
+            return LegacyMenu(
                 title: "",
                 children: menuElements(for: requested, from: host, anchor: anchor)
             )

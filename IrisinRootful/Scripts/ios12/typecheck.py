@@ -122,7 +122,10 @@ MODULES = [
        "PackageDepiction", "SnapKit", "SDWebImage", "SPIndicator", "LitextAnimation", "AlertController",
        "Then", "OrderedCollections", "OpenCombine", "OpenCombineDispatch", "OpenCombineFoundation",
        "LegacyCompat", "LegacyCrypto"],
-      executable=True),
+      executable=True,
+      # Upstream builds the app with main-actor default isolation; checking
+      # it the same way reports every converted hop (as a warning).
+      flags=["-Xfrontend", "-default-isolation", "-Xfrontend", "MainActor"]),
 ]
 
 BY_NAME = {m["name"]: m for m in MODULES}

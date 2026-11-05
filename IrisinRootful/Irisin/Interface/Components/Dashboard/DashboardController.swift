@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 class DashboardController: UICollectionViewController, UICollectionViewDelegateFlowLayout {
@@ -148,9 +150,9 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
 
         // The page is on screen before the engines are: its first sections
         // are the ones read after them, and they arrive without a move.
-        Task {
-            _ = await AppBootstrap.finished()
-            await reload(animated: false)
+        LegacyTask.detached {
+            _ = AppBootstrap.finished()
+            reload(animated: false)
         }
 
         // Finished refreshes and package records share one rebuild per second.
@@ -164,11 +166,11 @@ class DashboardController: UICollectionViewController, UICollectionViewDelegateF
         .filter { !$0.isRepositoryProgress }
         .throttle(for: .seconds(1), scheduler: DispatchQueue.main, latest: true)
         .sink { [weak self] _ in
-            Task {
+            LegacyTask.detached {
                 // a center that announces itself mid-bootstrap is half of
                 // what the page shows; the first load above covers it
-                guard await AppBootstrap.finished() else { return }
-                await self?.reload(animated: self?.hasShownSections ?? false)
+                guard AppBootstrap.finished() else { return }
+                self?.reload(animated: self?.hasShownSections ?? false)
             }
         }
         .store(in: &subscriptions)

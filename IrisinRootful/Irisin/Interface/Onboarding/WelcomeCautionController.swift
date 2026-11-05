@@ -39,15 +39,15 @@ class WelcomeCautionController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Proceed with Caution")
+        title = String(legacyLocalized: "Proceed with Caution")
         view.backgroundColor = .groupedBackground
 
         let symbol = UIImageView(image: UIImage.compatSystemImage("exclamationmark.triangle.fill")).then {
             $0.tintColor = WelcomeStyle.caution
-            $0.preferredSymbolConfiguration = .init(pointSize: 44)
+            $0.compatPreferredSymbolConfiguration = .init(pointSize: 44)
         }
         let body = UILabel().then {
-            $0.text = String(localized: "We have safeguards to keep your system safe, but a wrong action can still damage it.")
+            $0.text = String(legacyLocalized: "We have safeguards to keep your system safe, but a wrong action can still damage it.")
             $0.font = WelcomeStyle.subtitleFont
             $0.textColor = WelcomeStyle.titleColor
             $0.numberOfLines = 0
@@ -66,7 +66,7 @@ class WelcomeCautionController: UIViewController {
         }
         let scrollView = UIScrollView().then { $0.alwaysBounceVertical = true }
         let contentView = UIView()
-        let actionBar = WelcomeActionBar(title: String(localized: "Get Started")) { [weak self] in
+        let actionBar = WelcomeActionBar(title: String(legacyLocalized: "Get Started")) { [weak self] in
             self?.onFinish()
         }
         view.addSubview(scrollView)

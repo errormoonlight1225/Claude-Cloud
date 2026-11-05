@@ -6,6 +6,7 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import UIKit
@@ -47,7 +48,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // if not, check for url schemes
         let urlContexts = options.urlContexts
-        Task {
+        LegacyTask.detached {
             self.scene(scene, openURLContexts: urlContexts)
         }
     }
@@ -57,8 +58,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
               let data = activity.userInfo?["attach"] as? Data,
               let package = Package.propertyListDecoded(with: data)
         else { return false }
-        Task {
-            await interface()?.pageStack?.pushViewController(PackageController(package: package), animated: true)
+        LegacyTask.detached {
+            interface()?.pageStack?.pushViewController(PackageController(package: package), animated: true)
         }
         return true
     }
@@ -70,8 +71,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // behind it reads the same file
         guard AppBootstrap.isFinished else { return }
         reloadThrottle.throttle {
-            Task {
-                await PackageCenter.default.reloadLocalPackages()
+            LegacyTask.detached {
+                PackageCenter.default.reloadLocalPackages()
             }
         }
         // back after a while away: what went out of date meanwhile is
@@ -88,8 +89,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         background.identifier = application.beginBackgroundTask(withName: "RepositoryWrites") {
             background.end()
         }
-        Task {
-            await RepositoryCenter.default.writesLanded()
+        LegacyTask.detached {
+            RepositoryCenter.default.writesLanded()
             background.end()
         }
     }
@@ -129,14 +130,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// The interface once the engines are up, so what is opened in it finds
     /// the repositories and packages it asks for. Nothing where the
     /// interface never opens.
-    private func interface() async -> InterfaceHostController? {
-        guard await AppBootstrap.finished() else { return nil }
+    private nonisolated func interface() -> InterfaceHostController? {
+        guard AppBootstrap.finished() else { return nil }
         return window?.rootViewController as? InterfaceHostController
     }
 
     private func openQuickAddRepo(_ sources: [RepositorySource]) {
-        Task {
-            guard let interface = await interface() else { return }
+        LegacyTask.detached {
+            guard let interface = interface() else { return }
             // a sheet the user has open stays, with this one over it
             (interface.presentedViewController ?? interface)
                 .present(RepositoryAddController.sheet(candidates: sources, origin: .link), animated: true)
@@ -147,8 +148,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// is installed. A link to a package no added repository has opens
     /// nothing: there is no page to show, and a blank one would be a lie.
     private func openPackage(_ identity: String) {
-        Task {
-            guard let interface = await interface() else { return }
+        LegacyTask.detached {
+            guard let interface = interface() else { return }
             let center = PackageCenter.default
             let offered = center.newestPackage(
                 of: Array(center.obtainPackageSummary(with: identity).values),
@@ -183,15 +184,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func importRepositories(from url: URL) {
-        Task {
-            guard let data = await Self.read(url),
+        LegacyTask.detached {
+            guard let data = Self.read(url),
                   let sources = try? RepositoryListFile.sources(in: data)
             else {
                 presentNotice(title: "Unable to Import", message: "This file could not be read. Choose another file.")
                 return
             }
             // what is already added is known once the repositories are read
-            guard let interface = await interface() else { return }
+            guard let interface = interface() else { return }
             let registered = Set(RepositoryCenter.default.obtainRepositoryUrls())
             let fresh = sources.filter { !registered.contains($0.url) }
             guard !fresh.isEmpty else {
@@ -205,9 +206,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// The file's bytes. Opened in place from iCloud Drive, it may have to
     /// download first; an inbox copy is read at once.
-    private static func read(_ url: URL) async -> Data? {
+    private static nonisolated func read(_ url: URL) -> Data? {
         do {
-            return try await url.readingCoordinated { try Data(contentsOf: $0) }
+            return try url.readingCoordinated { try Data(contentsOf: $0) }
         } catch {
             Dog.shared.join("SceneDelegate", "can not read \(url.path): \(error)", level: .error)
             return nil
@@ -215,20 +216,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func openQuickInstall(url: URL, inPlace: Bool) {
-        Task {
+        LegacyTask.detached {
             let target = DebOpenController()
             target.patternLocation = url
             target.openedInPlace = inPlace
-            await interface()?.pageStack?.pushViewController(target, animated: true)
+            interface()?.pageStack?.pushViewController(target, animated: true)
         }
     }
 
     /// An update that stopped the app before it asked for its own
     /// registration is finished once the daemon answers (`OwnRegistration`).
     private func finishOwnRegistrationIfStale() {
-        Task {
-            for await backend in PrivilegedBackend.backendUpdates.values where backend != nil {
-                guard backend?.isPrivileged == true, let interface = await interface() else { return }
+        LegacyTask.detached {
+            for backend in PrivilegedBackend.backendUpdates.values where backend != nil {
+                guard backend?.isPrivileged == true, let interface = interface() else { return }
                 OwnRegistration.finishIfStale(from: interface.presentedViewController ?? interface)
                 return
             }
@@ -237,9 +238,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// The scene delegate is not a view controller, so an alert waits for the
     /// interface the same way a page does.
-    private func presentNotice(title: String.LocalizationValue, message: String.LocalizationValue) {
-        Task {
-            guard let interface = await interface() else { return }
+    private func presentNotice(title: LegacyLocalizationValue, message: LegacyLocalizationValue) {
+        LegacyTask.detached {
+            guard let interface = interface() else { return }
             (interface.presentedViewController ?? interface).presentNotice(title: title, message: message)
         }
     }

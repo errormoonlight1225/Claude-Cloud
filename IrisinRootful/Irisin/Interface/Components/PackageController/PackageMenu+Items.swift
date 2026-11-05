@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import SPIndicator
@@ -13,7 +14,7 @@ extension PackageMenu {
         .init(
             descriptor: .dequeue,
             block: { package, host, _ in
-                await QueueChangeController.show(.withdraw(package.identity), from: host)
+                QueueChangeController.show(.withdraw(package.identity), from: host)
             },
             eligibleForPerform: { package in
                 PackageQueue.shared.isQueued(package.identity)
@@ -109,7 +110,7 @@ extension PackageMenu {
         .init(
             descriptor: .remove,
             block: { package, host, _ in
-                await enqueue([.remove(package.identity)], from: host)
+                enqueue([.remove(package.identity)], from: host)
             },
             eligibleForPerform: { package in
                 PackageCenter
@@ -138,7 +139,7 @@ extension PackageMenu {
         .init(descriptor: .blockUpdate, block: { package, _, _ in
             PackageCenter.default.blockedUpdateTable.append(package.identity)
             SPIndicator.present(
-                title: String(localized: "Done"),
+                title: String(legacyLocalized: "Done"),
                 message: nil,
                 preset: .done,
                 haptic: .success,
@@ -151,7 +152,7 @@ extension PackageMenu {
         .init(descriptor: .unblockUpdate, block: { package, _, _ in
             PackageCenter.default.blockedUpdateTable.removeAll { $0 == package.identity }
             SPIndicator.present(
-                title: String(localized: "Done"),
+                title: String(legacyLocalized: "Done"),
                 message: nil,
                 preset: .done,
                 haptic: .success,
@@ -172,7 +173,7 @@ extension PackageMenu {
                 .sorted { $0.key < $1.key }
                 .map { "\($0.key): \($0.value)" }
                 .joined(separator: "\n")
-            host.present(next: TextReaderController(title: String(localized: "Package Info"), text: text))
+            host.present(next: TextReaderController(title: String(legacyLocalized: "Package Info"), text: text))
         }, eligibleForPerform: { _ in true }),
         .init(
             descriptor: .revealFiles,

@@ -6,13 +6,14 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import UIKit
 
 extension UIColor {
     /// A dynamic color that follows the interface style. Either side may be
     /// dynamic itself (a system color that follows the level).
     convenience init(light: UIColor, dark: UIColor) {
-        self.init { ($0.userInterfaceStyle == .dark ? dark : light).resolvedColor(with: $0) }
+        self.init { ($0.userInterfaceStyle == .dark ? dark : light).compatResolvedColor(with: $0) }
     }
 
     /// An opaque color from a `0xRRGGBB` value.

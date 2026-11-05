@@ -1,6 +1,8 @@
 import LegacyCompat
 import AptResolver
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import IrisinProtocol
 import UIKit
 
@@ -37,7 +39,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
     }
 
     private let changes: [String: QueueChange]
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
     private lazy var operationWarningBanner = OperationWarningBanner(
         title: operation.plan.recoveryMode ? "Recovery Mode" : "Ignoring Configuration Errors"
     )
@@ -61,15 +63,15 @@ final class OperationController: UIViewController, UITableViewDelegate {
     /// a table's update animation sets its footer's alpha back to 1, and
     /// the failure row showed the line under a list that had stopped.
     private let finishingFooter = ListFootnoteView().then {
-        $0.label.text = String(localized: "Finishing installation…")
+        $0.label.text = String(legacyLocalized: "Finishing installation…")
         $0.label.alpha = 0
         $0.accessibilityElementsHidden = true
     }
 
-    private let retrySpinner = UIActivityIndicatorView(style: .medium)
+    private let retrySpinner = UIActivityIndicatorView(style: .compatMedium)
     private lazy var retryButton = UIButton(type: .system).then {
         $0.setAttributedTitle(NSAttributedString(
-            string: String(localized: "Try Again"),
+            string: String(legacyLocalized: "Try Again"),
             attributes: [
                 .font: UIFont.footnote,
                 .foregroundColor: UIColor.buttonNormal,
@@ -78,7 +80,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
         ), for: .normal)
         $0.titleLabel?.numberOfLines = 0
         $0.titleLabel?.textAlignment = .center
-        $0.addAction(UIAction { [weak self] _ in self?.retry() }, for: .touchUpInside)
+        $0.legacyAddAction(for: .touchUpInside) { [weak self] _ in self?.retry() }
     }
 
     private lazy var retryFooter = UIView().then { footer in
@@ -118,30 +120,30 @@ final class OperationController: UIViewController, UITableViewDelegate {
             return cell
         case .maintenance:
             let cell = table.dequeueReusableCell(withIdentifier: "maintenance", for: indexPath)
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = monitor?.outcome == .succeeded
-                ? String(localized: "Operation completed.")
-                : String(localized: "Maintaining the system environment…")
+                ? String(legacyLocalized: "Operation completed.")
+                : String(legacyLocalized: "Maintaining the system environment…")
             content.textProperties.font = .body
             if monitor?.outcome == .succeeded {
                 content.image = UIImage.compatSystemImage("checkmark.circle.fill")
                 content.imageProperties.tintColor = .operationSucceeded
                 cell.accessoryView = nil
             } else {
-                cell.accessoryView = UIActivityIndicatorView(style: .medium).then { $0.startAnimating() }
+                cell.accessoryView = UIActivityIndicatorView(style: .compatMedium).then { $0.startAnimating() }
             }
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             cell.selectionStyle = .none
             cell.accessibilityTraits = .staticText
             return cell
         case let .notice(text):
             let cell = table.dequeueReusableCell(withIdentifier: "plain", for: indexPath)
-            var content = cell.defaultContentConfiguration()
+            var content = cell.legacyDefaultContentConfiguration()
             content.text = text
             content.textProperties.font = .footnote
             content.image = UIImage.compatSystemImage("exclamationmark.triangle")
             content.imageProperties.tintColor = .operationWarning
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             cell.selectionStyle = .none
             return cell
         }
@@ -168,16 +170,16 @@ final class OperationController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Installing")
-        isModalInPresentation = true
-        navigationController?.isModalInPresentation = true
+        title = String(legacyLocalized: "Installing")
+        if #available(iOS 13.0, *) { isModalInPresentation = true }
+        if #available(iOS 13.0, *) { navigationController?.isModalInPresentation = true }
         navigationItem.largeTitleDisplayMode = .always
         navigationController?.navigationBar.prefersLargeTitles = true
         navigationItem.leftBarButtonItems = [menuItem()]
-        let activity = UIActivityIndicatorView(style: .medium)
+        let activity = UIActivityIndicatorView(style: .compatMedium)
         activity.color = .buttonNormal
         activity.isAccessibilityElement = true
-        activity.accessibilityLabel = String(localized: "Operation in Progress")
+        activity.accessibilityLabel = String(legacyLocalized: "Operation in Progress")
         activity.startAnimating()
         navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activity)
 
@@ -191,7 +193,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
         dataSource.headerTitle = { section in
             switch section {
             case let .changes(kind, dependencies): kind.title(dependencies: dependencies)
-            case .notices: String(localized: "Warnings")
+            case .notices: String(legacyLocalized: "Warnings")
             case .status: nil
             }
         }
@@ -313,8 +315,8 @@ final class OperationController: UIViewController, UITableViewDelegate {
 
     /// How a failed operation went: the rows counted when it stopped at a
     /// package, the reason itself when it stopped anywhere else.
-    private func statusContent() -> UIListContentConfiguration {
-        var content = UIListContentConfiguration.subtitleCell()
+    private func statusContent() -> LegacyListContentConfiguration {
+        var content = LegacyListContentConfiguration.subtitleCell()
         content.textProperties.font = .subheadlineEmphasized
         content.textProperties.color = .textTitle
         content.secondaryTextProperties.font = .footnote
@@ -336,17 +338,17 @@ final class OperationController: UIViewController, UITableViewDelegate {
             let done = states.filter { $0.status == .done }.count
             let incomplete = states.filter { $0.status == .incomplete }.count
             let notStarted = states.filter { $0.status == .notStarted }.count
-            content.text = ListFormatter.localizedString(byJoining: [
-                done > 0 ? String(localized: "\(done) completed") : nil,
-                String(localized: "\(failed) failed"),
-                incomplete > 0 ? String(localized: "\(incomplete) not set up") : nil,
-                notStarted > 0 ? String(localized: "\(notStarted) not started") : nil,
+            content.text = LegacyListFormatter.localizedString(byJoining: [
+                done > 0 ? String(legacyLocalized: "\(done) completed") : nil,
+                String(legacyLocalized: "\(failed) failed"),
+                incomplete > 0 ? String(legacyLocalized: "\(incomplete) not set up") : nil,
+                notStarted > 0 ? String(legacyLocalized: "\(notStarted) not started") : nil,
             ].compactMap(\.self))
-            content.secondaryText = String(localized: "Select a marked package to see what went wrong.")
+            content.secondaryText = String(legacyLocalized: "Select a marked package to see what went wrong.")
         } else {
             content.text = reason
             if states.contains(where: { $0.status == .done }) {
-                content.secondaryText = String(localized: "The packages marked as completed were changed before it stopped.")
+                content.secondaryText = String(legacyLocalized: "The packages marked as completed were changed before it stopped.")
             }
         }
         return content
@@ -379,9 +381,9 @@ final class OperationController: UIViewController, UITableViewDelegate {
                 updateFinishingFooter()
                 view.setNeedsLayout()
                 let settled = Self.barSettleInterval - Date().timeIntervalSince(appearedAt ?? .distantPast)
-                Task { [weak self] in
+                LegacyTask.detached { [weak self] in
                     if settled > 0 {
-                        try? await Task.sleep(seconds: settled)
+                        try? Task.sleep(seconds: settled)
                     }
                     guard let self else { return }
                     finishOperation(succeeded: outcome.succeeded, ending: ending(of: monitor))
@@ -441,26 +443,26 @@ final class OperationController: UIViewController, UITableViewDelegate {
     private func retry(ignoreScriptFailures: Bool? = nil) {
         guard !retrying else { return }
         retrying = true
-        Task { [weak self] in
-            guard await OperationConfirmation.confirm() else {
+        LegacyTask.detached { [weak self] in
+            guard OperationConfirmation.confirm() else {
                 self?.retrying = false
                 return
             }
             let manager = PackageQueue.shared
-            await manager.settled()
+            manager.settled()
             guard let self, view.window != nil else { return }
             let payload: Installer.OperationPayload? = if operation.plan.recoveryMode,
                                                           operation.plan.install.count == 1,
                                                           let package = operation.plan.install.first
             {
-                await Installer.shared.createRecoveryOperationPayload(package: package)
+                Installer.shared.createRecoveryOperationPayload(package: package)
             } else if operation.plan.recoveryMode,
                       operation.plan.remove.count == 1,
                       let package = operation.plan.remove.first
             {
-                await Installer.shared.createRecoveryRemovalPayload(identity: package.identity)
+                Installer.shared.createRecoveryRemovalPayload(identity: package.identity)
             } else if manager.blocked == nil, let plan = manager.plan {
-                await Installer.shared.createOperationPayload(
+                Installer.shared.createOperationPayload(
                     plan: plan,
                     ignoreScriptFailures: ignoreScriptFailures ?? ignoresScriptFailures,
                     bootstrapInstall: operation.transaction.bootstrapInstall && plan.allowsBootstrapInstall
@@ -475,7 +477,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
                 reconfigure()
                 // staging said why in the report when it could
                 let report = PackageActionReport.shared.allAvailable()
-                let fallback = String(localized: "Unable to prepare this operation. Try again.")
+                let fallback = String(legacyLocalized: "Unable to prepare this operation. Try again.")
                 return presentNotice(
                     title: "Unable to Try Again",
                     message: manager.blocked ?? (report.isEmpty ? fallback : report)

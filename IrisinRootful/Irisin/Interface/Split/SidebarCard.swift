@@ -106,7 +106,7 @@ class SidebarCard: UIView {
 
     @objc
     func touched() {
-        Task {
+        LegacyTask.detached {
             cardClosure?()
         }
     }

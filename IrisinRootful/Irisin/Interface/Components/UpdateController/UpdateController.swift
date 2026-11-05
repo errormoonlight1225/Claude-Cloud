@@ -8,13 +8,15 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 class UpdateController: UIViewController, UITableViewDelegate {
     private var subscriptions = Set<AnyCancellable>()
     private let notificationCenter: NotificationCenter
-    private var reloadTask: Task<Void, Never>?
+    private var reloadTask: LegacyTask?
 
     let tableView = UITableView()
     let cellID = UUID().uuidString
@@ -44,7 +46,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
     }
 
     private lazy var updateAllButton = UIBarButtonItem(
-        title: String(localized: "Update All"),
+        title: String(legacyLocalized: "Update All"),
         style: .done,
         target: self,
         action: #selector(updateAll)
@@ -53,7 +55,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
     /// lists: the sheet would change nothing, and the queue is where the
     /// user was going.
     private lazy var openQueueButton = UIBarButtonItem(
-        title: String(localized: "Open Queue"),
+        title: String(legacyLocalized: "Open Queue"),
         style: .done,
         target: self,
         action: #selector(openQueue)
@@ -85,7 +87,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
 
         // the bar carries the title: `show` loads this view before the page
         // has a navigation controller, and `present(next:)` always gives it one
-        title = String(localized: "Updates")
+        title = String(legacyLocalized: "Updates")
 
         navigationItem.rightBarButtonItem = updateAllButton
 
@@ -120,23 +122,23 @@ class UpdateController: UIViewController, UITableViewDelegate {
 
     /// Waits for the first list, up to `budget`, so the page is pushed with
     /// its rows in place; a slower list animates in after the push.
-    func prepare(within budget: TimeInterval) async {
+    nonisolated func prepare(within budget: TimeInterval) {
         loadViewIfNeeded()
-        await reloadTask?.wait(upTo: budget)
+        reloadTask?.wait(upTo: budget)
     }
 
     /// Pushes the page from `host` once its first list is in, or 200 ms on.
     static func show(from host: UIViewController?) {
         let page = UpdateController()
-        Task {
-            await page.prepare(within: 0.2)
+        LegacyTask.detached {
+            page.prepare(within: 0.2)
             host?.present(next: page)
         }
     }
 
     @objc
     func updateAll() {
-        Task { await QueueChangeController.show(.updateAll, from: self) }
+        LegacyTask.detached { QueueChangeController.show(.updateAll, from: self) }
     }
 
     @objc
@@ -160,19 +162,19 @@ class UpdateController: UIViewController, UITableViewDelegate {
     func reload() {
         reloadTask?.cancel()
         let index = PackageCenter.default.index
-        reloadTask = Task { [weak self] in
-            let rows = await Self.rows(in: index)
-            guard !Task.isCancelled, let self else { return }
+        reloadTask = LegacyTask.detached { [weak self] in
+            let rows = Self.rows(in: index)
+            guard !LegacyTask.isCancelled, let self else { return }
             var snapshot = LegacyDiffableSnapshot<Int, Row>()
             snapshot.appendSections([0])
             snapshot.appendItems(rows)
             snapshot.reconfigureItems(survivingFrom: diffableDataSource.snapshot())
-            await diffableDataSource.apply(
+            diffableDataSource.apply(
                 snapshot,
                 animatingDifferences: tableView.shouldAnimateDiff
             )
             showBarButton(animated: tableView.shouldAnimateDiff)
-            guard !Task.isCancelled else { return }
+            guard !LegacyTask.isCancelled else { return }
             if rows.isEmpty {
                 if let navigator = navigationController {
                     navigator.popViewController(animated: true)
@@ -185,7 +187,7 @@ class UpdateController: UIViewController, UITableViewDelegate {
 
     /// The whole installed list, walked off the main actor.
     @concurrent
-    private nonisolated static func rows(in index: PackageIndex) async -> [Row] {
+    private nonisolated static func rows(in index: PackageIndex) -> [Row] {
         index.updateCandidates().map { Row(installed: $0.installed, candidate: $0.candidate) }.uniqued()
     }
 

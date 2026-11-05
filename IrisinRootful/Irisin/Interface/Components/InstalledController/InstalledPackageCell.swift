@@ -37,7 +37,7 @@ final class InstalledPackageCell: UICollectionViewListCell {
 
     override init(frame _: CGRect) {
         super.init(frame: CGRect())
-        backgroundConfiguration = .clear()
+        legacyBackgroundConfiguration = .clear()
         // the section has the page's inset already
         preservesSuperviewLayoutMargins = false
         directionalLayoutMargins = .zero
@@ -75,7 +75,7 @@ final class InstalledPackageCell: UICollectionViewListCell {
     /// is one of the selected.
     override func updateConfiguration(using state: UICellConfigurationState) {
         super.updateConfiguration(using: state)
-        backgroundConfiguration = .clear()
+        legacyBackgroundConfiguration = .clear()
         selectionMark.isOn = state.isEditing && state.isSelected
         // edited, the cell is one element that says whether it is selected;
         // otherwise the row inside is the stop, reading its own lines
@@ -154,6 +154,6 @@ private final class SelectionMarkView: UIView {
         tick.isHidden = !isOn
         backgroundColor = isOn ? .buttonNormal : .clear
         layer.borderWidth = isOn ? 0 : 1.5
-        layer.borderColor = UIColor.selectionMarkIdle.resolvedColor(with: traitCollection).cgColor
+        layer.borderColor = UIColor.selectionMarkIdle.compatResolvedColor(with: traitCollection).cgColor
     }
 }

@@ -6,34 +6,37 @@
 //  Copyright © 2020 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 class SidebarCards: UIView {
     private var subscriptions = Set<AnyCancellable>()
-    private var updateCountTask: Task<Void, Never>?
+    private var updateCountTask: LegacyTask?
 
     private let dashboardCard = SidebarCard(
-        text: String(localized: "Dashboard"),
+        text: String(legacyLocalized: "Dashboard"),
         symbol: "square.grid.2x2.fill",
         defaultSelected: true
     )
 
     private let settingsCard = SidebarCard(
-        text: String(localized: "Settings"),
+        text: String(legacyLocalized: "Settings"),
         symbol: "gearshape.fill",
         defaultSelected: false
     )
 
     private let queueCard = SidebarCard(
-        text: String(localized: "Queue"),
+        text: String(legacyLocalized: "Queue"),
         symbol: "tray.full.fill",
         defaultSelected: false
     )
 
     private let installedCard = SidebarCard(
-        text: String(localized: "Installed"),
+        text: String(legacyLocalized: "Installed"),
         symbol: "shippingbox.fill",
         defaultSelected: false
     )
@@ -121,9 +124,9 @@ class SidebarCards: UIView {
 
     private func updateAvailableUpdateBadge() {
         updateCountTask?.cancel()
-        updateCountTask = Task { [weak self] in
-            let count = await Self.updateCount(in: PackageCenter.default.index)
-            guard !Task.isCancelled, let self else { return }
+        updateCountTask = LegacyTask.detached { [weak self] in
+            let count = Self.updateCount(in: PackageCenter.default.index)
+            guard !LegacyTask.isCancelled, let self else { return }
             installedCard.badgeText = count > 0 ? String(count) : "" // empty for animation
         }
     }
@@ -131,7 +134,7 @@ class SidebarCards: UIView {
     /// A walk of the whole installed list, so it runs off the main actor on
     /// a copy of the index.
     @concurrent
-    private nonisolated static func updateCount(in index: PackageIndex) async -> Int {
+    private nonisolated static func updateCount(in index: PackageIndex) -> Int {
         index.updateCandidates().count
     }
 }

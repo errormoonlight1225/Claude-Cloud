@@ -5,6 +5,7 @@
 //  Created by Lakr Aream on 2026/9/7.
 //
 
+import LegacyCompat
 import UIKit
 
 /// Under the last section: the device, the system and this build.
@@ -14,7 +15,7 @@ final class DashboardFooterView: UICollectionReusableView {
 
     /// The studio line is a brand and stays as written in every language.
     private let label = UILabel().then {
-        $0.textColor = .secondaryLabel
+        $0.textColor = .compatSecondaryLabel
         $0.textAlignment = .center
         $0.numberOfLines = 0
         let info = Bundle.main.infoDictionary
@@ -31,7 +32,7 @@ final class DashboardFooterView: UICollectionReusableView {
             """,
             attributes: [
                 .font: UIFont.rounded(.caption),
-                .foregroundColor: UIColor.secondaryLabel,
+                .foregroundColor: UIColor.compatSecondaryLabel,
                 .paragraphStyle: paragraph,
             ]
         )

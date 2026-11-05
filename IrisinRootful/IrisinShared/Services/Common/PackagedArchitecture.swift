@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 import IrisinProtocol
 
@@ -51,6 +52,6 @@ nonisolated enum PackagedArchitecture {
     /// requires the bootstrap it was packaged for. Setup stops here.
     static func incompatibilityMessage(packaged: String?, detected: String) -> String? {
         guard let packaged, packaged != detected else { return nil }
-        return String(localized: "This copy of Irisin is built for \(packaged), but your bootstrap uses \(detected). Install the matching official Irisin package. Do not install Irisin using a patcher.")
+        return String(legacyLocalized: "This copy of Irisin is built for \(packaged), but your bootstrap uses \(detected). Install the matching official Irisin package. Do not install Irisin using a patcher.")
     }
 }

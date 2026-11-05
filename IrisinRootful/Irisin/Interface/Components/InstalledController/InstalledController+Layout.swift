@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -95,7 +96,7 @@ extension InstalledController {
             if #available(iOS 16, *) {
                 section.supplementaryContentInsetsReference = .none
             } else {
-                section.supplementariesFollowContentInsets = false
+                if #available(iOS 13.0, *) { section.supplementariesFollowContentInsets = false }
             }
             header.contentInsets = NSDirectionalEdgeInsets(
                 top: 0,

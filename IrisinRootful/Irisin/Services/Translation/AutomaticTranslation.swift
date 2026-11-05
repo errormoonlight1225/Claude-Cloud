@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 
 /// The Auto Translate setting and how its failures are spelled.
@@ -44,9 +45,9 @@ enum AutomaticTranslation {
     static func describe(_ error: Error) -> String {
         switch error as? SystemTranslator.Failure {
         case .unavailable:
-            String(localized: "This device does not offer system translation.")
+            String(legacyLocalized: "This device does not offer system translation.")
         case .unsupportedLanguage:
-            String(localized: "System translation does not support this language.")
+            String(legacyLocalized: "System translation does not support this language.")
         case let .failed(reason):
             reason
         case nil:

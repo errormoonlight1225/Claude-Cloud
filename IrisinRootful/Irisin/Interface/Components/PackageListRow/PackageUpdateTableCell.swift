@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import SDWebImage
@@ -26,7 +27,7 @@ class PackageUpdateTableCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         button.setImage(.fluent(.arrowUpCircle24Filled), for: .normal)
-        button.accessibilityLabel = String(localized: "Update")
+        button.accessibilityLabel = String(legacyLocalized: "Update")
         button.addTarget(self, action: #selector(sendUpdate), for: .touchUpInside)
         contentView.addSubview(button)
         contentView.addSubview(originalCell)
@@ -54,7 +55,7 @@ class PackageUpdateTableCell: UITableViewCell {
     @objc
     func sendUpdate() {
         guard let package = updateCandidate, let host = parentViewController else { return }
-        Task { await PackageMenu.enqueue([.install(package)], from: host) }
+        LegacyTask.detached { PackageMenu.enqueue([.install(package)], from: host) }
     }
 
     override func prepareForReuse() {
@@ -83,7 +84,7 @@ class PackageUpdateTableCell: UITableViewCell {
 
         updateCandidate = package
 
-        let unknownVersion = String(localized: "Unknown")
+        let unknownVersion = String(legacyLocalized: "Unknown")
         let installedVersion = installed.latestVersion ?? unknownVersion
         let newVersion = package.latestVersion ?? unknownVersion
         let newVersionString = "\(installedVersion) → \(newVersion)"
@@ -94,7 +95,7 @@ class PackageUpdateTableCell: UITableViewCell {
         let newRepoName = RepositoryCenter
             .default
             .obtainImmutableRepository(withUrl: package.repoRef ?? URL(fileURLWithPath: ""))?
-            .nickName ?? String(localized: "Unknown")
+            .nickName ?? String(legacyLocalized: "Unknown")
         let newDescription = "[\(newRepoName)] \(newPackageDescription)"
         originalCell.describe.text = newDescription
         // the row's lines are this screen's, not the package's

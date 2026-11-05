@@ -36,20 +36,20 @@ final class LicenseController: UITableViewController {
     ) { [unowned self] tableView, indexPath, index in
         let entry = entries[index]
         let cell = tableView.dequeueReusableCell(withIdentifier: "license", for: indexPath)
-        var content = UIListContentConfiguration.valueCell()
+        var content = LegacyListContentConfiguration.valueCell()
         content.text = entry.name
         content.textProperties.numberOfLines = 1
         content.secondaryText = entry.summary
         content.secondaryTextProperties.numberOfLines = 1
-        content.secondaryTextProperties.color = .secondaryLabel
+        content.secondaryTextProperties.color = .compatSecondaryLabel
         content.secondaryTextProperties.font = .footnote
-        cell.contentConfiguration = content
+        cell.legacyContentConfiguration = content
         cell.accessoryType = .disclosureIndicator
         return cell
     }
 
     init() {
-        super.init(style: .insetGrouped)
+        super.init(style: .compatInsetGrouped)
     }
 
     @available(*, unavailable)
@@ -59,7 +59,7 @@ final class LicenseController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "License")
+        title = String(legacyLocalized: "License")
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.backButtonDisplayMode = .minimal
         view.backgroundColor = .groupedBackground
@@ -72,9 +72,9 @@ final class LicenseController: UITableViewController {
         }
         if entries.isEmpty {
             tableView.backgroundView = UILabel().then {
-                $0.text = String(localized: "No license information to show.")
+                $0.text = String(legacyLocalized: "No license information to show.")
                 $0.font = .body
-                $0.textColor = .secondaryLabel
+                $0.textColor = .compatSecondaryLabel
                 $0.numberOfLines = 0
                 $0.textAlignment = .center
             }
@@ -116,10 +116,10 @@ private final class LicenseTextController: UIViewController {
         view.backgroundColor = .groupedBackground
 
         let text = NSMutableAttributedString(string: entry.name + "\n", attributes: [
-            .font: UIFont.title, .foregroundColor: UIColor.label,
+            .font: UIFont.title, .foregroundColor: UIColor.compatLabel,
         ])
         text.append(NSAttributedString(string: entry.summary + "\n\n", attributes: [
-            .font: UIFont.footnote, .foregroundColor: UIColor.secondaryLabel,
+            .font: UIFont.footnote, .foregroundColor: UIColor.compatSecondaryLabel,
         ]))
         if let url = URL(string: entry.url), ["https", "http"].contains(url.scheme) {
             text.append(NSAttributedString(string: entry.url + "\n\n", attributes: [
@@ -127,7 +127,7 @@ private final class LicenseTextController: UIViewController {
             ]))
         }
         text.append(NSAttributedString(string: entry.text, attributes: [
-            .font: UIFont.monospaced(.footnote), .foregroundColor: UIColor.label,
+            .font: UIFont.monospaced(.footnote), .foregroundColor: UIColor.compatLabel,
         ]))
         let textView = UITextView().then {
             $0.isEditable = false

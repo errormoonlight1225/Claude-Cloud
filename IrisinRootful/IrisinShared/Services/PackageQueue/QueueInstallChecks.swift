@@ -36,12 +36,12 @@ enum QueueInstallChecks {
     /// postrm are left out, since the helper that ships with this app
     /// forgives their failure (`SelfPackage`). A file that is not on disk
     /// is not read: staging stops on it anyway.
-    static func packagesRunningScripts(in plan: ResolutionPlan) async -> [String] {
+    static nonisolated func packagesRunningScripts(in plan: ResolutionPlan) -> [String] {
         var files: [(identity: String, file: URL)] = []
         for package in plan.install {
             var file = package.fileOnDisk
             if file == nil {
-                file = await Downloads.shared.downloadedFile(for: package)
+                file = Downloads.shared.downloadedFile(for: package)
             }
             if let file {
                 files.append((package.identity, file))
@@ -54,7 +54,7 @@ enum QueueInstallChecks {
             return []
         }
         let touched = Set(plan.install.map(\.identity) + plan.remove.map(\.identity) + configuring)
-        let identities = await scriptedIdentities(files: files, touched: touched.sorted())
+        let identities = scriptedIdentities(files: files, touched: touched.sorted())
         let packages = plan.install + plan.remove
         return identities.map { identity in
             packages.first { $0.identity == identity }.map { PackageCenter.default.name(of: $0) } ?? identity
@@ -65,7 +65,7 @@ enum QueueInstallChecks {
     private nonisolated static func scriptedIdentities(
         files: [(identity: String, file: URL)],
         touched: [String]
-    ) async -> [String] {
+    ) -> [String] {
         let info = JailbreakRoot.installedPath("/Library/dpkg/info")
         var scripted = Set(touched.filter { identity in
             scriptMembers.contains { FileManager.default.fileExists(atPath: "\(info)/\(identity).\($0)") }

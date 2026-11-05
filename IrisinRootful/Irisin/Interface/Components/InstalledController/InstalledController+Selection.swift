@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import SPIndicator
@@ -101,14 +102,14 @@ extension InstalledController {
     private func send(_ request: QueueChangeController.Request?, leavingOut leftOut: [Package]) {
         if !leftOut.isEmpty {
             SPIndicator.present(
-                title: String(localized: "Some Packages Left Out"),
-                message: String(localized: "Open their pages instead."),
+                title: String(legacyLocalized: "Some Packages Left Out"),
+                message: String(legacyLocalized: "Open their pages instead."),
                 preset: .error
             )
         }
         guard let request else { return }
         setEditing(false, animated: true)
-        Task { await QueueChangeController.show(request, from: self) }
+        LegacyTask.detached { QueueChangeController.show(request, from: self) }
     }
 
     // MARK: - TWO-FINGER SELECTION

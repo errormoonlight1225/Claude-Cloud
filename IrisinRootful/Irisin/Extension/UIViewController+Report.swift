@@ -1,3 +1,4 @@
+import LegacyCompat
 import SPIndicator
 import UIKit
 
@@ -5,8 +6,8 @@ extension UIViewController {
     /// A toast for a job that worked, the reason for one that did not.
     func report(
         _ outcome: OperationMonitor.Outcome,
-        succeeded: String.LocalizationValue,
-        failed: String.LocalizationValue
+        succeeded: LegacyLocalizationValue,
+        failed: LegacyLocalizationValue
     ) {
         switch outcome {
         case .succeeded:

@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import Foundation
@@ -15,7 +16,7 @@ import Foundation
 /// waits on this: the interface is up first and its pages fill in as the
 /// centers announce what they read.
 enum AppBootstrap {
-    private static var task: Task<Void, Never>?
+    private static var task: LegacyTask?
 
     /// Called once the environment is prepared and before a scene connects.
     /// A bootstrap this build was not packaged for is never read.
@@ -26,13 +27,13 @@ enum AppBootstrap {
         // never in the first count
         PackageCenter.default.restoreUpdatePreferences()
 
-        task = Task {
+        task = LegacyTask.detached {
             DeviceIdentity.applyNetworkingHeaders()
 
             // MARK: - CENTER
 
-            await PackageCenter.default.load()
-            await RepositoryCenter.default.load()
+            PackageCenter.default.load()
+            RepositoryCenter.default.load()
 
             // the first tap on Install finds the catalogue already read
             PackageQueue.shared.schedulePreflight()
@@ -45,7 +46,7 @@ enum AppBootstrap {
 
             CellularPolicy.allowForThisApplication()
 
-            await Downloads.shared.load()
+            Downloads.shared.load()
 
             // MARK: - PROCESSOR
 
@@ -68,12 +69,12 @@ enum AppBootstrap {
     private(set) static var isFinished = false
 
     /// Returns when the engines are up; `false` where they never start.
-    static func finished() async -> Bool {
+    static nonisolated func finished() -> Bool {
         guard let task else {
             Dog.shared.join("AppBootstrap", "asked for engines that were never started", level: .warning)
             return false
         }
-        await task.value
+        task.value
         return true
     }
 }

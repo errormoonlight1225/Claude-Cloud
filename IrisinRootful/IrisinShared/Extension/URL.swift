@@ -42,9 +42,9 @@ nonisolated extension URL {
     /// plain read of it fails; a coordinated read waits for the download,
     /// on the coordinator's queue rather than a thread of the caller's, and
     /// cancelling the task cancels it.
-    func readingCoordinated<Value: Sendable>(
+    nonisolated func readingCoordinated<Value: Sendable>(
         _ body: @escaping @Sendable (URL) throws -> Value
-    ) async throws -> Value {
+    ) throws -> Value {
         let scoped = startAccessingSecurityScopedResource()
         defer {
             if scoped {
@@ -54,8 +54,8 @@ nonisolated extension URL {
         // a coordinator is safe to use from any thread, cancel() included
         nonisolated(unsafe) let coordinator = NSFileCoordinator()
         let intent = NSFileAccessIntent.readingIntent(with: self, options: .withoutChanges)
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
+        return try withTaskCancellationHandler {
+            try withCheckedThrowingContinuation { continuation in
                 coordinator.coordinate(with: [intent], queue: OperationQueue()) { error in
                     if let error {
                         continuation.resume(throwing: error)

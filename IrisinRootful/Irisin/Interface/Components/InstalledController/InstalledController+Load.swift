@@ -6,15 +6,18 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import UIKit
 
 extension InstalledController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = String(localized: "Installed")
+        title = String(legacyLocalized: "Installed")
 
         view.backgroundColor = .plainBackground
 
@@ -39,17 +42,17 @@ extension InstalledController {
             withReuseIdentifier: footerId
         )
 
-        searchController.searchBar.placeholder = String(localized: "Search installed packages")
+        searchController.searchBar.placeholder = String(legacyLocalized: "Search installed packages")
         searchController.searchBar.setValue(
-            String(localized: "Cancel"),
+            String(legacyLocalized: "Cancel"),
             forKey: "cancelButtonText"
         )
         searchController.searchResultsUpdater = self
         searchController.delegate = self
         searchController.searchBar.delegate = self
         searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.searchTextField.autocapitalizationType = .none
-        searchController.searchBar.searchTextField.autocorrectionType = .no
+        searchController.searchBar.compatSearchTextField.autocapitalizationType = .none
+        searchController.searchBar.compatSearchTextField.autocorrectionType = .no
 
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false

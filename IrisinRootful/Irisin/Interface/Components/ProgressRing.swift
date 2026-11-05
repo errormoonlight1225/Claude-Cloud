@@ -47,7 +47,7 @@ final class ProgressRing: UIView {
         arc.lineCap = .round
         arc.strokeEnd = 0
         glyph.contentMode = .scaleAspectFit
-        glyph.preferredSymbolConfiguration = .init(pointSize: Self.diameter - 4, weight: .semibold)
+        glyph.compatPreferredSymbolConfiguration = .init(pointSize: Self.diameter - 4, weight: .semibold)
         glyph.alpha = 0
         addSubview(glyph)
         recolor()
@@ -93,8 +93,8 @@ final class ProgressRing: UIView {
     /// A layer takes a colour resolved once; the view resolves it again
     /// whenever the tint or the appearance moves.
     private func recolor() {
-        track.strokeColor = UIColor.progressTrack.resolvedColor(with: traitCollection).cgColor
-        arc.strokeColor = tintColor.resolvedColor(with: traitCollection).cgColor
+        track.strokeColor = UIColor.progressTrack.compatResolvedColor(with: traitCollection).cgColor
+        arc.strokeColor = tintColor.compatResolvedColor(with: traitCollection).cgColor
         glyph.tintColor = tintColor
     }
 

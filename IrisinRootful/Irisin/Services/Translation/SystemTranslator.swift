@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import Foundation
 import os
 
@@ -41,8 +42,8 @@ nonisolated enum SystemTranslator {
 
     /// Whether this device can translate into `target` at all: the engine
     /// loads, answers, and lists a pair that ends in the user's language.
-    static func verify(target: Locale = preferredTarget) async -> Failure? {
-        guard let pairs = await availablePairs() else { return .unavailable }
+    static nonisolated func verify(target: Locale = preferredTarget) -> Failure? {
+        guard let pairs = availablePairs() else { return .unavailable }
         return pairs.contains { matches($0.target, target) > 0 } ? nil : .unsupportedLanguage
     }
 
@@ -54,8 +55,8 @@ nonisolated enum SystemTranslator {
 
     /// The languages the engine reads and the ones it writes, by identifier,
     /// nil when it does not answer.
-    static func languages() async -> (sources: [Locale], targets: [Locale])? {
-        guard let pairs = await availablePairs() else { return nil }
+    static nonisolated func languages() -> (sources: [Locale], targets: [Locale])? {
+        guard let pairs = availablePairs() else { return nil }
         func distinct(_ locales: [Locale]) -> [Locale] {
             var seen = Set<String>()
             return locales.filter { seen.insert($0.identifier).inserted }
@@ -65,15 +66,15 @@ nonisolated enum SystemTranslator {
 
     /// `texts` in `target`, in order, or nil when they are in it already (or
     /// in no language the engine is sure of). A nil `source` is detected.
-    static func translate(
+    static nonisolated func translate(
         _ texts: [String],
         from source: Locale? = nil,
         to target: Locale = preferredTarget
-    ) async throws -> [String]? {
-        guard let pairs = await availablePairs() else { throw Failure.unavailable }
+    ) throws -> [String]? {
+        guard let pairs = availablePairs() else { throw Failure.unavailable }
         let named = source
         let detected: Locale? = if named == nil {
-            await detectLanguage(of: texts.joined(separator: "\n"))
+            detectLanguage(of: texts.joined(separator: "\n"))
         } else {
             nil
         }
@@ -91,16 +92,16 @@ nonisolated enum SystemTranslator {
         var results: [String] = []
         var accurateRouteFailed = false
         for text in texts {
-            try Task.checkCancellation()
+            try LegacyTask.checkCancellation()
             var translated: String?
             if !accurateRouteFailed {
-                translated = try? await request(text, pair: pair, onDeviceOnly: false)
+                translated = try? request(text, pair: pair, onDeviceOnly: false)
                 accurateRouteFailed = translated == nil
             }
             let answer: String = if let translated {
                 translated
             } else {
-                try await request(text, pair: pair, onDeviceOnly: true)
+                try request(text, pair: pair, onDeviceOnly: true)
             }
             results.append(answer)
         }
@@ -142,10 +143,10 @@ nonisolated enum SystemTranslator {
     private typealias Block2 = @convention(block) @Sendable (AnyObject?, AnyObject?) -> Void
 
     /// One answer from a callback that may come twice, late, or never.
-    private static func answer<T: Sendable>(
+    private static nonisolated func answer<T: Sendable>(
         _ start: (@escaping @Sendable (T?) -> Void) -> Void
-    ) async -> T? {
-        await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+    ) -> T? {
+        withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
             let answered = LockedState(initialState: false)
             let finish: @Sendable (T?) -> Void = { value in
                 let first = answered.withLock { done in
@@ -165,7 +166,7 @@ nonisolated enum SystemTranslator {
 
     /// Every pair the engine translates text between, nil when it does not
     /// answer. A rejected client is answered with nothing.
-    private static func availablePairs() async -> [Pair]? {
+    private static nonisolated func availablePairs() -> [Pair]? {
         guard let engine else { return nil }
         if let known = knownPairs.withLock({ $0 }) {
             return known
@@ -175,7 +176,7 @@ nonisolated enum SystemTranslator {
         typealias Call = @convention(c) (AnyClass, Selector, Int, AnyObject) -> Void
         let call = unsafeBitCast(method_getImplementation(method), to: Call.self)
         let textTask = 1
-        let pairs: [Pair]? = await answer { finish in
+        let pairs: [Pair]? = answer { finish in
             let block: Block1 = { list in
                 finish((list as? [NSObject])?.compactMap { pair in
                     guard let source = pair.valueIfAnswered(forKey: "sourceLocale") as? Locale,
@@ -194,11 +195,11 @@ nonisolated enum SystemTranslator {
     }
 
     /// The language `text` is written in, when the engine is confident.
-    private static func detectLanguage(of text: String) async -> Locale? {
+    private static nonisolated func detectLanguage(of text: String) -> Locale? {
         guard let engine else { return nil }
         let selector = NSSelectorFromString("languageForText:completion:")
         guard engine.translator.responds(to: selector) else { return nil }
-        return await answer { finish in
+        return answer { finish in
             let block: Block1 = { result in
                 guard let result = result as? NSObject,
                       result.valueIfAnswered(forKey: "isConfident") as? Bool == true
@@ -215,7 +216,7 @@ nonisolated enum SystemTranslator {
         }
     }
 
-    private static func request(_ text: String, pair: Pair, onDeviceOnly: Bool) async throws -> String {
+    private static nonisolated func request(_ text: String, pair: Pair, onDeviceOnly: Bool) throws -> String {
         guard let engine else { throw Failure.unavailable }
         let initializer = NSSelectorFromString("initWithSourceLocale:targetLocale:")
         guard let method = class_getInstanceMethod(engine.request, initializer),
@@ -239,7 +240,7 @@ nonisolated enum SystemTranslator {
             throw Failure.unavailable
         }
 
-        let outcome: Result<String, Failure>? = await answer { finish in
+        let outcome: Result<String, Failure>? = answer { finish in
             let handler: Block2 = { first, second in
                 if let error = [first, second].compactMap({ $0 as? NSError }).first {
                     return finish(.failure(.failed(error.localizedFailureReason ?? error.localizedDescription)))

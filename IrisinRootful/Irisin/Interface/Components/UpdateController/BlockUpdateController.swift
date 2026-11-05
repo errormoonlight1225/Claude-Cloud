@@ -6,13 +6,14 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import SPIndicator
 import UIKit
 
 class BlockUpdateController: PackageCollectionController {
     override func viewDidLoad() {
-        title = String(localized: "Blocked Updates")
+        title = String(legacyLocalized: "Blocked Updates")
         super.viewDidLoad()
         let clearItem = UIBarButtonItem(
             image: .fluent(.delete24Filled),
@@ -20,7 +21,7 @@ class BlockUpdateController: PackageCollectionController {
             target: self,
             action: #selector(clearBlock)
         )
-        clearItem.accessibilityLabel = String(localized: "Clear")
+        clearItem.accessibilityLabel = String(legacyLocalized: "Clear")
         navigationItem.rightBarButtonItem = clearItem
     }
 
@@ -32,7 +33,7 @@ class BlockUpdateController: PackageCollectionController {
     @objc
     func clearBlock() {
         guard !PackageCenter.default.blockedUpdateTable.isEmpty else {
-            SPIndicator.present(title: String(localized: "No blocked updates"), preset: .done)
+            SPIndicator.present(title: String(legacyLocalized: "No blocked updates"), preset: .done)
             return
         }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
@@ -78,7 +79,7 @@ class BlockUpdateController: PackageCollectionController {
                     payload: ["99.0": [
                         "package": blockItem,
                         "version": "99.0",
-                        "description": String(localized: "This package is no longer available."),
+                        "description": String(legacyLocalized: "This package is no longer available."),
                     ]]
                 ))
             }

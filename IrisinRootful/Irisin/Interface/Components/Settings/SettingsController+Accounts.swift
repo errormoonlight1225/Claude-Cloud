@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import SnapKit
 import UIKit
@@ -52,8 +53,8 @@ final class SettingsAccountCell: SettingsCell {
         // the row's own configure never runs here: the button covering a
         // signed-in row takes its name from the repository
         menuButton.accessibilityLabel = repo.nickName
-        menuButton.menu = UIMenu(children: [
-            UIDeferredMenuElement.uncached { [weak self] completion in
+        menuButton.menu = LegacyMenu(children: [
+            LegacyDeferredMenuElement.uncached { [weak self] completion in
                 completion(VendorAccount.shared.accountMenu(for: repo) { self?.parentViewController })
             },
         ])

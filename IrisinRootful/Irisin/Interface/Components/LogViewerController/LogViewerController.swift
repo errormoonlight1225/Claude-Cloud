@@ -36,15 +36,15 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
     private var tail: Timer?
     /// The first parse, running from init so the caller can hold the push
     /// for it; nil once the rows are in `parsed`.
-    var work: Task<Void, Never>?
+    var work: LegacyTask?
 
     init() {
         super.init(nibName: nil, bundle: nil)
         lastReadLength = Self.fileLength
         let text = logText()
-        work = Task { [weak self] in
-            let lines = await Self.parse(text)
-            guard let self, !Task.isCancelled else { return }
+        work = LegacyTask.detached { [weak self] in
+            let lines = Self.parse(text)
+            guard let self, !LegacyTask.isCancelled else { return }
             work = nil
             parsed = lines
             if isViewLoaded {
@@ -61,8 +61,8 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
     /// Waits for the first parse, up to `budget`, and lays the page out with
     /// it. A page pushed after this shows its rows at once when the parse
     /// made it in time; otherwise the rows land when it does.
-    func prepare(within budget: TimeInterval) async {
-        await work?.wait(upTo: budget)
+    nonisolated func prepare(within budget: TimeInterval) {
+        work?.wait(upTo: budget)
         loadViewIfNeeded()
         view.layoutIfNeeded()
     }
@@ -104,7 +104,7 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Logs")
+        title = String(legacyLocalized: "Logs")
         view.backgroundColor = .plainBackground
         navigationItem.largeTitleDisplayMode = .never
 
@@ -203,8 +203,8 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
             cell.detailTextLabel?.textColor = .logVerboseDetail
             cell.backgroundColor = .plainBackground
         case .info:
-            cell.textLabel?.textColor = .label
-            cell.detailTextLabel?.textColor = .secondaryLabel
+            cell.textLabel?.textColor = .compatLabel
+            cell.detailTextLabel?.textColor = .compatSecondaryLabel
             cell.backgroundColor = .plainBackground
         case .warning:
             cell.textLabel?.textColor = .logProblem
@@ -227,10 +227,10 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
 extension UIViewController {
     func presentLogViewer() {
         let viewer = LogViewerController()
-        Task {
+        LegacyTask.detached {
             // the push waits for the parse up to about twelve frames, so
             // the rows land with the page instead of after it
-            await viewer.prepare(within: 0.2)
+            viewer.prepare(within: 0.2)
             present(next: viewer)
         }
     }

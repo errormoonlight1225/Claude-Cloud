@@ -6,7 +6,10 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
-import Combine
+import LegacyCompat
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import Foundation
 import IrisinClient
@@ -40,9 +43,9 @@ nonisolated enum PrivilegedBackend {
         case let .daemon(root):
             "irisind · \(root.isEmpty ? "/" : root)"
         case .local:
-            String(localized: "You can browse, but not install. Install the Irisin package.")
+            String(legacyLocalized: "You can browse, but not install. Install the Irisin package.")
         case nil:
-            String(localized: "Connecting…")
+            String(legacyLocalized: "Connecting…")
         }
     }
 
@@ -54,14 +57,14 @@ nonisolated enum PrivilegedBackend {
         link.onLinkLost = {
             Dog.shared.join("PrivilegedBackend", "link to irisind dropped", level: .info)
         }
-        Task.detached(priority: .utility) {
+        LegacyTask.detached(qos: .utility) {
             // A miss is the normal case until launchd starts the daemon, so
             // only the first one is worth a line: after that the log would be
             // a heartbeat of the same failure once a second.
             var reportedMiss = false
             while true {
                 do {
-                    let backend = try await link.hello()
+                    let backend = try link.hello()
                     Dog.shared.join(
                         "PrivilegedBackend",
                         "backend \(backend) root \(backend.installRoot)",
@@ -80,7 +83,7 @@ nonisolated enum PrivilegedBackend {
                             level: .warning
                         )
                     }
-                    await MainActor.run { backendUpdates.send(backend) }
+                    MainActor.run { backendUpdates.send(backend) }
                     return
                 } catch {
                     if !reportedMiss {
@@ -91,7 +94,7 @@ nonisolated enum PrivilegedBackend {
                             level: .warning
                         )
                     }
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    try? LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000)
                 }
             }
         }
@@ -107,15 +110,15 @@ nonisolated enum PrivilegedBackend {
     /// what it did is the one thing a support report cannot be written
     /// without, so it has to outlive that sheet.
     @discardableResult
-    static func run(
+    static nonisolated func run(
         _ job: InstallerJob,
-        onEvent: @escaping @Sendable (InstallerEvent) async -> Void = { _ in }
-    ) async -> Int32? {
+        onEvent: @escaping @Sendable (InstallerEvent) -> Void = { _ in }
+    ) -> Int32? {
         do {
             Dog.shared.join("Installer", "running \(job.name)", level: .info)
-            let transcript = try await link.run(job)
+            let transcript = try link.run(job)
             var status: Int32?
-            for await event in transcript.events {
+            for event in transcript.events {
                 if case let .exit(announced) = event {
                     status = announced
                 }
@@ -123,7 +126,7 @@ nonisolated enum PrivilegedBackend {
                 if case .packageProgress = event {} else {
                     Dog.shared.join("Installer", event.description, level: logLevel(of: event))
                 }
-                await onEvent(event)
+                onEvent(event)
             }
             Dog.shared.join(
                 "Installer",
@@ -137,11 +140,11 @@ nonisolated enum PrivilegedBackend {
                 "\(job.name) refused: \(failure.code) \(failure.systemErrorDescription ?? "")",
                 level: .error
             )
-            await onEvent(.failure(failure.code == .notPermitted ? .browsingOnly : .helperUnreachable))
+            onEvent(.failure(failure.code == .notPermitted ? .browsingOnly : .helperUnreachable))
             return nil
         } catch {
             Dog.shared.join("PrivilegedBackend", "\(job.name) failed: \(error)", level: .error)
-            await onEvent(.failure(.helperUnreachable))
+            onEvent(.failure(.helperUnreachable))
             return nil
         }
     }

@@ -6,6 +6,7 @@
 //  Copyright © 2026 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import UIKit
@@ -24,13 +25,13 @@ nonisolated struct QueueChange: Hashable, Sendable {
         /// (Dependencies)" for what the requests bring along.
         func title(dependencies: Bool) -> String {
             let title = switch self {
-            case .remove: String(localized: "Remove")
-            case .install: String(localized: "Install")
-            case .update: String(localized: "Update")
-            case .downgrade: String(localized: "Downgrade")
-            case .reinstall: String(localized: "Reinstall")
+            case .remove: String(legacyLocalized: "Remove")
+            case .install: String(legacyLocalized: "Install")
+            case .update: String(legacyLocalized: "Update")
+            case .downgrade: String(legacyLocalized: "Downgrade")
+            case .reinstall: String(legacyLocalized: "Reinstall")
             }
-            return dependencies ? String(localized: "\(title) (Dependencies)") : title
+            return dependencies ? String(legacyLocalized: "\(title) (Dependencies)") : title
         }
     }
 
@@ -100,7 +101,7 @@ nonisolated struct QueueChange: Hashable, Sendable {
 
     /// The version line: "1.0", or "1.0 → 1.1" for a move.
     var versions: String {
-        let next = package.latestVersion ?? String(localized: "Unknown version")
+        let next = package.latestVersion ?? String(legacyLocalized: "Unknown version")
         switch kind {
         case .update, .downgrade: return "\(current ?? "") → \(next)"
         case .remove: return current ?? next
@@ -114,14 +115,14 @@ nonisolated struct QueueChange: Hashable, Sendable {
         guard !requested else { return nil }
         let identity = package.identity
         guard kind != .remove else {
-            return cleanup.contains(identity) ? String(localized: "No longer needed") : nil
+            return cleanup.contains(identity) ? String(legacyLocalized: "No longer needed") : nil
         }
         let dependents = (plan?.requiredBy[identity] ?? []).map { dependent in
             plan?.finalPackages.first { $0.identity == dependent }.map(PackageCenter.default.name(of:)) ?? dependent
         }
         return dependents.isEmpty
-            ? String(localized: "Required")
-            : String(localized: "Required by \(ListFormatter.localizedString(byJoining: dependents))")
+            ? String(legacyLocalized: "Required")
+            : String(legacyLocalized: "Required by \(LegacyListFormatter.localizedString(byJoining: dependents))")
     }
 
     /// What goes under the name: the download still to come, the size on
@@ -131,10 +132,10 @@ nonisolated struct QueueChange: Hashable, Sendable {
         let format = Downloads.shared.byteFormat
         var details: [String] = []
         if kind != .remove, let size = package.publishedSize, !package.isOnDisk {
-            details.append(String(localized: "\(format(size)) to download"))
+            details.append(String(legacyLocalized: "\(format(size)) to download"))
         }
         if let size = package.installedSize {
-            details.append(String(localized: "\(format(size)) on disk"))
+            details.append(String(legacyLocalized: "\(format(size)) on disk"))
         }
         if let reason = reason(in: plan, cleanup: cleanup) {
             details.append(reason)
@@ -146,8 +147,8 @@ nonisolated struct QueueChange: Hashable, Sendable {
     /// line, red and struck through for a removal and green for an install,
     /// grey when `muted`, and `details` under it.
     @MainActor
-    func content(icon: UIImage?, details: [String], muted: Bool = false) -> UIListContentConfiguration {
-        var content = UIListContentConfiguration.subtitleCell()
+    func content(icon: UIImage?, details: [String], muted: Bool = false) -> LegacyListContentConfiguration {
+        var content = LegacyListContentConfiguration.subtitleCell()
         content.image = icon
         content.imageProperties.maximumSize = CGSize(width: 32, height: 32)
         content.imageProperties.reservedLayoutSize = CGSize(width: 32, height: 32)

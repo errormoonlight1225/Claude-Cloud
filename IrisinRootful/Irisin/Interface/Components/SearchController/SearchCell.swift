@@ -6,8 +6,11 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Then
 import UIKit
 
@@ -154,8 +157,8 @@ class SearchCell: UITableViewCell {
         shown = nil
         clearText()
         image.showIcon(.fluent(.documentNone24Regular))
-        title.text = String(localized: "No results found")
-        subtitle.text = String(localized: "Try a different search or refresh your repositories.")
+        title.text = String(legacyLocalized: "No results found")
+        subtitle.text = String(legacyLocalized: "Try a different search or refresh your repositories.")
         describe.text = ""
         // nothing to open: the row is what it says
         accessibilityTraits = .staticText
@@ -173,7 +176,7 @@ class SearchCell: UITableViewCell {
             // link after it folded away
             let shown = PackageController.contact(name).text
             title.text = shown
-            subtitle.text = String(localized: "Packages by this author")
+            subtitle.text = String(legacyLocalized: "Packages by this author")
             image.showIcon(.fluent(.peopleSearch24Regular))
             // the match is on the title already; only one inside what was
             // folded away needs the line that says where it is
@@ -204,7 +207,7 @@ class SearchCell: UITableViewCell {
                 // the index still remembers a row the repository no longer has
                 image.showIcon(.fluent(.documentNone24Regular))
                 title.text = identity
-                subtitle.text = String(localized: "No longer available in this repository")
+                subtitle.text = String(legacyLocalized: "No longer available in this repository")
                 accessibilityTraits = .button
                 updateAccessibilityLabel()
                 return
@@ -262,6 +265,6 @@ class SearchCell: UITableViewCell {
         PackageListRow.drawBadge(on: indicator, for: package, installedVersion: installed)
         PackageListRow.drawQueueBadge(on: indicator, for: package)
         // the mark is drawn; this says it
-        accessibilityValue = installed == nil ? nil : String(localized: "Installed")
+        accessibilityValue = installed == nil ? nil : String(legacyLocalized: "Installed")
     }
 }

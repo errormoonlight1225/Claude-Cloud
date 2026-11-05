@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SDWebImage
 import Then
 import UIKit
@@ -284,7 +286,7 @@ class PackageListRow: UIView {
         let origin = package.repoRef
             .flatMap { RepositoryCenter.default.repositories[$0] }
             .map(\.nickName)
-            ?? String(localized: "External")
+            ?? String(legacyLocalized: "External")
         return [package.latestVersion, origin].compactMap(\.self).joined(separator: " @ ")
     }
 

@@ -175,7 +175,7 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
     }
 
     let emptyElementLabel = UILabel().then {
-        $0.text = String(localized: "No packages to show.")
+        $0.text = String(legacyLocalized: "No packages to show.")
         $0.font = .body
         $0.textColor = .textSubtitle
         $0.textAlignment = .center
@@ -185,7 +185,7 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         if title?.count ?? 0 < 1 {
-            title = String(localized: "Packages")
+            title = String(legacyLocalized: "Packages")
         }
         view.backgroundColor = .plainBackground
 
@@ -193,18 +193,18 @@ class PackageCollectionController: UIViewController, UICollectionViewDelegate {
         // shape to hand it out in, so the button does it rather than open a menu
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: .fluent(.shareIos24Filled),
-            primaryAction: UIAction { [weak self] _ in self?.exportPackageList() }
-        ).then { $0.accessibilityLabel = String(localized: "Share") }
+            primaryAction: LegacyAction { [weak self] _ in self?.exportPackageList() }
+        ).then { $0.accessibilityLabel = String(legacyLocalized: "Share") }
 
-        searchController.searchBar.placeholder = String(localized: "Search")
+        searchController.searchBar.placeholder = String(legacyLocalized: "Search")
         searchController.searchBar.setValue(
-            String(localized: "Cancel"),
+            String(legacyLocalized: "Cancel"),
             forKey: "cancelButtonText"
         )
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.searchTextField.autocapitalizationType = .none
-        searchController.searchBar.searchTextField.autocorrectionType = .no
+        searchController.searchBar.compatSearchTextField.autocapitalizationType = .none
+        searchController.searchBar.compatSearchTextField.autocorrectionType = .no
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
 

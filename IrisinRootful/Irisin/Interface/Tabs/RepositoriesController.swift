@@ -8,7 +8,9 @@
 
 import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Dog
 import SPIndicator
 import Then
@@ -24,7 +26,7 @@ class RepositoriesNavigator: UINavigationController {
         navigationBar.prefersLargeTitles = true
 
         tabBarItem = UITabBarItem(
-            title: String(localized: "Repositories"),
+            title: String(legacyLocalized: "Repositories"),
             image: UIImage.fluent(.bookCompass24Regular),
             tag: 0
         )
@@ -57,7 +59,7 @@ class RepositoriesController: UIViewController {
 
     let searchController = UISearchController()
     private let emptyStateLabel = EmptyStateView(
-        text: String(localized: "No repositories match the search.")
+        text: String(legacyLocalized: "No repositories match the search.")
     )
 
     /// Read as the view loads, never at init: the tab bar makes this page
@@ -89,14 +91,14 @@ class RepositoriesController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = String(localized: "Repositories")
+        title = String(legacyLocalized: "Repositories")
         view.backgroundColor = .pageBackground
 
-        searchController.searchBar.placeholder = String(localized: "Search repositories")
+        searchController.searchBar.placeholder = String(legacyLocalized: "Search repositories")
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.searchTextField.autocapitalizationType = .none
-        searchController.searchBar.searchTextField.autocorrectionType = .no
+        searchController.searchBar.compatSearchTextField.autocapitalizationType = .none
+        searchController.searchBar.compatSearchTextField.autocorrectionType = .no
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
 
@@ -196,7 +198,7 @@ class RepositoriesController: UIViewController {
             .obtainRepositoryUrls()
             .compactMap { RepositoryCenter.default.obtainImmutableRepository(withUrl: $0) }
         let packages = repositories.reduce(0) { $0 + $1.packageCount }
-        return String(localized: "Repositories: \(repositories.count) · Packages: \(packages)")
+        return String(legacyLocalized: "Repositories: \(repositories.count) · Packages: \(packages)")
     }
 
     private func updateFooter() {
@@ -239,13 +241,13 @@ class RepositoriesController: UIViewController {
                     style: .plain,
                     target: self,
                     action: #selector(openAdd)
-                ).then { $0.accessibilityLabel = String(localized: "Add Repository") },
+                ).then { $0.accessibilityLabel = String(legacyLocalized: "Add Repository") },
                 UIBarButtonItem(
                     image: UIImage.compatSystemImage("ellipsis"),
                     menu: moreMenu
                 ).then {
                     $0.tintColor = .textTitle
-                    $0.accessibilityLabel = String(localized: "More")
+                    $0.accessibilityLabel = String(legacyLocalized: "More")
                 },
             ], animated: animated)
         }
@@ -253,7 +255,7 @@ class RepositoriesController: UIViewController {
     }
 
     private lazy var deleteSelectedItem = UIBarButtonItem(
-        title: String(localized: "Delete"),
+        title: String(legacyLocalized: "Delete"),
         style: .plain,
         target: self,
         action: #selector(deleteSelected)
@@ -267,7 +269,7 @@ class RepositoriesController: UIViewController {
         target: self,
         action: #selector(refreshSelected)
     ).then {
-        $0.accessibilityLabel = String(localized: "Refresh")
+        $0.accessibilityLabel = String(legacyLocalized: "Refresh")
     }
 
     private var selectedUrls: [URL] {
@@ -299,8 +301,8 @@ class RepositoriesController: UIViewController {
         let names = urls.compactMap { RepositoryCenter.default.obtainImmutableRepository(withUrl: $0)?.nickName }
         presentConfirmation(
             title: urls.count == 1 ? "Delete Repository?" : "Delete \(urls.count) Repositories?",
-            message: String.LocalizationValue(
-                String(localized: "Packages from deleted repositories will no longer be listed. This cannot be undone.")
+            message: LegacyLocalizationValue(
+                String(legacyLocalized: "Packages from deleted repositories will no longer be listed. This cannot be undone.")
                     + (names.isEmpty ? "" : "\n\n" + names.joined(separator: "\n"))
             ),
             confirmTitle: "Delete",
@@ -314,9 +316,9 @@ class RepositoriesController: UIViewController {
     private func performDelete(_ urls: [URL]) {
         dataSourceCache.removeAll { urls.contains($0) }
         applySnapshot(animatingDifferences: true)
-        SPIndicator.present(title: String(localized: "Deleted"), preset: .done)
-        Task {
-            try? await Task.sleep(seconds: 0.5) // let the rows animate out
+        SPIndicator.present(title: String(legacyLocalized: "Deleted"), preset: .done)
+        LegacyTask.detached {
+            try? Task.sleep(seconds: 0.5) // let the rows animate out
             for url in urls {
                 Self.remove(url)
             }
@@ -335,7 +337,7 @@ class RepositoriesController: UIViewController {
 
     func refreshRepository(_ url: URL) {
         RepositoryCenter.default.dispatchUpdateOnRepository(withUrl: url)
-        SPIndicator.present(title: String(localized: "Refreshing…"), preset: .done)
+        SPIndicator.present(title: String(legacyLocalized: "Refreshing…"), preset: .done)
     }
 
     func share(_ url: URL, from cell: UIView?) {
@@ -351,37 +353,37 @@ class RepositoriesController: UIViewController {
         }
         NotificationCenter.default.post(name: .RepositoryQueueChanged, object: nil)
         setEditing(false, animated: true)
-        SPIndicator.present(title: String(localized: "Refreshing…"), preset: .done)
+        SPIndicator.present(title: String(legacyLocalized: "Refreshing…"), preset: .done)
     }
 
     // MARK: - ACTIONS
 
     /// Refresh on top; the list itself (select, import, export) in the
     /// middle; the one destructive action alone at the bottom.
-    private var moreMenu: UIMenu {
-        UIMenu(children: [
-            UIMenu(options: .displayInline, children: [
-                UIAction(
+    private var moreMenu: LegacyMenu {
+        LegacyMenu(children: [
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
                     title: String(localized: "Refresh"),
                     image: UIImage.compatSystemImage("arrow.clockwise")
                 ) { [weak self] _ in self?.refreshAll() },
             ]),
-            UIMenu(options: .displayInline, children: [
-                UIAction(
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
                     title: String(localized: "Select"),
                     image: UIImage.compatSystemImage("checkmark.circle")
                 ) { [weak self] _ in self?.setEditing(true, animated: true) },
-                UIAction(
+                LegacyAction(
                     title: String(localized: "Import Repository List…"),
                     image: UIImage.compatSystemImage("square.and.arrow.down")
                 ) { [weak self] _ in self?.openImport() },
-                UIAction(
+                LegacyAction(
                     title: String(localized: "Export Repository List"),
                     image: UIImage.compatSystemImage("square.and.arrow.up")
                 ) { [weak self] _ in self?.exportList() },
             ]),
-            UIMenu(options: .displayInline, children: [
-                UIAction(
+            LegacyMenu(options: .displayInline, children: [
+                LegacyAction(
                     title: String(localized: "Remove Broken Repositories"),
                     image: UIImage.compatSystemImage("wand.and.rays"),
                     attributes: .destructive
@@ -466,8 +468,8 @@ class RepositoriesController: UIViewController {
             NotificationCenter.default.post(name: .RepositoryQueueChanged, object: nil)
         } else {
             SPIndicator.present(
-                title: String(localized: "No update required"),
-                message: String(localized: "Tap again to refresh all."),
+                title: String(legacyLocalized: "No update required"),
+                message: String(legacyLocalized: "Tap again to refresh all."),
                 preset: .done,
                 from: .top,
                 completion: nil
@@ -481,13 +483,13 @@ class RepositoriesController: UIViewController {
             .compactMap { RepositoryCenter.default.obtainImmutableRepository(withUrl: $0)?.nickName }
             .sorted { $0.lowercased() < $1.lowercased() }
         guard !broken.isEmpty else {
-            SPIndicator.present(title: String(localized: "No broken repositories"), preset: .done)
+            SPIndicator.present(title: String(legacyLocalized: "No broken repositories"), preset: .done)
             return
         }
         presentConfirmation(
             title: "Remove Broken Repositories?",
-            message: String.LocalizationValue(
-                String(localized: "Repositories that could not be loaded will be removed. This cannot be undone.")
+            message: LegacyLocalizationValue(
+                String(legacyLocalized: "Repositories that could not be loaded will be removed. This cannot be undone.")
                     + "\n\n" + broken.joined(separator: "\n")
             ),
             confirmTitle: "Remove All",
@@ -497,7 +499,7 @@ class RepositoriesController: UIViewController {
                 .default
                 .cleanBrokenRepos()
             SPIndicator.present(
-                title: String(localized: "Broken repositories removed"),
+                title: String(legacyLocalized: "Broken repositories removed"),
                 message: "",
                 preset: .done,
                 from: .top,

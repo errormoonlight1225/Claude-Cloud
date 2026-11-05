@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import SPIndicator
 import UIKit
 
@@ -21,7 +22,7 @@ struct PopoverAnchor {
         self.barButtonItem = barButtonItem
     }
 
-    /// From a `UIAction`'s sender: the button or bar button whose menu it
+    /// From a `LegacyAction`'s sender: the button or bar button whose menu it
     /// was. A context menu's sender is neither, and the caller names the cell.
     init?(sender: Any?) {
         switch sender {
@@ -131,9 +132,9 @@ enum ShareSheet {
     /// window, pointing at that page and not at `anchor`. A cancelled task
     /// shares nothing, and with nowhere at all to go the user is told.
     static func present(_ items: [Any], anchor: PopoverAnchor?, from presenter: UIViewController) {
-        guard !Task.isCancelled else { return }
+        guard !LegacyTask.isCancelled else { return }
         guard let host = presentableController(for: presenter, anchor: anchor) else {
-            SPIndicator.present(title: String(localized: "Unable to Export"), preset: .error)
+            SPIndicator.present(title: String(legacyLocalized: "Unable to Export"), preset: .error)
             return
         }
         let anchor = host === presenter ? anchor : nil

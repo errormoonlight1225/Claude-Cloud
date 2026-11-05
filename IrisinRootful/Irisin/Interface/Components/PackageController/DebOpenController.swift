@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import UIKit
@@ -36,7 +37,7 @@ class DebOpenController: UIViewController {
             x.centerX.equalToSuperview()
             x.centerY.equalToSuperview().offset(10)
         }
-        text.text = String(localized: "Unpacking Package…")
+        text.text = String(legacyLocalized: "Unpacking Package…")
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -48,8 +49,8 @@ class DebOpenController: UIViewController {
             failedAndExit()
             return
         }
-        opening = Task {
-            await open(url)
+        opening = LegacyTask.detached {
+            open(url)
             text.text = ""
             indicator.stopAnimating()
         }
@@ -63,30 +64,30 @@ class DebOpenController: UIViewController {
         }
     }
 
-    private var opening: Task<Void, Never>?
+    private var opening: LegacyTask?
 
-    private func open(_ url: URL) async {
+    private nonisolated func open(_ url: URL) {
         let kept: URL
         do {
-            kept = try await Self.keep(url, inPlace: openedInPlace)
+            kept = try Self.keep(url, inPlace: openedInPlace)
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !LegacyTask.isCancelled else { return }
             Dog.shared.join(self, "can not copy \(url.path): \(error)", level: .error)
-            failedAndExit(with: String(localized: "This file could not be read. Choose another file."))
+            failedAndExit(with: String(legacyLocalized: "This file could not be read. Choose another file."))
             return
         }
 
         let package: Package
         do {
-            package = try await Self.read(kept)
+            package = try Self.read(kept)
         } catch {
             Dog.shared.join(self, "can not read \(kept.path): \(error)", level: .error)
             failedAndExit(
-                with: String(localized: "This package could not be verified. Choose a different file and try again.")
+                with: String(legacyLocalized: "This package could not be verified. Choose a different file and try again.")
             )
             return
         }
-        guard !Task.isCancelled else { return }
+        guard !LegacyTask.isCancelled else { return }
 
         let target = PackageController(package: package)
         if let navigator = navigationController {
@@ -119,7 +120,7 @@ class DebOpenController: UIViewController {
     ///
     /// Off the main actor: a file in iCloud Drive may have to download first.
     @concurrent
-    private static func keep(_ url: URL, inPlace: Bool) async throws -> URL {
+    private static nonisolated func keep(_ url: URL, inPlace: Bool) throws -> URL {
         let directory = documentsDirectory
             .appendingPathComponent("DirectInstallCache")
             .appendingPathComponent(UUID().uuidString)
@@ -127,7 +128,7 @@ class DebOpenController: UIViewController {
         let kept = directory.appendingPathComponent(url.lastPathComponent)
         do {
             if inPlace {
-                try await url.readingCoordinated { readable in
+                try url.readingCoordinated { readable in
                     try FileManager.default.copyItem(at: readable, to: kept)
                 }
             } else {
@@ -143,7 +144,7 @@ class DebOpenController: UIViewController {
     /// The control file and the digest of the whole archive, off the main
     /// actor: a large package takes a moment to hash.
     @concurrent
-    private static func read(_ kept: URL) async throws -> Package {
+    private static nonisolated func read(_ kept: URL) throws -> Package {
         try Package(debianPackageAt: kept)
     }
 

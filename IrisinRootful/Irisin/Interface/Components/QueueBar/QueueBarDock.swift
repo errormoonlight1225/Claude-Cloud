@@ -3,7 +3,10 @@
 //  Irisin
 //
 
-import Combine
+import LegacyCompat
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import SnapKit
 import UIKit
 
@@ -60,10 +63,10 @@ final class QueueBarDock {
         }
         bar.alpha = 0
         bar.isHidden = true
-        bar.addAction(UIAction { [weak host] _ in
+        bar.legacyAddAction(for: .touchUpInside) { [weak host] _ in
             guard let host else { return }
             InterfaceHostController.enclosing(host)?.openQueue()
-        }, for: .touchUpInside)
+        }
         // the bar grows with the text size, and the room under it follows
         bar.heightChanged = { [weak self] in self?.makeRoom() }
 

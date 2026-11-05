@@ -6,8 +6,11 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
-import Combine
+import OpenCombine
+import OpenCombineDispatch
+import OpenCombineFoundation
 import Then
 import UIKit
 
@@ -133,7 +136,7 @@ class PackageBannerView: UIView {
         // the version, then what the repository says the download weighs
         // (what it takes on disk for a package only dpkg knows)
         version.text = [
-            package.latestVersion ?? String(localized: "Unknown"),
+            package.latestVersion ?? String(legacyLocalized: "Unknown"),
             (package.publishedSize ?? package.installedSize).map(Downloads.shared.byteFormat),
         ].compactMap(\.self).joined(separator: " · ")
         icon.showIcon(of: package)
@@ -188,10 +191,10 @@ class PackageBannerView: UIView {
 
     func grabButtonString() -> String {
         if !package.isSupportedOnDevice {
-            return String(localized: "Unsupported").uppercased()
+            return String(legacyLocalized: "Unsupported").uppercased()
         }
         if PackageQueue.shared.isQueued(package.identity) {
-            return (obtainQuickAction()?.descriptor.describe() ?? String(localized: "Open Queue")).uppercased()
+            return (obtainQuickAction()?.descriptor.describe() ?? String(legacyLocalized: "Open Queue")).uppercased()
         }
         if PackageCenter
             .default
@@ -201,10 +204,10 @@ class PackageBannerView: UIView {
             if let tag = package.latestMetadata?["tag"],
                tag.contains("cydia::commercial")
             {
-                return String(localized: "Buy").uppercased()
+                return String(legacyLocalized: "Buy").uppercased()
             }
-            return String(localized: "Install").uppercased()
+            return String(legacyLocalized: "Install").uppercased()
         }
-        return obtainQuickAction()?.descriptor.describe() ?? String(localized: "Actions")
+        return obtainQuickAction()?.descriptor.describe() ?? String(legacyLocalized: "Actions")
     }
 }

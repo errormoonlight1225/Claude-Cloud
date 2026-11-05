@@ -32,23 +32,23 @@ class WelcomeConfirmationController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Verify Ownership")
+        title = String(legacyLocalized: "Verify Ownership")
         view.backgroundColor = .groupedBackground
 
         let symbol = UIImageView(image: UIImage.compatSystemImage(method.symbol)).then {
             $0.tintColor = .buttonNormal
-            $0.preferredSymbolConfiguration = .init(pointSize: 44)
+            $0.compatPreferredSymbolConfiguration = .init(pointSize: 44)
         }
         let body = UILabel().then {
             $0.text = String(
-                localized: "Irisin can verify that you own this device before it installs or removes packages."
+                legacyLocalized: "Irisin can verify that you own this device before it installs or removes packages."
             )
             $0.font = WelcomeStyle.subtitleFont
             $0.textColor = WelcomeStyle.titleColor
             $0.numberOfLines = 0
         }
         let detail = UILabel().then {
-            $0.text = String(localized: "You can change this in Settings.")
+            $0.text = String(legacyLocalized: "You can change this in Settings.")
             $0.font = WelcomeStyle.detailFont
             $0.textColor = WelcomeStyle.detailColor
             $0.numberOfLines = 0
@@ -62,8 +62,8 @@ class WelcomeConfirmationController: UIViewController {
         let scrollView = UIScrollView().then { $0.alwaysBounceVertical = true }
         let contentView = UIView()
         let actionBar = WelcomeActionBar(
-            title: String(localized: "Turn On"),
-            secondaryTitle: String(localized: "Not Now"),
+            title: String(legacyLocalized: "Turn On"),
+            secondaryTitle: String(legacyLocalized: "Not Now"),
             action: { [weak self] in self?.turnOn() },
             secondaryAction: { [weak self] in
                 guard let self else { return }
@@ -98,8 +98,8 @@ class WelcomeConfirmationController: UIViewController {
     /// On once the owner has confirmed it works here; a cancel leaves the
     /// page up to answer again.
     private func turnOn() {
-        Task { [weak self] in
-            guard await OperationConfirmation.authenticate(), let self else { return }
+        LegacyTask.detached { [weak self] in
+            guard OperationConfirmation.authenticate(), let self else { return }
             OperationConfirmation.isEnabled = true
             onContinue(self)
         }

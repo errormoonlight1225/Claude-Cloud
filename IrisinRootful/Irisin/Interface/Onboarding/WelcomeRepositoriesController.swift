@@ -35,7 +35,7 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
     private let lines = RecommendedRepositories.lines
     private var previews: [String: RepositoryAddCandidateCell.Preview] = [:]
     private var registered = Set(RepositoryCenter.default.obtainRepositoryUrls())
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
 
     private lazy var dataSource = LegacyTableViewDiffableDataSource<Section, Row>(
         tableView: tableView
@@ -50,10 +50,10 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
             return cell
         case .addMore:
             let cell = tableView.dequeueReusableCell(withIdentifier: "action", for: indexPath)
-            var content = cell.defaultContentConfiguration()
-            content.text = String(localized: "Add More…")
+            var content = cell.legacyDefaultContentConfiguration()
+            content.text = String(legacyLocalized: "Add More…")
             content.textProperties.color = .buttonNormal
-            cell.contentConfiguration = content
+            cell.legacyContentConfiguration = content
             return cell
         }
     }
@@ -70,10 +70,10 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(localized: "Add Repositories")
+        title = String(legacyLocalized: "Add Repositories")
         view.backgroundColor = .groupedBackground
 
-        let actionBar = WelcomeActionBar(title: String(localized: "Next")) { [weak self] in
+        let actionBar = WelcomeActionBar(title: String(legacyLocalized: "Next")) { [weak self] in
             guard let self else { return }
             navigationController?.pushViewController(
                 WelcomeController.pageAfterRepositories(onFinish: onFinish),
@@ -115,8 +115,8 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
     /// A source that does not answer is said so, and can still be added.
     private func loadPreview(of line: String) {
         guard let source = RepositorySource(line: line) else { return }
-        Task { [weak self] in
-            let info = await RepositoryCenter.default.preview(of: source)
+        LegacyTask.detached { [weak self] in
+            let info = RepositoryCenter.default.preview(of: source)
             guard let self else { return }
             previews[line] = info.map { .loaded($0) } ?? .failed
             reconfigure(line)
@@ -174,7 +174,7 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
         case .recommended:
             let header = tableView
                 .dequeueReusableHeaderFooterView(withIdentifier: "recommended") as? RepositoryAddSectionHeaderView
-            header?.configure(title: String(localized: "Recommended Repositories"), showsButton: offersAddAll)
+            header?.configure(title: String(legacyLocalized: "Recommended Repositories"), showsButton: offersAddAll)
             header?.onAddAll = { [weak self] in self?.addAll() }
             return header
         default:
@@ -196,11 +196,11 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
     /// Header or footer text in the list's own style: the delegate's views,
     /// since the plain diffable data source has no titles.
     private static func text(
-        _ configuration: UIListContentConfiguration,
-        _ text: String.LocalizationValue
+        _ configuration: LegacyListContentConfiguration,
+        _ text: LegacyLocalizationValue
     ) -> UIView {
         var configuration = configuration
         configuration.text = String(resolving: text)
-        return UITableViewHeaderFooterView().then { $0.contentConfiguration = configuration }
+        return UITableViewHeaderFooterView().then { $0.legacyContentConfiguration = configuration }
     }
 }

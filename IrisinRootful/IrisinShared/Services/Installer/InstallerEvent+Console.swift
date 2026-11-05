@@ -1,3 +1,4 @@
+import LegacyCompat
 import Foundation
 import IrisinProtocol
 
@@ -8,7 +9,7 @@ extension InstallerEvent {
     var consoleLine: String? {
         switch self {
         case let .started(started):
-            return String(localized: "Installer started at \(started.installRoot.isEmpty ? "/" : started.installRoot)")
+            return String(legacyLocalized: "Installer started at \(started.installRoot.isEmpty ? "/" : started.installRoot)")
         case let .phase(phase):
             return phase.localizedTitle
         case .progress, .packageProgress:
@@ -16,15 +17,15 @@ extension InstallerEvent {
         case let .package(step, identity, version):
             let subject = version.isEmpty ? identity : "\(identity) (\(version))"
             return switch step {
-            case .verifying: String(localized: "Checking \(subject)")
-            case .removing: String(localized: "Removing \(subject)")
-            case .unpacking: String(localized: "Unpacking \(subject)")
-            case .configuring: String(localized: "Setting up \(subject)")
-            case .triggering: String(localized: "Processing triggers for \(subject)")
+            case .verifying: String(legacyLocalized: "Checking \(subject)")
+            case .removing: String(legacyLocalized: "Removing \(subject)")
+            case .unpacking: String(legacyLocalized: "Unpacking \(subject)")
+            case .configuring: String(legacyLocalized: "Setting up \(subject)")
+            case .triggering: String(legacyLocalized: "Processing triggers for \(subject)")
             }
         case let .script(identity, member, arguments):
             let script = ([identity + "." + member] + arguments.filter { !$0.isEmpty }).joined(separator: " ")
-            return String(localized: "Running \(script)")
+            return String(legacyLocalized: "Running \(script)")
         case let .output(line):
             return line
         case let .notice(text):
@@ -38,7 +39,7 @@ extension InstallerEvent {
             // the outcome's summary row says it
             return nil
         case let .exit(status):
-            return String(localized: "The installer stopped (error code \(status)).")
+            return String(legacyLocalized: "The installer stopped (error code \(status)).")
         }
     }
 }
@@ -49,44 +50,44 @@ extension InstallerEvent.Problem {
     var localizedDescription: String {
         switch self {
         case .invalidJob:
-            String(localized: "This operation is not valid and was not started.")
+            String(legacyLocalized: "This operation is not valid and was not started.")
         case .helperMisplaced:
-            String(localized: "Irisin is not installed correctly. Reinstall it and try again.")
+            String(legacyLocalized: "Irisin is not installed correctly. Reinstall it and try again.")
         case let .installationStopped(detail):
-            String(localized: "Installation stopped: \(detail)")
+            String(legacyLocalized: "Installation stopped: \(detail)")
         case let .packageFailed(identity, step, detail):
             switch step {
-            case .removing: String(localized: "Unable to remove \(identity): \(detail)")
-            case .unpacking: String(localized: "Unable to install \(identity): \(detail)")
-            case .configuring, .triggering: String(localized: "Unable to set up \(identity): \(detail)")
-            case .verifying: String(localized: "Unable to verify \(identity): \(detail)")
+            case .removing: String(legacyLocalized: "Unable to remove \(identity): \(detail)")
+            case .unpacking: String(legacyLocalized: "Unable to install \(identity): \(detail)")
+            case .configuring, .triggering: String(legacyLocalized: "Unable to set up \(identity): \(detail)")
+            case .verifying: String(legacyLocalized: "Unable to verify \(identity): \(detail)")
             }
         case let .scriptFailed(identity, _, script, status):
-            String(localized: "The \(script) script of \(identity) failed with exit status \(Int(status)).")
+            String(legacyLocalized: "The \(script) script of \(identity) failed with exit status \(Int(status)).")
         case let .scriptFailureIgnored(identity, script, _):
-            String(localized: "The \(script) script of \(identity) failed, but installation continued.")
+            String(legacyLocalized: "The \(script) script of \(identity) failed, but installation continued.")
         case .homeScreenNeedsAttention:
-            String(localized: "Packages were changed, but the home screen was not updated. Choose Rebuild Icons to try again.")
+            String(legacyLocalized: "Packages were changed, but the home screen was not updated. Choose Rebuild Icons to try again.")
         case let .registrationFailed(bundle, detail):
-            String(localized: "Unable to add \(bundle) to the home screen: \(detail)")
+            String(legacyLocalized: "Unable to add \(bundle) to the home screen: \(detail)")
         case let .unregistrationFailed(bundle, detail):
-            String(localized: "Unable to remove \(bundle) from the home screen: \(detail)")
+            String(legacyLocalized: "Unable to remove \(bundle) from the home screen: \(detail)")
         case let .leftoverBundle(path, detail):
-            String(localized: "Unable to remove leftover app files at \(path): \(detail)")
+            String(legacyLocalized: "Unable to remove leftover app files at \(path): \(detail)")
         case let .refreshFailed(detail):
-            String(localized: "Unable to refresh apps: \(detail)")
+            String(legacyLocalized: "Unable to refresh apps: \(detail)")
         case let .daemonNotLoaded(detail):
-            String(localized: "Irisin's background service could not be started: \(detail)")
+            String(legacyLocalized: "Irisin's background service could not be started: \(detail)")
         case let .noProcess(name):
-            String(localized: "No process named \(name) is running.")
+            String(legacyLocalized: "No process named \(name) is running.")
         case let .packageNeedsRepair(identity):
-            String(localized: "\(identity) did not finish installing. Install it again to repair it.")
+            String(legacyLocalized: "\(identity) did not finish installing. Install it again to repair it.")
         case let .markingsNotSaved(detail):
-            String(localized: "Unable to record which packages were installed as dependencies: \(detail)")
+            String(legacyLocalized: "Unable to record which packages were installed as dependencies: \(detail)")
         case .browsingOnly:
-            String(localized: "You can browse, but not install. Install the Irisin package.")
+            String(legacyLocalized: "You can browse, but not install. Install the Irisin package.")
         case .helperUnreachable:
-            String(localized: "The installer could not be started. Try again.")
+            String(legacyLocalized: "The installer could not be started. Try again.")
         }
     }
 }
@@ -95,12 +96,12 @@ extension InstallerEvent.Phase {
     /// The heading the console shows while this phase runs.
     var localizedTitle: String {
         switch self {
-        case .preparing: String(localized: "Preparing…")
-        case .verifying: String(localized: "Checking packages…")
-        case .applying: String(localized: "Applying changes…")
-        case .processingTriggers: String(localized: "Processing triggers…")
-        case .registeringApplications: String(localized: "Updating the home screen…")
-        case .completed: String(localized: "Finishing…")
+        case .preparing: String(legacyLocalized: "Preparing…")
+        case .verifying: String(legacyLocalized: "Checking packages…")
+        case .applying: String(legacyLocalized: "Applying changes…")
+        case .processingTriggers: String(legacyLocalized: "Processing triggers…")
+        case .registeringApplications: String(legacyLocalized: "Updating the home screen…")
+        case .completed: String(legacyLocalized: "Finishing…")
         }
     }
 }

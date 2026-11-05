@@ -6,6 +6,7 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
+import LegacyCompat
 import AptRepository
 import UIKit
 
@@ -19,8 +20,8 @@ extension DashboardController {
 
     /// Takes a copy of what the centers know and builds the sections off the
     /// main actor.
-    static func sections() async -> [Section] {
-        await build(
+    static nonisolated func sections() -> [Section] {
+        build(
             index: PackageCenter.default.index,
             repositories: RepositoryCenter.default.repositories
         )
@@ -30,7 +31,7 @@ extension DashboardController {
     private nonisolated static func build(
         index: PackageIndex,
         repositories: [URL: Repository]
-    ) async -> [Section] {
+    ) -> [Section] {
         var builder = [Section?]()
         builder.append(buildAvailableUpdate(index))
         builder.append(buildRecentUpdate(index))
@@ -44,7 +45,7 @@ extension DashboardController {
     private nonisolated static func buildAvailableUpdate(_ index: PackageIndex) -> Section? {
         let candidates = index.updateCandidates().map(\.candidate)
         return Section(
-            title: String(localized: "Updates"),
+            title: String(legacyLocalized: "Updates"),
             packages: candidates.sorted { a, b in
                 PackageCenter.default.name(of: a)
                     < PackageCenter.default.name(of: b)
@@ -72,7 +73,7 @@ extension DashboardController {
             }
         }
         return Section(
-            title: String(localized: "Featured"),
+            title: String(legacyLocalized: "Featured"),
             packages: builder.sorted { a, b in
                 PackageCenter.default.name(of: a)
                     < PackageCenter.default.name(of: b)
@@ -111,7 +112,7 @@ extension DashboardController {
         }
 
         return Section(
-            title: String(localized: "Recent Installs"),
+            title: String(legacyLocalized: "Recent Installs"),
             packages: result.flatMap(\.self),
             shouldLimit: true,
             action: nil
@@ -152,7 +153,7 @@ extension DashboardController {
             builder.append(contentsOf: compiler)
         }
         return Section(
-            title: String(localized: "Recent Updates"),
+            title: String(legacyLocalized: "Recent Updates"),
             packages: builder,
             shouldLimit: true
         ) { controller in

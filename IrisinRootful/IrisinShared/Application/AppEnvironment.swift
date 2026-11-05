@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import Dog
 import Foundation
@@ -119,11 +120,11 @@ enum AppEnvironment {
     private static func requestHomeFromDaemon(timeout: TimeInterval = 15) {
         NSLog("[Irisin] %@ cannot be made, asking irisind to prepare it", documentsDirectory.path)
         let finished = DispatchSemaphore(value: 0)
-        Task.detached {
+        LegacyTask.detached {
             defer { finished.signal() }
             do {
-                let transcript = try await PrivilegedBackend.link.run(.prepareUserHome)
-                for await event in transcript.events {
+                let transcript = try PrivilegedBackend.link.run(.prepareUserHome)
+                for event in transcript.events {
                     NSLog("[Irisin] %@", event.description)
                 }
             } catch {

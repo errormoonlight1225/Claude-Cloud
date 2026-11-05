@@ -49,9 +49,9 @@ enum ExportFile {
         _ url: URL,
         host: @escaping () -> UIViewController?,
         anchor: @escaping () -> PopoverAnchor?
-    ) -> UIAction {
-        UIAction(
-            title: String(localized: "Export All Repository Information…"),
+    ) -> LegacyAction {
+        LegacyAction(
+            title: String(legacyLocalized: "Export All Repository Information…"),
             image: UIImage.compatSystemImage("square.and.arrow.up.on.square")
         ) { _ in
             guard let host = host(),
@@ -61,8 +61,8 @@ enum ExportFile {
             // main actor takes the handle and nothing else
             let index = PackageCenter.default.index
             let name = "\(url.host ?? "repository")-\(stamp()).irisinrepo"
-            Task {
-                guard let data = await encodeRepository(repository, from: index) else {
+            LegacyTask.detached {
+                guard let data = encodeRepository(repository, from: index) else {
                     host.presentNotice(title: "Unable to Export", message: "The file could not be written. Try again.")
                     return
                 }
@@ -72,7 +72,7 @@ enum ExportFile {
     }
 
     @concurrent
-    private static func encodeRepository(_ repository: Repository, from index: PackageIndex) async -> Data? {
+    private static nonisolated func encodeRepository(_ repository: Repository, from index: PackageIndex) -> Data? {
         let packages = index.obtainPackageList(in: repository.url)
         return try? RepositoryFile(repository: repository, packages: packages).encoded()
     }
@@ -166,37 +166,37 @@ enum ExportFile {
     }
 
     /// Export… as a submenu: the same files wherever it hangs.
-    static func menu(from host: UIViewController, anchor: @escaping () -> PopoverAnchor?) -> UIMenu {
+    static func menu(from host: UIViewController, anchor: @escaping () -> PopoverAnchor?) -> LegacyMenu {
         func action(
             _ title: String,
             _ symbol: String,
             _ run: @escaping (UIViewController, PopoverAnchor?) -> Void
-        ) -> UIAction {
-            UIAction(title: title, image: UIImage.compatSystemImage(symbol)) { [weak host] _ in
+        ) -> LegacyAction {
+            LegacyAction(title: title, image: UIImage.compatSystemImage(symbol)) { [weak host] _ in
                 guard let host else { return }
                 run(host, anchor())
             }
         }
-        return UIMenu(
-            title: String(localized: "Export…"),
+        return LegacyMenu(
+            title: String(legacyLocalized: "Export…"),
             image: UIImage.compatSystemImage("square.and.arrow.up"),
             children: [
-                UIMenu(options: .displayInline, children: [
-                    action(String(localized: "Export Repository List"), "list.bullet.rectangle") {
+                LegacyMenu(options: .displayInline, children: [
+                    action(String(legacyLocalized: "Export Repository List"), "list.bullet.rectangle") {
                         shareRepositoryList(from: $0, anchor: $1)
                     },
-                    action(String(localized: "Export Package List"), "shippingbox") {
+                    action(String(legacyLocalized: "Export Package List"), "shippingbox") {
                         shareInstalledPackageList(from: $0, anchor: $1)
                     },
-                    action(String(localized: "Export dpkg Status"), "doc.text") {
+                    action(String(legacyLocalized: "Export dpkg Status"), "doc.text") {
                         shareStatus(from: $0, anchor: $1)
                     },
                 ]),
-                UIMenu(options: .displayInline, children: [
-                    action(String(localized: "Export Installer Log"), "doc.plaintext") {
+                LegacyMenu(options: .displayInline, children: [
+                    action(String(legacyLocalized: "Export Installer Log"), "doc.plaintext") {
                         shareInstallerLog(from: $0, anchor: $1)
                     },
-                    action(String(localized: "Export App Log"), "ladybug") {
+                    action(String(legacyLocalized: "Export App Log"), "ladybug") {
                         shareAppLog(from: $0, anchor: $1)
                     },
                 ]),
