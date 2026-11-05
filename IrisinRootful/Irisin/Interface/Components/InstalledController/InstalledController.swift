@@ -17,7 +17,7 @@ import UIKit
 
 class InstalledController: UICollectionViewController {
     var subscriptions = Set<AnyCancellable>()
-    var updateSetTask: LegacyTask?
+    var updateSetTask: LegacyMainTask?
 
     // MARK: - SORT OPTION
 
@@ -49,7 +49,7 @@ class InstalledController: UICollectionViewController {
         get { sortReversedStore.wrappedValue }
         set {
             sortReversedStore.wrappedValue = newValue
-            LegacyTask.detached { updateSource() }
+            LegacyMainTask { updateSource() }
         }
     }
 
@@ -61,7 +61,7 @@ class InstalledController: UICollectionViewController {
         get { Set(selectedSectionsStore.wrappedValue) }
         set {
             selectedSectionsStore.wrappedValue = newValue.sorted()
-            LegacyTask.detached { updateSource(withSearchText: searchController.searchBar.text) }
+            LegacyMainTask { updateSource(withSearchText: searchController.searchBar.text) }
         }
     }
 
@@ -71,7 +71,7 @@ class InstalledController: UICollectionViewController {
         get { Set(selectedAuthorsStore.wrappedValue) }
         set {
             selectedAuthorsStore.wrappedValue = newValue.sorted()
-            LegacyTask.detached { updateSource(withSearchText: searchController.searchBar.text) }
+            LegacyMainTask { updateSource(withSearchText: searchController.searchBar.text) }
         }
     }
 
@@ -282,8 +282,8 @@ class InstalledController: UICollectionViewController {
 
     @objc
     func refresh() {
-        LegacyTask.detached {
-            PackageCenter.default.reloadLocalPackages()
+        LegacyMainTask {
+            awaitBackground { PackageCenter.default.reloadLocalPackages() }
             refreshControl.endRefreshing()
             justReload()
             SPIndicator

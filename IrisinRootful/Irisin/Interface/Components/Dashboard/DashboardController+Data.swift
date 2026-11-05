@@ -14,8 +14,8 @@ import UIKit
 extension DashboardController {
     @objc
     func refresh() {
-        LegacyTask.detached {
-            reload(animated: true)
+        LegacyMainTask {
+            awaitBackground { reload(animated: true) }
             refreshControl.endRefreshing()
             SPIndicator.present(
                 title: String(legacyLocalized: "Refreshed"),
@@ -28,13 +28,13 @@ extension DashboardController {
         }
     }
 
-    nonisolated func reload(
+    func reload(
         animated: Bool,
-        load: @Sendable () -> [DashboardController.Section] = DashboardController.sections
+        load: () -> [DashboardController.Section] = DashboardController.sections
     ) {
         let requestID = UUID()
         reloadID = requestID
-        let sections = load()
+        let sections = awaitBackground { load() }
         guard reloadID == requestID, !LegacyTask.isCancelled else { return }
         dataSource = sections
         applySnapshot(

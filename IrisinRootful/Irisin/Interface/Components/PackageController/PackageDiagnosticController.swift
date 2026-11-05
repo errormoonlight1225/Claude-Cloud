@@ -229,25 +229,25 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             title: "Preparing…",
             message: "Checking packages…"
         )
-        LegacyTask.detached { [weak self] in
-            guard OperationConfirmation.confirm(), let self else { return }
-            withCheckedContinuation { ready in
+        LegacyMainTask { [weak self] in
+            guard awaitBackground({ OperationConfirmation.confirm() }), let self else { return }
+            awaitBackground { withCheckedContinuation { ready in }
                 present(progress, animated: true) { ready.resume() }
             }
             let payload: Installer.OperationPayload? = if removing, let recoveryRemoval {
-                Installer.shared.createRecoveryRemovalPayload(identity: recoveryRemoval)
+                awaitBackground { Installer.shared.createRecoveryRemovalPayload(identity: recoveryRemoval) }
             } else if let recoveryPackage {
-                Installer.shared.createRecoveryOperationPayload(package: recoveryPackage)
+                awaitBackground { Installer.shared.createRecoveryOperationPayload(package: recoveryPackage) }
             } else {
                 nil
             }
-            progress.dismissFinishing(animated: true)
+            awaitBackground { progress.dismissFinishing(animated: true) }
             guard let payload else {
                 let report = PackageActionReport.shared.allAvailable()
                 presentNotice(
                     title: "Unable to Prepare Installation",
                     message: report.isEmpty
-                        ? String(legacyLocalized: "Unable to prepare the installation. Try again.")
+                        ? String(localized: "Unable to prepare the installation. Try again.")
                         : report
                 )
                 return
@@ -256,7 +256,7 @@ final class PackageDiagnosticController: UIViewController, UITableViewDelegate {
             guard let host = sheet.presentingViewController else { return }
             let console = UINavigationController(rootViewController: OperationController(operation: payload))
             console.modalPresentationStyle = traitCollection.userInterfaceIdiom == .pad ? .formSheet : .fullScreen
-            sheet.dismissFinishing(animated: true)
+            awaitBackground { sheet.dismissFinishing(animated: true) }
             guard host.view.window != nil else { return }
             host.present(console, animated: true)
         }

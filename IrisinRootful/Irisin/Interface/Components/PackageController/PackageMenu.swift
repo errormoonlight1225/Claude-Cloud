@@ -103,7 +103,7 @@ enum PackageMenu {
         /// Runs with the page the menu belongs to, which presents what the
         /// action shows, and what the user touched to get here, for an
         /// action that ends in a popover on the iPad.
-        typealias Block = @MainActor @Sendable (Package, UIViewController, PopoverAnchor?) -> Void
+        typealias Block = @MainActor (Package, UIViewController, PopoverAnchor?) -> Void
 
         let block: Block
         let eligibleForPerform: (Package) -> (Bool)
@@ -160,7 +160,7 @@ enum PackageMenu {
                     ) { [weak host] chosen in
                         guard let host else { return }
                         let anchor = anchor ?? PopoverAnchor(sender: chosen.sender)
-                        LegacyTask.detached { action.block(package, host, anchor) }
+                        LegacyMainTask { awaitBackground { action.block(package, host, anchor) } }
                     }
                 }
         }
@@ -203,8 +203,8 @@ enum PackageMenu {
 
     /// Every request in the app goes here: the change sheet shows what it
     /// does to the queue and adds it. Returns once the sheet is on its way in.
-    static nonisolated func enqueue(_ actions: [ResolutionAction], from host: UIViewController) {
-        QueueChangeController.show(.actions(actions), from: host)
+    static func enqueue(_ actions: [ResolutionAction], from host: UIViewController) {
+        awaitBackground { QueueChangeController.show(.actions(actions), from: host) }
     }
 }
 

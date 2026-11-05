@@ -10,13 +10,13 @@ extension OwnRegistration {
             message: "Preparing the app update. The app will exit when it finishes."
         )
         controller.present(progress, animated: true) {
-            LegacyTask.detached {
+            LegacyMainTask {
                 if registering {
-                    _ = request()
+                    _ = awaitBackground { request() }
                 }
-                try? LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000)
+                try? awaitBackground { try LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000) }
                 UIApplication.prepareForExitAndSuspend()
-                try? LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000)
+                try? awaitBackground { try LegacyTask.sleep(seconds: Double(1_000_000_000) / 1_000_000_000) }
                 exit(0)
             }
         }

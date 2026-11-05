@@ -112,8 +112,8 @@ extension PackageController {
             }
         }
         let options = LegacyDeferredMenuElement.uncached { completion in
-            LegacyTask.detached {
-                let locales = SystemTranslator.languages()?[keyPath: list] ?? []
+            LegacyMainTask {
+                let locales = awaitBackground { SystemTranslator.languages()?[keyPath: list] ?? [] }
                 completion(
                     locales
                         .map { (locale: $0, name: name($0)) }

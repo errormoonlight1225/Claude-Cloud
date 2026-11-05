@@ -42,8 +42,8 @@ extension PackageBannerView {
             return
         }
         button.titleLabel?.alpha = 0.5
-        LegacyTask.detached {
-            action.block(package, host, PopoverAnchor(button))
+        LegacyMainTask {
+            awaitBackground { action.block(package, host, PopoverAnchor(button)) }
             button.titleLabel?.alpha = 1
         }
     }

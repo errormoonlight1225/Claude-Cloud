@@ -131,7 +131,7 @@ class TabInterfaceController: UITabBarController {
     private var tapCount = 0
     override func tabBar(_: UITabBar, didSelect _: UITabBarItem) {
         // double tap to select search bar, or to refresh the repositories; the tab has switched once this returns
-        LegacyTask.detached { [self] in
+        LegacyMainTask { [self] in
             updateQueueTab()
             if lastSelectedIndex == selectedIndex {
                 tapCount += 1

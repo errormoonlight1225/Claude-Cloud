@@ -156,14 +156,14 @@ extension LogViewerController {
 
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
             let copyAction = LegacyAction(
-                title: String(legacyLocalized: "Copy"),
+                title: String(localized: "Copy"),
                 image: UIImage.compatSystemImage("doc.on.doc")
             ) { _ in
                 UIPasteboard.general.string = logLine.fullText
             }
 
             let copyMessageAction = LegacyAction(
-                title: String(legacyLocalized: "Copy Message"),
+                title: String(localized: "Copy Message"),
                 image: UIImage.compatSystemImage("text.quote")
             ) { _ in
                 UIPasteboard.general.string = logLine.message

@@ -152,7 +152,7 @@ class RepositoryRow: UIView {
 
     /// The repository whose avatar `icon` shows, nil for the stand-in.
     private var iconUrl: URL?
-    private var iconTask: LegacyTask?
+    private var iconTask: LegacyMainTask?
 
     /// A row redrawn for its own repository keeps its picture while a new
     /// avatar is made; one reused for another shows the stand-in until then.
@@ -166,8 +166,8 @@ class RepositoryRow: UIView {
         if iconUrl != url {
             setIcon(nil, of: nil)
         }
-        iconTask = LegacyTask.detached { [weak self] in
-            let icon = RepositoryAvatar.icon(for: url, data: data)
+        iconTask = LegacyMainTask { [weak self] in
+            let icon = awaitBackground { RepositoryAvatar.icon(for: url, data: data) }
             guard !LegacyTask.isCancelled, let self, repoUrl == url else { return }
             setIcon(icon, of: url)
         }

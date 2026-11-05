@@ -25,8 +25,8 @@ extension SettingsController {
                         message: "Rebuilding home screen icons will take some time."
                     )
                     self?.present(alert, animated: true) {
-                        LegacyTask.detached { [weak self] in
-                            let outcome = PrivilegedBackend.runMaintenance(.rebuildIconCache)
+                        LegacyMainTask { [weak self] in
+                            let outcome = awaitBackground { PrivilegedBackend.runMaintenance(.rebuildIconCache) }
                             alert.dismiss(animated: true) {
                                 self?.report(outcome, succeeded: "Icons rebuilt", failed: "Unable to Rebuild Icons")
                             }
@@ -59,18 +59,18 @@ extension SettingsController {
             title: "Downloading…",
             message: "Getting the newest build of Irisin from GitHub."
         )
-        LegacyTask.detached { [weak self] in
+        LegacyMainTask { [weak self] in
             guard let self else { return }
-            withCheckedContinuation { shown in
+            awaitBackground { withCheckedContinuation { shown in }
                 present(alert, animated: true) { shown.resume() }
             }
             let result: Result<URL, TestUpdate.Failure>
             do throws(TestUpdate.Failure) {
-                result = try .success(TestUpdate.download(architecture: PackagedArchitecture.architecture))
+                result = try awaitBackground { try .success(TestUpdate.download(architecture: PackagedArchitecture.architecture)) }
             } catch {
                 result = .failure(error)
             }
-            alert.dismissFinishing(animated: true)
+            awaitBackground { alert.dismissFinishing(animated: true) }
             switch result {
             case let .success(file):
                 let page = DebOpenController()

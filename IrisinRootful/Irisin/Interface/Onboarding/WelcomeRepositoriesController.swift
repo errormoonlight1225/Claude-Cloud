@@ -115,8 +115,8 @@ class WelcomeRepositoriesController: UIViewController, UITableViewDelegate {
     /// A source that does not answer is said so, and can still be added.
     private func loadPreview(of line: String) {
         guard let source = RepositorySource(line: line) else { return }
-        LegacyTask.detached { [weak self] in
-            let info = RepositoryCenter.default.preview(of: source)
+        LegacyMainTask { [weak self] in
+            let info = awaitBackground { RepositoryCenter.default.preview(of: source) }
             guard let self else { return }
             previews[line] = info.map { .loaded($0) } ?? .failed
             reconfigure(line)

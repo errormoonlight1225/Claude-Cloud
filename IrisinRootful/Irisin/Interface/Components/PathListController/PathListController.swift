@@ -154,19 +154,19 @@ final class PathListController: UITableViewController {
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
             LegacyMenu(title: path, children: [
                 LegacyAction(
-                    title: String(legacyLocalized: "Copy Name"),
+                    title: String(localized: "Copy Name"),
                     image: UIImage.compatSystemImage("doc.on.doc")
                 ) { _ in
                     UIPasteboard.general.string = (path as NSString).lastPathComponent
                 },
                 LegacyAction(
-                    title: String(legacyLocalized: "Copy Path"),
+                    title: String(localized: "Copy Path"),
                     image: UIImage.compatSystemImage("doc.on.clipboard")
                 ) { _ in
                     UIPasteboard.general.string = path
                 },
                 LegacyAction(
-                    title: String(legacyLocalized: "Reveal in Fila"),
+                    title: String(localized: "Reveal in Fila"),
                     image: UIImage.compatSystemImage("folder")
                 ) { [weak self] _ in
                     // Fila browses the raw filesystem, so the path a package

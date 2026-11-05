@@ -50,7 +50,7 @@ class SearchController: UITableViewController {
     }
 
     /// The search in flight; a newer keystroke cancels it.
-    private var searchTask: LegacyTask?
+    private var searchTask: LegacyMainTask?
 
     nonisolated enum Section: Hashable {
         case results(SearchResult.Section)
@@ -347,8 +347,8 @@ extension SearchController: UISearchControllerDelegate, UISearchResultsUpdating,
         searchTask?.cancel()
         let index = PackageCenter.default.index
         let repositories = RepositoryCenter.default.repositories
-        searchTask = LegacyTask.detached {
-            let results = SearchResult.search(
+        searchTask = LegacyMainTask {
+            let results = awaitBackground { SearchResult.search( }
                 key: text,
                 in: index,
                 repositories: repositories
@@ -376,8 +376,8 @@ extension SearchController: UISearchControllerDelegate, UISearchResultsUpdating,
             guard let source = RepositorySource(line: url.absoluteString) else {
                 return
             }
-            LegacyTask.detached { [weak self] in
-                try? LegacyTask.sleep(seconds: 0.6)
+            LegacyMainTask { [weak self] in
+                try? awaitBackground { try LegacyTask.sleep(seconds: 0.6) }
                 guard let self else { return }
                 // the user may have tapped a row, cancelled or left during the
                 // wait; the search is no longer on screen and must not put the

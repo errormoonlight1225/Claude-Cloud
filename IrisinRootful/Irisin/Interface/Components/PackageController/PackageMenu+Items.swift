@@ -14,7 +14,7 @@ extension PackageMenu {
         .init(
             descriptor: .dequeue,
             block: { package, host, _ in
-                QueueChangeController.show(.withdraw(package.identity), from: host)
+                awaitBackground { QueueChangeController.show(.withdraw(package.identity), from: host) }
             },
             eligibleForPerform: { package in
                 PackageQueue.shared.isQueued(package.identity)
@@ -110,7 +110,7 @@ extension PackageMenu {
         .init(
             descriptor: .remove,
             block: { package, host, _ in
-                enqueue([.remove(package.identity)], from: host)
+                awaitBackground { enqueue([.remove(package.identity)], from: host) }
             },
             eligibleForPerform: { package in
                 PackageCenter

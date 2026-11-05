@@ -98,8 +98,8 @@ class WelcomeConfirmationController: UIViewController {
     /// On once the owner has confirmed it works here; a cancel leaves the
     /// page up to answer again.
     private func turnOn() {
-        LegacyTask.detached { [weak self] in
-            guard OperationConfirmation.authenticate(), let self else { return }
+        LegacyMainTask { [weak self] in
+            guard awaitBackground({ OperationConfirmation.authenticate() }), let self else { return }
             OperationConfirmation.isEnabled = true
             onContinue(self)
         }

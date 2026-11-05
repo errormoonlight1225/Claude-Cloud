@@ -576,3 +576,87 @@ public final class LegacyThrowingStream<Element>: @unchecked Sendable {
         if !terminated { continuation.fireTermination() }
     }
 }
+
+// MARK: - Main-thread tasks
+
+/// `Task { }` started from the main actor: the body runs on the main thread,
+/// and each former `await` of work off the main actor is `awaitBackground`,
+/// which runs that work on a global queue while the main run loop keeps
+/// turning. The interface stays responsive and other main-thread work runs
+/// in the meantime, as it did at an `await`.
+///
+/// The body is scheduled with CFRunLoopPerformBlock, not the main dispatch
+/// queue: a run loop turned from inside a main-queue block does not drain
+/// the main queue, and work off the main thread that waits for it
+/// (`DispatchQueue.main.sync`) would never finish.
+public final class LegacyMainTask: @unchecked Sendable {
+    public let cancellation = LegacyCancellation()
+    private var finished = false
+    private var completions: [() -> Void] = []
+
+    @discardableResult
+    public init(_ body: @escaping () -> Void) {
+        let cancellation = cancellation
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { [self] in
+            LegacyTask.withCurrent(cancellation, body)
+            finished = true
+            let run = completions
+            completions.removeAll()
+            run.forEach { $0() }
+        }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+
+    public var isCancelled: Bool { cancellation.isCancelled }
+    public func cancel() { cancellation.cancel() }
+
+    /// Waits for the body on the main thread, turning the run loop.
+    public func wait() {
+        if Thread.isMainThread {
+            while !finished { LegacyRunLoop.turn() }
+        } else {
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.main.async { self.whenFinished { semaphore.signal() } }
+            semaphore.wait()
+        }
+    }
+
+    /// Runs `handler` on the main thread once the body has returned.
+    public func whenFinished(_ handler: @escaping () -> Void) {
+        if finished { handler() } else { completions.append(handler) }
+    }
+}
+
+public enum LegacyRunLoop {
+    /// One short turn of the main run loop in its default mode.
+    public static func turn() {
+        _ = RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.02))
+    }
+}
+
+/// A former `await` in main-thread code: `body` runs on a global queue,
+/// under the current task's cancellation, while the main run loop turns
+/// until it returns. Off the main thread the body simply runs. `body` is
+/// @Sendable, so the compiler reports main-thread state it touches: such a
+/// call belongs outside `awaitBackground`.
+public func awaitBackground<T>(_ body: @escaping @Sendable () -> T) -> T {
+    guard Thread.isMainThread else { return body() }
+    let box = LegacyProtected<T?>(nil)
+    let done = LegacyProtected(false)
+    let cancellation = LegacyTask.current
+    DispatchQueue.global(qos: .userInitiated).async {
+        let value = LegacyTask.withCurrent(cancellation, body)
+        box.value = value
+        done.value = true
+        DispatchQueue.main.async {}
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+    while !done.value { LegacyRunLoop.turn() }
+    return box.value!
+}
+
+/// The throwing form.
+public func awaitBackground<T>(_ body: @escaping @Sendable () throws -> T) throws -> T {
+    let result: Result<T, Error> = awaitBackground { Result { try body() } }
+    return try result.get()
+}

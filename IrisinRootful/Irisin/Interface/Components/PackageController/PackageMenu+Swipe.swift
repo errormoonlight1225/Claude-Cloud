@@ -51,9 +51,9 @@ extension PackageMenu {
                 completion(true)
                 guard let host else { return }
                 let anchor = anchor()
-                LegacyTask.detached {
-                    QueueChangeController.$takesPlainChanges.withValue(true) {
-                        action.block(package, host, anchor)
+                LegacyMainTask {
+                    awaitBackground { QueueChangeController.$takesPlainChanges.withValue(true) { }
+                        awaitBackground { action.block(package, host, anchor) }
                     }
                 }
             }

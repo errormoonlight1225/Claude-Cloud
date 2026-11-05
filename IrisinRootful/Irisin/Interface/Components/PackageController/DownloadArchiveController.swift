@@ -31,7 +31,7 @@ final class DownloadArchiveController: UIViewController {
     private weak var host: UIViewController?
     /// What the user touched to ask: where the share sheet points on the iPad.
     private let anchor: PopoverAnchor?
-    private var work: LegacyTask?
+    private var work: LegacyMainTask?
 
     private let titleLabel = UILabel()
     private let messageLabel = UILabel()
@@ -63,20 +63,20 @@ final class DownloadArchiveController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         guard work == nil else { return }
-        work = LegacyTask.detached { [weak self] in self?.run() }
+        work = LegacyMainTask { [weak self] in awaitBackground { self?.run() } }
     }
 
     // MARK: - Work
 
-    private nonisolated func run() {
+    private func run() {
         var target = package
         if let store {
-            let check = PackageMenu.checkPurchase(of: package, in: store)
+            let check = awaitBackground { PackageMenu.checkPurchase(of: package, in: store) }
             guard case let .purchased(purchased) = check else {
                 guard !LegacyTask.isCancelled else { return }
-                close()
+                awaitBackground { close() }
                 if let host {
-                    PackageMenu.present(check, from: host)
+                    awaitBackground { PackageMenu.present(check, from: host) }
                 }
                 return
             }
@@ -92,11 +92,11 @@ final class DownloadArchiveController: UIViewController {
         // publisher on the statuses if the tick ever shows
         while downloads.isDownloading(url) {
             show(downloads.status(for: url))
-            try? LegacyTask.sleep(continuousSeconds: 0.25)
+            try? awaitBackground { try LegacyTask.sleep(continuousSeconds: 0.25) }
             guard !LegacyTask.isCancelled else { return }
         }
         let status = downloads.status(for: url)
-        close()
+        awaitBackground { close() }
         // Cancel may land while the card leaves
         guard !LegacyTask.isCancelled else { return }
         guard let file = status?.file, FileManager.default.fileExists(atPath: file.path) else {
@@ -134,10 +134,10 @@ final class DownloadArchiveController: UIViewController {
         return copy
     }
 
-    private nonisolated func close() {
+    private func close() {
         guard let alert = parent, alert.presentingViewController != nil, !alert.isBeingDismissed else { return }
         cancelButton.isEnabled = false
-        alert.dismissFinishing(animated: true)
+        awaitBackground { alert.dismissFinishing(animated: true) }
     }
 
     // MARK: - Card
@@ -214,7 +214,7 @@ final class DownloadArchiveController: UIViewController {
         cancelButton.legacyAddAction(for: .touchUpInside) { [weak self] _ in
             guard let self else { return }
             work?.cancel()
-            LegacyTask.detached { self.close() }
+            LegacyMainTask { awaitBackground { self.close() } }
         }
 
         let stack = UIStackView(arrangedSubviews: [

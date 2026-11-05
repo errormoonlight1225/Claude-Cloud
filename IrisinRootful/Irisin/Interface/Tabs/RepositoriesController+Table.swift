@@ -96,11 +96,11 @@ extension RepositoriesController: UITableViewDelegate {
             LegacyMenu(children: [
                 LegacyMenu(options: .displayInline, children: [
                     LegacyAction(
-                        title: String(legacyLocalized: "Refresh"),
+                        title: String(localized: "Refresh"),
                         image: UIImage.compatSystemImage("arrow.clockwise")
                     ) { _ in self?.refreshRepository(url) },
                     LegacyAction(
-                        title: String(legacyLocalized: "Share"),
+                        title: String(localized: "Share"),
                         image: UIImage.compatSystemImage("square.and.arrow.up")
                     ) { _ in self?.share(url, from: tableView.cellForRow(at: indexPath)) },
                     ExportFile.exportRepositoryAction(
@@ -110,7 +110,7 @@ extension RepositoriesController: UITableViewDelegate {
                     ),
                 ]),
                 LegacyAction(
-                    title: String(legacyLocalized: "Delete"),
+                    title: String(localized: "Delete"),
                     image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in self?.delete([url]) },

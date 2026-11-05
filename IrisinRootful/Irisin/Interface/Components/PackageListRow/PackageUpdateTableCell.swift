@@ -55,7 +55,7 @@ class PackageUpdateTableCell: UITableViewCell {
     @objc
     func sendUpdate() {
         guard let package = updateCandidate, let host = parentViewController else { return }
-        LegacyTask.detached { PackageMenu.enqueue([.install(package)], from: host) }
+        LegacyMainTask { awaitBackground { PackageMenu.enqueue([.install(package)], from: host) } }
     }
 
     override func prepareForReuse() {

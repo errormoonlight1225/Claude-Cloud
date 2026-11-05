@@ -33,7 +33,7 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
     private let change: QueueChange
     private var inspection: QueuePackageInspection?
     private var failed = false
-    private var work: LegacyTask?
+    private var work: LegacyMainTask?
     private lazy var icons = PackageIconCache { [weak self] in self?.render(animated: false) }
 
     private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
@@ -58,8 +58,8 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
         title = change.name
         // not hashed: the page only looks
         let archive = change.package.fileOnDisk
-        work = LegacyTask.detached { [weak self] in
-            let inspection = try? QueuePackageInspection.inspect(change, archive: archive)
+        work = LegacyMainTask { [weak self] in
+            let inspection = try? awaitBackground { try QueuePackageInspection.inspect(change, archive: archive) }
             guard let self else { return }
             work = nil
             self.inspection = inspection
@@ -78,8 +78,8 @@ final class QueuePackageController: UIViewController, UITableViewDelegate {
     /// Waits for the package to be read, up to `budget`, so a quick read
     /// arrives with the page and only a slow one fades in after it. A large
     /// package takes seconds to read; the page does not wait for that.
-    nonisolated func prepare(within budget: TimeInterval) {
-        work?.wait(upTo: budget)
+    func prepare(within budget: TimeInterval) {
+        awaitBackground { work?.wait(upTo: budget) }
     }
 
     override func viewDidLoad() {

@@ -53,7 +53,7 @@ nonisolated struct SearchResult: Hashable, Sendable {
 /// which a newer keystroke does.
 nonisolated extension SearchResult {
     @concurrent
-    static nonisolated func search(
+    static func search(
         key: String,
         in index: PackageIndex,
         repositories: [URL: Repository]

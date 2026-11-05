@@ -32,7 +32,7 @@ class EmptyRepositoriesController: UITableViewController {
     private let urls: [URL]
 
     private lazy var deleteButton = UIBarButtonItem(
-        title: String(legacyLocalized: "Delete"),
+        title: String(localized: "Delete"),
         primaryAction: LegacyAction { [weak self] _ in self?.confirmDelete() }
     )
 
@@ -129,14 +129,14 @@ class EmptyRepositoriesController: UITableViewController {
         if let cached = RepositoryAvatar.cached(for: url, data: data) {
             return cached ?? fallback
         }
-        LegacyTask.detached { [weak self] in
-            _ = RepositoryAvatar.icon(for: url, data: data)
+        LegacyMainTask { [weak self] in
+            _ = awaitBackground { RepositoryAvatar.icon(for: url, data: data) }
             guard let self else { return }
             var snapshot = dataSource.snapshot()
             guard snapshot.indexOfItem(url) != nil else { return }
             // a reconfigure keeps the row, and its checkmark with it
             snapshot.reconfigureItems([url])
-            dataSource.apply(snapshot, animatingDifferences: false)
+            awaitBackground { dataSource.apply(snapshot, animatingDifferences: false) }
         }
         return fallback
     }

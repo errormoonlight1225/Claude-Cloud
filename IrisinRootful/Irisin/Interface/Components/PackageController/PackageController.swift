@@ -200,7 +200,7 @@ class PackageController: UIViewController {
         rowsAskingForHeight.insert(row)
         guard !rowHeightsAreStale else { return }
         rowHeightsAreStale = true
-        LegacyTask.detached { [weak self] in
+        LegacyMainTask { [weak self] in
             guard let self else { return }
             rowHeightsAreStale = false
             let asking = rowsAskingForHeight
@@ -265,7 +265,7 @@ class PackageController: UIViewController {
 
     /// The translation of the depiction on show, while it is on its way. A
     /// new depiction (another version of the package) cancels it.
-    var depictionTranslation: LegacyTask?
+    var depictionTranslation: LegacyMainTask?
 
     /// The alert the translation on its way waits behind, when the menu
     /// asked for it. One left behind by a translation since replaced is no
@@ -326,7 +326,7 @@ class PackageController: UIViewController {
             menu: bannerPackageView.actionMenu
         ).then {
             $0.tintColor = .textTitle
-            $0.accessibilityLabel = String(legacyLocalized: "More")
+            $0.accessibilityLabel = String(localized: "More")
         }
 
         view.addSubview(tableView)

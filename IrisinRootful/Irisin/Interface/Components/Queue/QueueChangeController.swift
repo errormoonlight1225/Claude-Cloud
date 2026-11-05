@@ -81,21 +81,21 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// The packages this sheet's plan moves to another repository: a
     /// change row says so.
     private var moves: [String: (package: Package, origin: URL)] = [:]
-    private var work: LegacyTask?
+    private var work: LegacyMainTask?
     /// Confirm was tapped and the answer is being held against the
     /// packages as they are now.
-    private var confirming: LegacyTask?
+    private var confirming: LegacyMainTask?
     private var subscriptions = Set<AnyCancellable>()
     private lazy var icons = PackageIconCache { [weak self] in self?.redraw() }
 
     private let tableView = UITableView(frame: .zero, style: .compatInsetGrouped)
     private lazy var confirmButton = UIBarButtonItem(
-        primaryAction: LegacyAction(title: String(legacyLocalized: "Confirm")) { [weak self] _ in self?.commit() }
+        primaryAction: LegacyAction(title: String(localized: "Confirm")) { [weak self] _ in self?.commit() }
     )
     /// Stands in for Confirm when the request leaves the queue as it is:
     /// there is nothing to confirm, and the queue is where the user was going.
     private lazy var openQueueButton = UIBarButtonItem(
-        primaryAction: LegacyAction(title: String(legacyLocalized: "Open Queue")) { [weak self] _ in
+        primaryAction: LegacyAction(title: String(localized: "Open Queue")) { [weak self] _ in
             guard let self else { return }
             InterfaceHostController.enclosing(self)?.openQueue()
         }
@@ -136,13 +136,13 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// show: its report is the sheet, and closing the report closes it.
     /// Under `takesPlainChanges` the wait is longer, since an answer that
     /// needs no sheet shows none.
-    static nonisolated func show(_ request: Request, from host: UIViewController) {
+    static func show(_ request: Request, from host: UIViewController) {
         let controller = QueueChangeController(request: request)
         if takesPlainChanges {
-            controller.prepare(within: 1)
-            if controller.takeIfPlain() { return }
+            awaitBackground { controller.prepare(within: 1) }
+            if awaitBackground({ controller.takeIfPlain() }) { return }
         } else {
-            controller.prepare(within: 0.2)
+            awaitBackground { controller.prepare(within: 0.2) }
         }
         let root = controller.failure.map {
             report(of: $0, alone: true, recoveryPackage: controller.recoveryPackage, recoveryRemoval: controller.recoveryRemoval)
@@ -206,8 +206,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         fatalError()
     }
 
-    private nonisolated func prepare(within budget: TimeInterval) {
-        work?.wait(upTo: budget)
+    private func prepare(within budget: TimeInterval) {
+        awaitBackground { work?.wait(upTo: budget) }
     }
 
     override func viewDidLoad() {
@@ -271,14 +271,14 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         work?.cancel()
         let request = request
         let ticked = ticked
-        work = LegacyTask.detached { [weak self] in
+        work = LegacyMainTask { [weak self] in
             let (result, offer): (Result<PackageQueue.Proposal, ResolutionFailure>, PackageQueue.Migration?) = switch request {
             case let .actions(actions):
-                (PackageQueue.shared.propose(actions, cleanup: ticked), nil)
+                awaitBackground { (PackageQueue.shared.propose(actions, cleanup: ticked), nil) }
             case .updateAll, .migrate:
-                Self.proposeUpdate(for: request, cleanup: ticked)
+                awaitBackground { Self.proposeUpdate(for: request, cleanup: ticked) }
             case let .withdraw(identity):
-                (PackageQueue.shared.proposeWithdrawal(of: identity, cleanup: ticked), nil)
+                awaitBackground { (PackageQueue.shared.proposeWithdrawal(of: identity, cleanup: ticked), nil) }
             }
             guard !LegacyTask.isCancelled, let self else { return }
             work = nil
@@ -331,12 +331,12 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// Update All's answer as a proposal, and the migration it offers:
     /// the update as it is, or for `.migrate` the update with the moves,
     /// which a migration no longer needed leaves as it is.
-    private static nonisolated func proposeUpdate(
+    private static func proposeUpdate(
         for request: Request,
         cleanup: Set<String>?
     ) -> (Result<PackageQueue.Proposal, ResolutionFailure>, PackageQueue.Migration?) {
         let update: PackageQueue.UpdateAll
-        switch PackageQueue.shared.updateAllActions() {
+        switch awaitBackground { PackageQueue.shared.updateAllActions() } {
         case let .success(found): update = found
         case let .failure(failure): return (.failure(failure), nil)
         }
@@ -346,7 +346,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
             actions = migration.actions
             notices.append(String(legacyLocalized: "The packages that change repository are installed from the new one, and their updates come from there afterwards."))
         }
-        let proposal = PackageQueue.shared.propose(actions, cleanup: cleanup, keepingQueued: true, notices: notices)
+        let proposal = awaitBackground { PackageQueue.shared.propose(actions, cleanup: cleanup, keepingQueued: true, notices: notices) }
         return (proposal, update.migration)
     }
 
@@ -370,8 +370,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         guard confirming == nil else { return }
         if let work {
             // a tick is still being solved: Confirm takes its answer
-            LegacyTask.detached { [weak self] in
-                work.value
+            LegacyMainTask { [weak self] in
+                awaitBackground { work.value }
                 self?.commit()
             }
             return
@@ -379,8 +379,8 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         guard let proposal else { return }
         // solved against the catalogue as it was: a refresh may have
         // written it since
-        confirming = LegacyTask.detached { [weak self] in
-            let currency = PackageQueue.shared.currency(of: proposal)
+        confirming = LegacyMainTask { [weak self] in
+            let currency = awaitBackground { PackageQueue.shared.currency(of: proposal) }
             guard let self else { return }
             confirming = nil
             // a tick or a queue that moved during the check: Confirm takes
@@ -414,7 +414,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// notice, no unneeded package to tick, and the catalogue it was solved
     /// with is still the one there is. Everything else, a solve
     /// still running included, is the sheet's, which `show` presents.
-    private nonisolated func takeIfPlain() -> Bool {
+    private func takeIfPlain() -> Bool {
         guard work == nil, failure == nil, let proposal, proposal.notices.isEmpty else { return false }
         let (changes, dropped) = diff
         let plain = switch request {
@@ -430,7 +430,7 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
         if proposal.plan?.remove.isEmpty == false, !unneeded.isEmpty {
             return false
         }
-        switch PackageQueue.shared.currency(of: proposal) {
+        switch awaitBackground { PackageQueue.shared.currency(of: proposal) } {
         case .current:
             guard PackageQueue.shared.commit(proposal) else {
                 solve()

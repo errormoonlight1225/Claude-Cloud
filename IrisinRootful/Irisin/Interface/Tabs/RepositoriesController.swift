@@ -241,13 +241,13 @@ class RepositoriesController: UIViewController {
                     style: .plain,
                     target: self,
                     action: #selector(openAdd)
-                ).then { $0.accessibilityLabel = String(legacyLocalized: "Add Repository") },
+                ).then { $0.accessibilityLabel = String(localized: "Add Repository") },
                 UIBarButtonItem(
                     image: UIImage.compatSystemImage("ellipsis"),
                     menu: moreMenu
                 ).then {
                     $0.tintColor = .textTitle
-                    $0.accessibilityLabel = String(legacyLocalized: "More")
+                    $0.accessibilityLabel = String(localized: "More")
                 },
             ], animated: animated)
         }
@@ -317,8 +317,8 @@ class RepositoriesController: UIViewController {
         dataSourceCache.removeAll { urls.contains($0) }
         applySnapshot(animatingDifferences: true)
         SPIndicator.present(title: String(legacyLocalized: "Deleted"), preset: .done)
-        LegacyTask.detached {
-            try? LegacyTask.sleep(seconds: 0.5) // let the rows animate out
+        LegacyMainTask {
+            try? awaitBackground { try LegacyTask.sleep(seconds: 0.5) } // let the rows animate out
             for url in urls {
                 Self.remove(url)
             }

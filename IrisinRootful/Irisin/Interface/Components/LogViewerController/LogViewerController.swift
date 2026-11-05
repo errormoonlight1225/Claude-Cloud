@@ -36,14 +36,14 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
     private var tail: Timer?
     /// The first parse, running from init so the caller can hold the push
     /// for it; nil once the rows are in `parsed`.
-    var work: LegacyTask?
+    var work: LegacyMainTask?
 
     init() {
         super.init(nibName: nil, bundle: nil)
         lastReadLength = Self.fileLength
         let text = logText()
-        work = LegacyTask.detached { [weak self] in
-            let lines = Self.parse(text)
+        work = LegacyMainTask { [weak self] in
+            let lines = awaitBackground { Self.parse(text) }
             guard let self, !LegacyTask.isCancelled else { return }
             work = nil
             parsed = lines
@@ -61,8 +61,8 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
     /// Waits for the first parse, up to `budget`, and lays the page out with
     /// it. A page pushed after this shows its rows at once when the parse
     /// made it in time; otherwise the rows land when it does.
-    nonisolated func prepare(within budget: TimeInterval) {
-        work?.wait(upTo: budget)
+    func prepare(within budget: TimeInterval) {
+        awaitBackground { work?.wait(upTo: budget) }
         loadViewIfNeeded()
         view.layoutIfNeeded()
     }
@@ -227,10 +227,10 @@ final class LogViewerController: UIViewController, UITableViewDelegate {
 extension UIViewController {
     func presentLogViewer() {
         let viewer = LogViewerController()
-        LegacyTask.detached {
+        LegacyMainTask {
             // the push waits for the parse up to about twelve frames, so
             // the rows land with the page instead of after it
-            viewer.prepare(within: 0.2)
+            awaitBackground { viewer.prepare(within: 0.2) }
             present(next: viewer)
         }
     }

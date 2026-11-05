@@ -17,17 +17,15 @@ import UIKit
 /// puts its bar at the top of the screen and keeps that space even when the
 /// bar is hidden.
 class InterfaceHostController: UIViewController {
+    // iOS 12 port: the tab bar interface on every device; the iPad's split
+    // interface stands on iOS 14 column split views and list layouts.
     private var tabs: TabInterfaceController?
-    private var split: SplitInterfaceController?
     /// The layout on screen right now.
     private(set) var current: UIViewController?
 
     /// Where a page opened from outside the interface goes: the detail
     /// column on the iPad, the selected tab's stack elsewhere.
     var pageStack: UINavigationController? {
-        if let split = current as? SplitInterfaceController {
-            return split.navigator
-        }
         return (current as? UITabBarController)?.selectedViewController as? UINavigationController
     }
 
@@ -49,7 +47,6 @@ class InterfaceHostController: UIViewController {
         if presentedViewController != nil {
             dismiss(animated: true)
         }
-        (current as? SplitInterfaceController)?.showQueue()
         (current as? TabInterfaceController)?.showQueue()
     }
 
@@ -64,10 +61,12 @@ class InterfaceHostController: UIViewController {
         // onboarding asks which repositories are already added.
         LegacyTask.detached {
             guard AppBootstrap.finished() else { return }
-            // a link that opened the app gets its sheet; onboarding waits for
-            // the next time the interface appears
-            if WelcomeController.shouldPresent, presentedViewController == nil {
-                present(WelcomeController.makeLaunchNavigator(), animated: true)
+            DispatchQueue.main.async {
+                // a link that opened the app gets its sheet; onboarding waits
+                // for the next time the interface appears
+                if WelcomeController.shouldPresent, self.presentedViewController == nil {
+                    self.present(WelcomeController.makeLaunchNavigator(), animated: true)
+                }
             }
         }
     }
@@ -87,19 +86,13 @@ class InterfaceHostController: UIViewController {
 
     func installRootIfNeeded() {
         let target: UIViewController
-        if usesSplitLayout {
-            let controller = split ?? SplitInterfaceController()
-            split = controller
-            target = controller
-        } else {
-            let controller = tabs ?? TabInterfaceController()
-            tabs = controller
-            target = controller
-        }
+        let controller = tabs ?? TabInterfaceController()
+        tabs = controller
+        target = controller
         guard target !== current else { return }
         Dog.shared.join(
             "Interface",
-            "loading the \(target is SplitInterfaceController ? "split" : "tab bar") interface",
+            "loading the tab bar interface",
             level: .info
         )
 
@@ -117,6 +110,6 @@ class InterfaceHostController: UIViewController {
     }
 
     var usesSplitLayout: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad && view.frame.width > 700 && view.frame.height > 700
+        false
     }
 }

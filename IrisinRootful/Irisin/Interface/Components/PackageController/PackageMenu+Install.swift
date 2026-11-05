@@ -41,14 +41,14 @@ extension PackageMenu {
         }
         // before a purchase is checked: nobody pays for the record the
         // alert is about to talk them out of
-        guard keeps(selected, from: host) else { return }
+        guard awaitBackground({ keeps(selected, from: host) }) else { return }
         if selected.localFileURL != nil {
-            enqueue([.install(selected)], from: host)
+            awaitBackground { enqueue([.install(selected)], from: host) }
             return
         }
 
         guard selected.isCommercial else {
-            enqueue([.install(selected)], from: host)
+            awaitBackground { enqueue([.install(selected)], from: host) }
             return
         }
         guard let repoUrl = signedInStore(of: selected, from: host) else { return }
@@ -58,17 +58,17 @@ extension PackageMenu {
         )
         // on screen before the check: a quick answer would dismiss it while
         // it is still coming in, which UIKit ignores
-        withCheckedContinuation { done in
+        awaitBackground { withCheckedContinuation { done in }
             host.present(alert, animated: true) { done.resume() }
         }
         // the requests time out on their own; nothing waits forever
-        let check = checkPurchase(of: selected, in: repoUrl)
+        let check = awaitBackground { checkPurchase(of: selected, in: repoUrl) }
         // gone before the next sheet: the host cannot present while it is leaving
-        alert.dismissFinishing(animated: true)
+        awaitBackground { alert.dismissFinishing(animated: true) }
         if case let .purchased(purchased) = check {
-            enqueue([.install(purchased)], from: host)
+            awaitBackground { enqueue([.install(purchased)], from: host) }
         } else {
-            present(check, from: host)
+            awaitBackground { present(check, from: host) }
         }
     }
 
@@ -77,7 +77,7 @@ extension PackageMenu {
     /// version. Taking a recommendation opens its
     /// page and queues nothing: the request for it is made there, by the
     /// user, with the package in front of them.
-    static nonisolated func keeps(_ selected: Package, from host: UIViewController) -> Bool {
+    static func keeps(_ selected: Package, from host: UIViewController) -> Bool {
         let center = PackageCenter.default
         let advice = PackageSelectionAdvice(
             selected: selected,
@@ -91,9 +91,9 @@ extension PackageMenu {
         if !center.blockedUpdateTable.contains(selected.identity),
            let newer = advice.newerAlternative(installedVersion: installed)
         {
-            let choice = host.askRecommendation(
+            let choice = awaitBackground { host.askRecommendation( }
                 title: "Newer Version Available",
-                message: String(legacyLocalized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
+                message: String(localized: "You selected version \(selected.latestVersion ?? ""). \(repositoryName(of: newer)) offers version \(newer.latestVersion ?? "")."),
                 anywayTitle: anyway
             )
             switch choice {
@@ -164,8 +164,8 @@ extension PackageMenu {
     }
 
     /// `package` is trimmed to the version the user picked.
-    static nonisolated func checkPurchase(of package: Package, in repoUrl: URL) -> PurchaseCheck {
-        guard let info = VendorAccount.shared.purchaseStatus(
+    static func checkPurchase(of package: Package, in repoUrl: URL) -> PurchaseCheck {
+        guard let info = awaitBackground({ VendorAccount.shared.purchaseStatus( })
             for: repoUrl,
             withPackageIdentity: package.identity
         ) else {
@@ -181,7 +181,7 @@ extension PackageMenu {
         guard info.purchased == true else {
             return info.available == true ? .forSale(identity: package.identity, repository: repoUrl) : .unavailable
         }
-        guard let download = VendorAccount.shared.queryDownloadLink(withPackage: package),
+        guard let download = awaitBackground({ VendorAccount.shared.queryDownloadLink(withPackage: package) }),
               let version = package.latestVersion,
               var meta = package.latestMetadata
         else {
@@ -193,12 +193,12 @@ extension PackageMenu {
     }
 
     /// Everything but `.purchased`: the purchase to start, or why not.
-    static nonisolated func present(_ check: PurchaseCheck, from host: UIViewController) {
+    static func present(_ check: PurchaseCheck, from host: UIViewController) {
         switch check {
         case .purchased:
             break
         case let .forSale(identity, repository):
-            _ = VendorAccount.shared.initPurchase(
+            _ = awaitBackground { VendorAccount.shared.initPurchase( }
                 for: repository,
                 withPackageIdentity: identity,
                 window: host.view.window ?? UIWindow()

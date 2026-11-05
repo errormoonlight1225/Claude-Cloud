@@ -38,8 +38,8 @@ extension SettingsController {
                     }
                     // on only once the device has shown it can: the switch
                     // goes back until the translator has answered
-                    LegacyTask.detached { [weak self] in
-                        if let failure = SystemTranslator.verify() {
+                    LegacyMainTask { [weak self] in
+                        if let failure = awaitBackground({ SystemTranslator.verify() }) {
                             self?.presentNotice(
                                 title: "Unable to Translate",
                                 message: AutomaticTranslation.describe(failure)
@@ -94,8 +94,8 @@ extension SettingsController {
             kind: .toggle,
             isOn: { OperationConfirmation.isEnabled },
             setOn: { [weak self] isOn in
-                LegacyTask.detached { [weak self] in
-                    if OperationConfirmation.authenticate() {
+                LegacyMainTask { [weak self] in
+                    if awaitBackground({ OperationConfirmation.authenticate() }) {
                         OperationConfirmation.isEnabled = isOn
                     }
                     self?.dispatchValueUpdate()

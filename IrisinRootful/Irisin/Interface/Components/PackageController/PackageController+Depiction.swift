@@ -117,12 +117,12 @@ extension PackageController {
     /// between the two is a line in the log, not a different page.
     func downloadDepictionIfAvailable() {
         let package = describedPackage
-        LegacyTask.detached { [weak self] in
+        LegacyMainTask { [weak self] in
             guard let self else { return }
 
             var json: [String: Any]?
             if let url = PackageCenter.default.depictionURL(of: package) {
-                if let (data, _) = try? URLSession.shared.compatData(from: url),
+                if let (data, _) = try? awaitBackground({ try URLSession.shared.compatData(from: url) }),
                    let remote = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
                 {
                     json = remote
@@ -234,17 +234,17 @@ extension PackageController {
             : nil
         translationAlert = alert
         showTranslationStatus(.translating)
-        depictionTranslation = LegacyTask.detached { [weak self] in
+        depictionTranslation = LegacyMainTask { [weak self] in
             // on screen before the answer: a quick one would dismiss it
             // while it is still coming in, which UIKit ignores
             if let alert, let self {
-                withCheckedContinuation { done in
+                awaitBackground { withCheckedContinuation { done in }
                     self.present(alert, animated: true) { done.resume() }
                 }
             }
             let outcome: Result<[String]?, Error>
             do {
-                outcome = try .success(SystemTranslator.translate(texts, from: source, to: target))
+                outcome = try awaitBackground { try .success(SystemTranslator.translate(texts, from: source, to: target)) }
             } catch {
                 outcome = .failure(error)
             }
@@ -252,12 +252,12 @@ extension PackageController {
             // said what it shows now, and only the alert is left to go
             guard !LegacyTask.isCancelled, let self else {
                 if let alert, !alert.isBeingDismissed {
-                    alert.dismissFinishing(animated: true)
+                    awaitBackground { alert.dismissFinishing(animated: true) }
                 }
                 return
             }
             // gone before a notice: the page cannot present while it is leaving
-            alert?.dismissFinishing(animated: true)
+            awaitBackground { alert?.dismissFinishing(animated: true) }
             switch outcome {
             case let .success(translated):
                 // an engine unsure of the language hands the text back as it was

@@ -15,7 +15,7 @@ import UIKit
 
 class InstalledNavigator: UINavigationController {
     private var subscriptions = Set<AnyCancellable>()
-    private var updateCountTask: LegacyTask?
+    private var updateCountTask: LegacyMainTask?
 
     init() {
         super.init(rootViewController: InstalledController())
@@ -37,8 +37,8 @@ class InstalledNavigator: UINavigationController {
 
     func updateAvailableUpdateBadge() {
         updateCountTask?.cancel()
-        updateCountTask = LegacyTask.detached { [weak self] in
-            let count = Self.updateCount(in: PackageCenter.default.index)
+        updateCountTask = LegacyMainTask { [weak self] in
+            let count = awaitBackground { Self.updateCount(in: PackageCenter.default.index) }
             guard !LegacyTask.isCancelled, let self else { return }
             setTabBadge(count > 0 ? String(count) : nil)
         }

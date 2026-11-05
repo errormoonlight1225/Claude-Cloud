@@ -49,8 +49,8 @@ class DebOpenController: UIViewController {
             failedAndExit()
             return
         }
-        opening = LegacyTask.detached {
-            open(url)
+        opening = LegacyMainTask {
+            awaitBackground { open(url) }
             text.text = ""
             indicator.stopAnimating()
         }
@@ -64,12 +64,12 @@ class DebOpenController: UIViewController {
         }
     }
 
-    private var opening: LegacyTask?
+    private var opening: LegacyMainTask?
 
-    private nonisolated func open(_ url: URL) {
+    private func open(_ url: URL) {
         let kept: URL
         do {
-            kept = try Self.keep(url, inPlace: openedInPlace)
+            kept = try awaitBackground { try Self.keep(url, inPlace: openedInPlace) }
         } catch {
             guard !LegacyTask.isCancelled else { return }
             Dog.shared.join(self, "can not copy \(url.path): \(error)", level: .error)
@@ -79,7 +79,7 @@ class DebOpenController: UIViewController {
 
         let package: Package
         do {
-            package = try Self.read(kept)
+            package = try awaitBackground { try Self.read(kept) }
         } catch {
             Dog.shared.join(self, "can not read \(kept.path): \(error)", level: .error)
             failedAndExit(
@@ -120,7 +120,7 @@ class DebOpenController: UIViewController {
     ///
     /// Off the main actor: a file in iCloud Drive may have to download first.
     @concurrent
-    private static nonisolated func keep(_ url: URL, inPlace: Bool) throws -> URL {
+    private static func keep(_ url: URL, inPlace: Bool) throws -> URL {
         let directory = documentsDirectory
             .appendingPathComponent("DirectInstallCache")
             .appendingPathComponent(UUID().uuidString)
@@ -128,7 +128,7 @@ class DebOpenController: UIViewController {
         let kept = directory.appendingPathComponent(url.lastPathComponent)
         do {
             if inPlace {
-                try url.readingCoordinated { readable in
+                try awaitBackground { try url.readingCoordinated { readable in }
                     try FileManager.default.copyItem(at: readable, to: kept)
                 }
             } else {
@@ -144,7 +144,7 @@ class DebOpenController: UIViewController {
     /// The control file and the digest of the whole archive, off the main
     /// actor: a large package takes a moment to hash.
     @concurrent
-    private static nonisolated func read(_ kept: URL) throws -> Package {
+    private static func read(_ kept: URL) throws -> Package {
         try Package(debianPackageAt: kept)
     }
 

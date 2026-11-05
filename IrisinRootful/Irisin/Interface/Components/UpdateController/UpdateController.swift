@@ -16,7 +16,7 @@ import UIKit
 class UpdateController: UIViewController, UITableViewDelegate {
     private var subscriptions = Set<AnyCancellable>()
     private let notificationCenter: NotificationCenter
-    private var reloadTask: LegacyTask?
+    private var reloadTask: LegacyMainTask?
 
     let tableView = UITableView()
     let cellID = UUID().uuidString
@@ -122,23 +122,23 @@ class UpdateController: UIViewController, UITableViewDelegate {
 
     /// Waits for the first list, up to `budget`, so the page is pushed with
     /// its rows in place; a slower list animates in after the push.
-    nonisolated func prepare(within budget: TimeInterval) {
+    func prepare(within budget: TimeInterval) {
         loadViewIfNeeded()
-        reloadTask?.wait(upTo: budget)
+        awaitBackground { reloadTask?.wait(upTo: budget) }
     }
 
     /// Pushes the page from `host` once its first list is in, or 200 ms on.
     static func show(from host: UIViewController?) {
         let page = UpdateController()
-        LegacyTask.detached {
-            page.prepare(within: 0.2)
+        LegacyMainTask {
+            awaitBackground { page.prepare(within: 0.2) }
             host?.present(next: page)
         }
     }
 
     @objc
     func updateAll() {
-        LegacyTask.detached { QueueChangeController.show(.updateAll, from: self) }
+        LegacyMainTask { awaitBackground { QueueChangeController.show(.updateAll, from: self) } }
     }
 
     @objc
@@ -162,14 +162,14 @@ class UpdateController: UIViewController, UITableViewDelegate {
     func reload() {
         reloadTask?.cancel()
         let index = PackageCenter.default.index
-        reloadTask = LegacyTask.detached { [weak self] in
-            let rows = Self.rows(in: index)
+        reloadTask = LegacyMainTask { [weak self] in
+            let rows = awaitBackground { Self.rows(in: index) }
             guard !LegacyTask.isCancelled, let self else { return }
             var snapshot = LegacyDiffableSnapshot<Int, Row>()
             snapshot.appendSections([0])
             snapshot.appendItems(rows)
             snapshot.reconfigureItems(survivingFrom: diffableDataSource.snapshot())
-            diffableDataSource.apply(
+            awaitBackground { diffableDataSource.apply( }
                 snapshot,
                 animatingDifferences: tableView.shouldAnimateDiff
             )

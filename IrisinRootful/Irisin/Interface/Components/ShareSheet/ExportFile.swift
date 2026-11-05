@@ -61,8 +61,8 @@ enum ExportFile {
             // main actor takes the handle and nothing else
             let index = PackageCenter.default.index
             let name = "\(url.host ?? "repository")-\(stamp()).irisinrepo"
-            LegacyTask.detached {
-                guard let data = encodeRepository(repository, from: index) else {
+            LegacyMainTask {
+                guard let data = awaitBackground({ encodeRepository(repository, from: index) }) else {
                     host.presentNotice(title: "Unable to Export", message: "The file could not be written. Try again.")
                     return
                 }
@@ -72,7 +72,7 @@ enum ExportFile {
     }
 
     @concurrent
-    private static nonisolated func encodeRepository(_ repository: Repository, from index: PackageIndex) -> Data? {
+    private static func encodeRepository(_ repository: Repository, from index: PackageIndex) -> Data? {
         let packages = index.obtainPackageList(in: repository.url)
         return try? RepositoryFile(repository: repository, packages: packages).encoded()
     }

@@ -11,7 +11,7 @@ extension QueueController {
     /// Bootstrap Install (when the plan allows it), Install Anyway or
     /// Cancel. Returns once the alert is gone, so what comes next can be
     /// presented.
-    nonisolated func askWithoutDpkg(offersBootstrap: Bool) -> QueueInstallChecks.DpkgAnswer {
+    func askWithoutDpkg(offersBootstrap: Bool) -> QueueInstallChecks.DpkgAnswer {
         // a second tap while the first alert is up, or a page on its way
         // out: nothing would come up, and nothing would ever answer
         guard presentedViewController == nil, view.window != nil else { return .cancel }
@@ -19,7 +19,7 @@ extension QueueController {
         if offersBootstrap {
             message += "\n\n" + String(legacyLocalized: "Bootstrap Install places every package's files before any script runs.")
         }
-        return withCheckedContinuation { continuation in
+        return awaitBackground { withCheckedContinuation { continuation in }
             let alert = AlertViewController(
                 title: String.LocalizationValue(String(localized: "dpkg Is Not Installed")),
                 message: String.LocalizationValue(message)

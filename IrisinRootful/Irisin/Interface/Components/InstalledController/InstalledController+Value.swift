@@ -94,8 +94,8 @@ extension InstalledController {
     /// have moved. A search keystroke cannot change the answer.
     func refreshUpdateSet() {
         updateSetTask?.cancel()
-        updateSetTask = LegacyTask.detached { [weak self] in
-            let identities = Self.identitiesWithUpdate(in: PackageCenter.default.index)
+        updateSetTask = LegacyMainTask { [weak self] in
+            let identities = awaitBackground { Self.identitiesWithUpdate(in: PackageCenter.default.index) }
             guard !LegacyTask.isCancelled, let self else { return }
             identitiesWithUpdate = identities
             setupBarItems()

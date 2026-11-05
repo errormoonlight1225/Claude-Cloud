@@ -49,7 +49,7 @@ class RepositoryAddController: UITableViewController {
     private var inputText = ""
     /// The typed source being looked up, shown under the field.
     private var probing: String?
-    private var probeTask: LegacyTask?
+    private var probeTask: LegacyMainTask?
     private var added: Set<String> = []
     /// The repositories already registered when the sheet opened, plus what it
     /// registered since. Asking the center sorts its whole list, and every row
@@ -253,10 +253,10 @@ class RepositoryAddController: UITableViewController {
             return known
         }
         previews[line] = .loading
-        LegacyTask.detached { [weak self] in
+        LegacyMainTask { [weak self] in
             var info: RepositoryPreview?
             if let source = RepositorySource(line: line) {
-                info = RepositoryCenter.default.preview(of: source)
+                info = awaitBackground { RepositoryCenter.default.preview(of: source) }
             }
             guard let self else { return }
             previews[line] = info.map { .loaded($0) } ?? .failed
@@ -413,8 +413,8 @@ class RepositoryAddController: UITableViewController {
         updateAddButton()
         applySnapshot(animatingDifferences: true)
         guard target != nil else { return }
-        probeTask = LegacyTask.detached { [weak self] in
-            try? LegacyTask.sleep(seconds: 0.6)
+        probeTask = LegacyMainTask { [weak self] in
+            try? awaitBackground { try LegacyTask.sleep(seconds: 0.6) }
             guard !LegacyTask.isCancelled, let self else { return }
             probing = target
             applySnapshot(animatingDifferences: true)

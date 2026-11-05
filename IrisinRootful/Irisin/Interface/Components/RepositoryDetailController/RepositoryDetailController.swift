@@ -149,7 +149,7 @@ class RepositoryDetailController: UIViewController {
 
         let more = UIBarButtonItem(image: UIImage.compatSystemImage("ellipsis"), menu: moreMenu).then {
             $0.tintColor = .textTitle
-            $0.accessibilityLabel = String(legacyLocalized: "More")
+            $0.accessibilityLabel = String(localized: "More")
         }
         navigationItem.rightBarButtonItems = [more]
         if paymentEndpoint != nil {
@@ -212,7 +212,7 @@ class RepositoryDetailController: UIViewController {
             primaryAction: only,
             menu: only == nil ? LegacyMenu(children: elements) : nil
         )
-        account.accessibilityLabel = String(legacyLocalized: "Account")
+        account.accessibilityLabel = String(localized: "Account")
         navigationItem.rightBarButtonItems = [more, account]
     }
 
@@ -452,8 +452,8 @@ extension RepositoryDetailController: UICollectionViewDelegate {
         guard case let .filter(filter) = dataSource.itemIdentifier(for: indexPath) else { return }
         let index = PackageCenter.default.index
         let url = repo.url
-        LegacyTask.detached { [weak self] in
-            let packages = Self.packages(for: filter, in: url, index: index)
+        LegacyMainTask { [weak self] in
+            let packages = awaitBackground { Self.packages(for: filter, in: url, index: index) }
             guard let self else { return }
             guard !packages.isEmpty else {
                 presentNotice(

@@ -103,7 +103,7 @@ final class PackageArtworkView: UIView {
     }
 
     /// An uncached picture waiting for its moment (`load(_:uncachedNotBefore:)`).
-    private var pendingLoad: LegacyTask?
+    private var pendingLoad: LegacyMainTask?
 
     /// Shows the picture at `url`. The one on show stays until the new one
     /// has arrived; no `url` takes it away and the handwriting shows again.
@@ -127,8 +127,8 @@ final class PackageArtworkView: UIView {
             fetch(url)
             return
         }
-        pendingLoad = LegacyTask.detached { [weak self] in
-            try? deadline.sleep()
+        pendingLoad = LegacyMainTask { [weak self] in
+            try? awaitBackground { try deadline.sleep() }
             guard !LegacyTask.isCancelled else { return }
             self?.fetch(url)
         }

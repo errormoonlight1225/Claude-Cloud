@@ -174,9 +174,9 @@ final class ScribbleLetterView: UIView {
         guard id == playbackID else { return }
         guard loops, loopPause > 0 else { return continueLoop() }
         guard loopPause.isFinite else { return }
-        LegacyTask.detached { [weak self, loopPause] in
+        LegacyMainTask { [weak self, loopPause] in
             // Capped at about 31 years so the nanosecond count fits in UInt64.
-            try? LegacyTask.sleep(seconds: Double(UInt64(min(loopPause, 1e9) * 1e9)) / 1_000_000_000)
+            try? awaitBackground { try LegacyTask.sleep(seconds: Double(UInt64(min(loopPause, 1e9) * 1e9)) / 1_000_000_000) }
             guard let self, id == playbackID else { return }
             continueLoop()
         }

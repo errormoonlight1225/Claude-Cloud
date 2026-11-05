@@ -69,7 +69,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
             },
             LegacyMenu(options: .displayInline, children: [
                 LegacyAction(
-                    title: String(legacyLocalized: "Clear Queue"),
+                    title: String(localized: "Clear Queue"),
                     image: UIImage.compatSystemImage("trash"),
                     attributes: .destructive
                 ) { _ in PackageQueue.shared.clear() },
@@ -80,10 +80,10 @@ final class QueueController: UIViewController, UITableViewDelegate {
     private var subscriptions = Set<AnyCancellable>()
     /// The poll that follows the downloads, while the page is on screen or
     /// a tap is waiting for them.
-    private var watch: LegacyTask?
-    private var staging: LegacyTask?
+    private var watch: LegacyMainTask?
+    private var staging: LegacyMainTask?
     /// A tapped row whose page is not pushed yet; a second tap waits for it.
-    private var opening: LegacyTask?
+    private var opening: LegacyMainTask?
     /// Execute was tapped while files were still downloading: it
     /// runs the moment they are here.
     private var committed = false {
@@ -183,7 +183,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
                       plan.allowsBootstrapInstall
                 else { return completion([]) }
                 completion([LegacyAction(
-                    title: String(legacyLocalized: "Bootstrap Install"),
+                    title: String(localized: "Bootstrap Install"),
                     image: UIImage.compatSystemImage("shippingbox")
                 ) { [weak self] _ in self?.primaryAction(bootstrapInstall: true) }])
             },
@@ -191,7 +191,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         if #available(iOS 26.0, *) {
             executeButton.style = .prominent
         }
-        menuItem.accessibilityLabel = String(legacyLocalized: "More")
+        menuItem.accessibilityLabel = String(localized: "More")
         navigationItem.rightBarButtonItems = [executeButton, busyItem, menuItem]
         updateBar()
 
@@ -347,8 +347,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
     }
 
     private func export(_ files: [(Package, URL)]) {
-        LegacyTask.detached { [weak self] in
-            let copies = Self.namedCopies(of: files)
+        LegacyMainTask { [weak self] in
+            let copies = awaitBackground { Self.namedCopies(of: files) }
             guard let self else { return }
             guard let copies else {
                 // the copies took a while; the queue may have left by now
@@ -408,8 +408,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
               change.isInspectable, opening == nil
         else { return }
         let page = QueuePackageController(change: change)
-        opening = LegacyTask.detached { [weak self] in
-            page.prepare(within: 0.2)
+        opening = LegacyMainTask { [weak self] in
+            awaitBackground { page.prepare(within: 0.2) }
             guard let self else { return }
             opening = nil
             // the page was left while the package was read
@@ -433,7 +433,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         ) { [weak self] _, _, completion in
             completion(true)
             guard let self else { return }
-            LegacyTask.detached { QueueChangeController.show(.withdraw(change.package.identity), from: self) }
+            LegacyMainTask { awaitBackground { QueueChangeController.show(.withdraw(change.package.identity), from: self) } }
         }
         action.backgroundColor = .swipeDelete
         return UISwipeActionsConfiguration(actions: [action])
@@ -460,7 +460,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
         case .stagingFailed, .ready, .downloading:
             // Retry after staging repeats a Bootstrap Install as one
             let bootstrap = bootstrapInstall || (stage == .stagingFailed && bootstrapRequested)
-            LegacyTask.detached { checkAndCommit(plan, bootstrapInstall: bootstrap) }
+            LegacyMainTask { awaitBackground { checkAndCommit(plan, bootstrapInstall: bootstrap) } }
         case .empty, .blocked, .staging:
             break
         }
@@ -470,11 +470,11 @@ final class QueueController: UIViewController, UITableViewDelegate {
     /// dpkg asks how to go on. Then now if every file is here, and as soon
     /// as they are if not. The downloads may land while the alert is up;
     /// the answer holds all the same.
-    private nonisolated func checkAndCommit(_ plan: ResolutionPlan, bootstrapInstall: Bool) {
+    private func checkAndCommit(_ plan: ResolutionPlan, bootstrapInstall: Bool) {
         var bootstrap = bootstrapInstall
         var withoutDpkg = false
         if !bootstrap, !QueueInstallChecks.hasDpkg(plan) {
-            switch askWithoutDpkg(offersBootstrap: plan.allowsBootstrapInstall) {
+            switch awaitBackground { askWithoutDpkg(offersBootstrap: plan.allowsBootstrapInstall) } {
             case .cancel: return
             case .bootstrapInstall: bootstrap = true
             case .installAnyway: withoutDpkg = true
@@ -512,8 +512,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
         failure = nil
         stage = .staging
-        staging = LegacyTask.detached { [weak self] in
-            let names = QueueInstallChecks.packagesRunningScripts(in: plan)
+        staging = LegacyMainTask { [weak self] in
+            let names = awaitBackground { QueueInstallChecks.packagesRunningScripts(in: plan) }
             guard let self else { return }
             staging = nil
             guard PackageQueue.shared.plan?.id == plan.id else {
@@ -558,8 +558,8 @@ final class QueueController: UIViewController, UITableViewDelegate {
         }
         stage = .downloading
         refreshVisibleProgress()
-        watch = LegacyTask.detached { [weak self] in
-            let failure = Downloads.shared.awaitFiles(of: pending, in: plan.id) { [weak self] in
+        watch = LegacyMainTask { [weak self] in
+            let failure = awaitBackground { Downloads.shared.awaitFiles(of: pending, in: plan.id) { [weak self] in }
                 self?.refreshVisibleProgress()
             }
             // a plan that replaced this one has a watch of its own
@@ -570,7 +570,7 @@ final class QueueController: UIViewController, UITableViewDelegate {
                 Dog.shared.join("Queue", "download failed: \(failure)", level: .error)
                 let purchased = pending.contains { $0.latestMetadata?["tag"]?.contains("cydia::commercial") ?? false }
                 self.failure = purchased
-                    ? failure + "\n" + String(legacyLocalized: "A purchased package's download link expires. Remove it from the queue and add it again.")
+                    ? failure + "\n" + String(localized: "A purchased package's download link expires. Remove it from the queue and add it again.")
                     : failure
                 committed = false
                 stage = .downloadFailed
@@ -593,17 +593,17 @@ final class QueueController: UIViewController, UITableViewDelegate {
             )
         }
         stage = .staging
-        staging = LegacyTask.detached { [weak self] in
+        staging = LegacyMainTask { [weak self] in
             // the owner says yes before anything is staged; a cancel leaves
             // the queue as it was, every file still here
-            guard OperationConfirmation.confirm() else {
+            guard awaitBackground({ OperationConfirmation.confirm() }) else {
                 guard let self else { return }
                 staging = nil
                 committed = false
                 stage = .ready
                 return reload()
             }
-            let payload = Installer.shared.createOperationPayload(
+            let payload = awaitBackground { Installer.shared.createOperationPayload( }
                 plan: plan,
                 bootstrapInstall: bootstrapInstall
             )
@@ -617,10 +617,10 @@ final class QueueController: UIViewController, UITableViewDelegate {
             guard let payload, !payload.transaction.stages.isEmpty else {
                 // staging said why in the report when it could
                 let report = PackageActionReport.shared.allAvailable()
-                stagingFailed(report.isEmpty ? String(legacyLocalized: "Unable to prepare this operation. Try again.") : report)
+                stagingFailed(report.isEmpty ? String(localized: "Unable to prepare this operation. Try again.") : report)
                 // a reason that asked to be an alert is one as well as the row
                 if let title = PackageActionReport.shared.alertTitle {
-                    presentNotice(title: LegacyLocalizationValue(title), message: report)
+                    presentNotice(title: String.LocalizationValue(title), message: report)
                 }
                 return
             }

@@ -40,9 +40,9 @@ extension VendorAccount {
                     message: "Checking with the vendor…"
                 )
                 host.present(alert, animated: true, completion: nil)
-                LegacyTask.detached {
+                LegacyMainTask {
                     // the request times out on its own; nothing waits forever
-                    guard let identities = VendorAccount.shared.purchasedIdentities(for: repo.url) else {
+                    guard let identities = awaitBackground({ VendorAccount.shared.purchasedIdentities(for: repo.url) }) else {
                         // jsonReply said why; this says the user saw nothing at all.
                         Dog.shared.join(
                             "Payment",

@@ -375,22 +375,22 @@ final class OperationController: UIViewController, UITableViewDelegate {
             .receive(on: DispatchQueue.main.ocombine)
             .sink { [weak self] outcome in
                 guard let self else { return }
-                title = outcome.succeeded ? String(localized: "Completed") : String(localized: "Failed")
+                title = outcome.succeeded ? String(legacyLocalized: "Completed") : String(legacyLocalized: "Failed")
                 refreshVisibleRows()
                 applySnapshot()
                 updateFinishingFooter()
                 view.setNeedsLayout()
                 let settled = Self.barSettleInterval - Date().timeIntervalSince(appearedAt ?? .distantPast)
-                LegacyTask.detached { [weak self] in
+                LegacyMainTask { [weak self] in
                     if settled > 0 {
-                        try? LegacyTask.sleep(seconds: settled)
+                        try? awaitBackground { try LegacyTask.sleep(seconds: settled) }
                     }
                     guard let self else { return }
                     finishOperation(succeeded: outcome.succeeded, ending: ending(of: monitor))
                 }
                 UIAccessibility.post(
                     notification: .announcement,
-                    argument: outcome.succeeded ? String(localized: "Operation completed.") : statusContent().text
+                    argument: outcome.succeeded ? String(legacyLocalized: "Operation completed.") : statusContent().text
                 )
             }
             .store(in: &subscriptions)
@@ -443,26 +443,26 @@ final class OperationController: UIViewController, UITableViewDelegate {
     private func retry(ignoreScriptFailures: Bool? = nil) {
         guard !retrying else { return }
         retrying = true
-        LegacyTask.detached { [weak self] in
-            guard OperationConfirmation.confirm() else {
+        LegacyMainTask { [weak self] in
+            guard awaitBackground({ OperationConfirmation.confirm() }) else {
                 self?.retrying = false
                 return
             }
             let manager = PackageQueue.shared
-            manager.settled()
+            awaitBackground { manager.settled() }
             guard let self, view.window != nil else { return }
             let payload: Installer.OperationPayload? = if operation.plan.recoveryMode,
                                                           operation.plan.install.count == 1,
                                                           let package = operation.plan.install.first
             {
-                Installer.shared.createRecoveryOperationPayload(package: package)
+                awaitBackground { Installer.shared.createRecoveryOperationPayload(package: package) }
             } else if operation.plan.recoveryMode,
                       operation.plan.remove.count == 1,
                       let package = operation.plan.remove.first
             {
-                Installer.shared.createRecoveryRemovalPayload(identity: package.identity)
+                awaitBackground { Installer.shared.createRecoveryRemovalPayload(identity: package.identity) }
             } else if manager.blocked == nil, let plan = manager.plan {
-                Installer.shared.createOperationPayload(
+                awaitBackground { Installer.shared.createOperationPayload( }
                     plan: plan,
                     ignoreScriptFailures: ignoreScriptFailures ?? ignoresScriptFailures,
                     bootstrapInstall: operation.transaction.bootstrapInstall && plan.allowsBootstrapInstall
@@ -477,7 +477,7 @@ final class OperationController: UIViewController, UITableViewDelegate {
                 reconfigure()
                 // staging said why in the report when it could
                 let report = PackageActionReport.shared.allAvailable()
-                let fallback = String(legacyLocalized: "Unable to prepare this operation. Try again.")
+                let fallback = String(localized: "Unable to prepare this operation. Try again.")
                 return presentNotice(
                     title: "Unable to Try Again",
                     message: manager.blocked ?? (report.isEmpty ? fallback : report)

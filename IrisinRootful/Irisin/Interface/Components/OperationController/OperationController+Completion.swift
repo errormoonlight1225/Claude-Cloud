@@ -15,7 +15,7 @@ extension OperationController {
                 },
             ])
         )
-        more.accessibilityLabel = String(legacyLocalized: "More")
+        more.accessibilityLabel = String(localized: "More")
         return more
     }
 
@@ -68,14 +68,14 @@ extension OperationController {
                         dismiss(animated: true)
                     }
                 }
-            ).then { $0.accessibilityLabel = String(legacyLocalized: "Done") }
+            ).then { $0.accessibilityLabel = String(localized: "Done") }
         }
         button.style = .done
         // Try Again tapped before the button came holds it too (`retrying`)
         button.isEnabled = !retrying
         button.accessibilityValue = succeeded
-            ? String(legacyLocalized: "Operation completed.")
-            : String(legacyLocalized: "Operation failed. Try again.")
+            ? String(localized: "Operation completed.")
+            : String(localized: "Operation failed. Try again.")
         navigationItem.rightBarButtonItems = [button]
     }
 
@@ -102,7 +102,7 @@ extension OperationController {
     private func reloadHomeScreen() {
         dismiss(animated: true) {
             UIApplication.prepareForExitAndSuspend()
-            LegacyTask.detached { PrivilegedBackend.run(.respring) }
+            LegacyMainTask { awaitBackground { PrivilegedBackend.run(.respring) } }
         }
     }
 
@@ -112,8 +112,8 @@ extension OperationController {
             message: "Rebuilding home screen icons will take some time."
         )
         present(progress, animated: true) { [weak self] in
-            LegacyTask.detached { [weak self] in
-                let outcome = PrivilegedBackend.runMaintenance(.rebuildIconCache)
+            LegacyMainTask { [weak self] in
+                let outcome = awaitBackground { PrivilegedBackend.runMaintenance(.rebuildIconCache) }
                 progress.dismiss(animated: true) {
                     self?.report(outcome, succeeded: "Icons rebuilt", failed: "Unable to Rebuild Icons")
                 }

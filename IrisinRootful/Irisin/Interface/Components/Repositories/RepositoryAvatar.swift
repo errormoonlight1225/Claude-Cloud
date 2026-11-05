@@ -27,7 +27,7 @@ enum RepositoryAvatar {
     /// One small picture per repository: a hundred of them are a few
     /// megabytes, so nothing is ever let go.
     private static var entries: [URL: Entry] = [:]
-    private static var decoding: [URL: (data: Data, task: LegacyTask)] = [:]
+    private static var decoding: [URL: (data: Data, task: LegacyMainTask)] = [:]
 
     /// The icon made from `data` if it has been made; `.some(nil)` when the
     /// data is no picture.
@@ -37,16 +37,16 @@ enum RepositoryAvatar {
     }
 
     /// The icon made from `data`, made at most once however many rows ask.
-    static nonisolated func icon(for url: URL, data: Data) -> UIImage? {
+    static func icon(for url: URL, data: Data) -> UIImage? {
         if let cached = cached(for: url, data: data) {
             return cached
         }
         if let pending = decoding[url], pending.data == data {
-            return pending.task.value
+            return awaitBackground { pending.task.value }
         }
-        let task = LegacyTask.detached { downsample(data, to: pixelSize) }
+        let task = LegacyMainTask { awaitBackground { downsample(data, to: pixelSize) } }
         decoding[url] = (data, task)
-        let image = task.value
+        let image = awaitBackground { task.value }
         entries[url] = Entry(data: data, image: image)
         if decoding[url]?.data == data {
             decoding[url] = nil

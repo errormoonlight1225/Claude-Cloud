@@ -20,8 +20,8 @@ extension DashboardController {
 
     /// Takes a copy of what the centers know and builds the sections off the
     /// main actor.
-    static nonisolated func sections() -> [Section] {
-        build(
+    static func sections() -> [Section] {
+        awaitBackground { build( }
             index: PackageCenter.default.index,
             repositories: RepositoryCenter.default.repositories
         )

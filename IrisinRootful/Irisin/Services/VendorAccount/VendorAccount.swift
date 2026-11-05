@@ -58,7 +58,7 @@ final class VendorAccount {
 
         let item = ASWebAuthenticationSessionWindowProvider(window: window)
         let session = ASWebAuthenticationSession(url: authUrl, callbackURLScheme: "sileo") { url, err in
-            LegacyTask.detached {
+            LegacyMainTask {
                 defer { completionCallback() }
                 _ = item // avoid dealloc
                 if let err, (err as? ASWebAuthenticationSessionError)?.code == .canceledLogin {
@@ -124,8 +124,8 @@ final class VendorAccount {
         }
         let repoName = repo.url.absoluteString
         let device = DeviceIdentity.vendorDevice
-        LegacyTask.detached {
-            guard let str = VendorService.signOut(endpoint: endpoint, credentials: info, device: device)
+        LegacyMainTask {
+            guard let str = awaitBackground({ VendorService.signOut(endpoint: endpoint, credentials: info, device: device) })
             else {
                 Dog.shared.join("VendorAccount", "signing out on \(repoName) got no readable reply", level: .warning)
                 return
@@ -136,7 +136,7 @@ final class VendorAccount {
 
     /// The identities of the packages this account has bought, or nil when the
     /// vendor did not answer.
-    nonisolated func purchasedIdentities(for repo: URL) -> [String]? {
+    func purchasedIdentities(for repo: URL) -> [String]? {
         guard let repo = RepositoryCenter
             .default
             .obtainImmutableRepository(withUrl: repo),
@@ -145,8 +145,8 @@ final class VendorAccount {
         else {
             return nil
         }
-        return Self.logged(endpoint.appendingPathComponent("user_info")) { @Sendable () throws(VendorService.Failure) in
-            try VendorService.purchasedIdentities(
+        return awaitBackground { Self.logged(endpoint.appendingPathComponent("user_info")) { () throws(VendorService.Failure) in }
+            try awaitBackground { try VendorService.purchasedIdentities( }
                 endpoint: endpoint,
                 credentials: userInfo,
                 device: DeviceIdentity.vendorDevice
@@ -154,7 +154,7 @@ final class VendorAccount {
         }
     }
 
-    nonisolated func purchaseStatus(for repo: URL, withPackageIdentity identity: String) -> PurchaseStatus? {
+    func purchaseStatus(for repo: URL, withPackageIdentity identity: String) -> PurchaseStatus? {
         guard let repo = RepositoryCenter
             .default
             .obtainImmutableRepository(withUrl: repo),
@@ -163,8 +163,8 @@ final class VendorAccount {
         else {
             return nil
         }
-        return Self.logged(VendorService.package(identity, "info", at: endpoint)) { @Sendable () throws(VendorService.Failure) in
-            try VendorService.purchaseStatus(
+        return awaitBackground { Self.logged(VendorService.package(identity, "info", at: endpoint)) { () throws(VendorService.Failure) in }
+            try awaitBackground { try VendorService.purchaseStatus( }
                 of: identity,
                 endpoint: endpoint,
                 credentials: userInfo,
@@ -173,7 +173,7 @@ final class VendorAccount {
         }
     }
 
-    nonisolated func initPurchase(
+    func initPurchase(
         for repo: URL,
         withPackageIdentity identity: String,
         window: UIWindow
@@ -187,8 +187,8 @@ final class VendorAccount {
             return
         }
         // nil as well for a purchase that already went through: no page to open
-        let page = Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { @Sendable () throws(VendorService.Failure) in
-            try VendorService.purchasePage(
+        let page = awaitBackground { Self.logged(VendorService.package(identity, "purchase", at: endpoint)) { () throws(VendorService.Failure) in }
+            try awaitBackground { try VendorService.purchasePage( }
                 for: identity,
                 architecture: PackagedArchitecture.architecture,
                 endpoint: endpoint,
@@ -203,7 +203,7 @@ final class VendorAccount {
         let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "sileo") { _, _ in
             _ = foo
         }
-        if #available(iOS 13.0, *) { session.presentationContextProvider = foo }
+        session.presentationContextProvider = foo
         session.start()
     }
 
@@ -211,7 +211,7 @@ final class VendorAccount {
     /// architecture: Havoc answers an architecture it has no package for
     /// with whichever it does have — the file then fails the hash the index
     /// published for ours.
-    nonisolated func queryDownloadLink(withPackage package: Package) -> URL? {
+    func queryDownloadLink(withPackage package: Package) -> URL? {
         guard let represent = package.repoRef,
               let repo = RepositoryCenter
               .default
@@ -221,9 +221,9 @@ final class VendorAccount {
         else {
             return nil
         }
-        let link = Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) {
-            @Sendable () throws(VendorService.Failure) in
-            try VendorService.downloadLink(
+        let link = awaitBackground { Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) { }
+            () throws(VendorService.Failure) in
+            try awaitBackground { try VendorService.downloadLink( }
                 for: package.identity,
                 version: package.latestVersion,
                 architecture: package.architectures.first { $0 != "all" } ?? PackagedArchitecture.architecture,
@@ -240,12 +240,12 @@ final class VendorAccount {
     /// a vendor's endpoint can be seen failing. Each line says which way it
     /// failed: "the purchase did nothing" is otherwise indistinguishable from
     /// a timeout, a 500 and a vendor answering with HTML.
-    private static nonisolated func logged<Value>(
+    private static func logged<Value>(
         _ endpoint: URL,
-        _ call: @Sendable () throws(VendorService.Failure) -> Value
+        _ call: () throws(VendorService.Failure) -> Value
     ) -> Value? {
         do {
-            return try call()
+            return try awaitBackground { try call() }
         } catch {
             Dog.shared.join("VendorAccount", "\(endpoint.absoluteString) \(error)", level: .error)
             return nil

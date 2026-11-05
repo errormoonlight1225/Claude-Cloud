@@ -85,7 +85,7 @@ extension UIViewController {
     /// leave. Three buttons stack in the order they are added. Returns once
     /// the alert is gone, so whatever comes next can be presented. The
     /// message and `anywayTitle` arrive in the user's language.
-    nonisolated func askRecommendation(
+    func askRecommendation(
         title: LegacyLocalizationValue,
         message: String,
         anywayTitle: String
@@ -93,7 +93,7 @@ extension UIViewController {
         // a second tap while the first alert is up, or a page on its way
         // out: nothing would come up, and nothing would ever answer
         guard presentedViewController == nil, view.window != nil else { return .cancel }
-        return withCheckedContinuation { continuation in
+        return awaitBackground { withCheckedContinuation { continuation in }
             let alert = AlertViewController(title: title, message: String.LocalizationValue(message)) { context in
                 context.addAction(title: "Select Recommended", attribute: .accent) {
                     context.dispose { continuation.resume(returning: .recommended) }
@@ -113,9 +113,9 @@ extension UIViewController {
     /// `dismiss(animated:completion:)` `NS_SWIFT_DISABLE_ASYNC`, so an
     /// `await` on it returns at once, while the sheet is still leaving and
     /// the next `present` would be refused.
-    nonisolated func dismissFinishing(animated: Bool) {
+    func dismissFinishing(animated: Bool) {
         guard presentingViewController != nil else { return }
-        withCheckedContinuation { continuation in
+        awaitBackground { withCheckedContinuation { continuation in }
             dismiss(animated: animated) { continuation.resume() }
         }
     }
