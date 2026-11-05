@@ -42,6 +42,8 @@ nonisolated enum PackagedArchitecture {
         #else
             JailbreakRoot.isRoothide
                 ? BootstrapArchitecture.roothide.rawValue
+                : JailbreakRoot.isRootful
+                ? BootstrapArchitecture.rootful.rawValue
                 : BootstrapArchitecture.rootless.rawValue
         #endif
     }()

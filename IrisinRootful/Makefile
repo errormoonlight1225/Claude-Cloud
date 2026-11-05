@@ -34,17 +34,22 @@ PROJECT_OBJECT_VERSION := 77
 #              the randomized bootstrap root. Architecture iphoneos-arm64e.
 #   rootless - files ship under /var/jb, the fixed rootless prefix (Dopamine,
 #              palera1n rootless, ...). Architecture iphoneos-arm64.
+#   rootful  - iOS 12 port: files ship at the system's own paths (Amethyst,
+#              unc0ver, checkra1n, Chimera). Architecture iphoneos-arm.
 # The Mach-O slices are identical for both; only the layout differs, and the
 # daemon works out which one it landed in at runtime.
-FLAVOR              ?= roothide
-ifeq ($(FLAVOR),roothide)
+FLAVOR              ?= rootful
+ifeq ($(FLAVOR),rootful)
+INSTALL_PREFIX      :=
+DEFAULT_ARCHITECTURE := iphoneos-arm
+else ifeq ($(FLAVOR),roothide)
 INSTALL_PREFIX      :=
 DEFAULT_ARCHITECTURE := iphoneos-arm64e
 else ifeq ($(FLAVOR),rootless)
 INSTALL_PREFIX      := /var/jb
 DEFAULT_ARCHITECTURE := iphoneos-arm64
 else
-$(error FLAVOR must be roothide or rootless, got '$(FLAVOR)')
+$(error FLAVOR must be rootful, roothide or rootless, got '$(FLAVOR)')
 endif
 PACKAGE_ARCHITECTURE ?= $(DEFAULT_ARCHITECTURE)
 
@@ -64,7 +69,8 @@ MINIMUM_IOS_VERSION := $(call base_xcconfig_setting,IPHONEOS_DEPLOYMENT_TARGET)
 # Duo the SDK decides the layout: built with 27.1, the app fills either
 # display edge to edge and its bars stand on the side; built with 27.0 it is
 # kept clear of the status bar's side, and before 27 it sits in a box.
-MINIMUM_IPHONEOS_SDK := 27.1
+# iOS 12 port: Xcode 26 is the newest a runner has; nothing here needs 27.1.
+MINIMUM_IPHONEOS_SDK := 26.0
 MINIMUM_TVOS_VERSION := $(call base_xcconfig_setting,TVOS_DEPLOYMENT_TARGET)
 DEB_OUTPUT          ?= $(ROOT_DIR)/build/Packages/$(PACKAGE_ID)_$(APP_VERSION)_$(PACKAGE_ARCHITECTURE).deb
 # Apple TV: the launchpad (IrisinLaunchpad), irisind and irisin-install, for
@@ -392,11 +398,16 @@ deb: build
 	@$(MAKE) --no-print-directory _package-deb
 
 _package-deb:
+ifneq ($(FLAVOR),rootful)
 	"$(FLOOR_AUDIT)" "$(MINIMUM_IOS_VERSION)" "$(APP_BUNDLE)" "$(DAEMON_BINARY)" "$(HELPER_BINARY)" "$(CLI_BINARY)"
 	@# A strong import no SDK header declares has no availability for the
 	@# compiler to weak-link by: each one is listed once the floor is known
 	@# to export it, or looked up with dlsym. The list is for iOS 15.0.
 	"$(FLOOR_IMPORTS)" --floor "$(MINIMUM_IOS_VERSION)" "$(ROOT_DIR)/Scripts/floor-imports.txt" "$(APP_BUNDLE)" "$(DAEMON_BINARY)" "$(HELPER_BINARY)" "$(CLI_BINARY)"
+else
+	@# iOS 12: Scripts/ios12/check-ios12-imports.py against an iOS 12 SDK's stubs (CI)
+	@echo "==> rootful: the iOS 12 import check runs on its own (Scripts/ios12)"
+endif
 	"$(DEB_PACKAGER)" \
 		"$(APP_BUNDLE)" \
 		"$(DAEMON_BINARY)" \

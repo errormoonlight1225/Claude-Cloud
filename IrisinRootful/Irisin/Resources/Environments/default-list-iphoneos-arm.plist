@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  iOS 12 port: the repositories onboarding recommends on a rootful
+  bootstrap (iphoneos-arm). These publish rootful packages; the bootstrap's
+  own repository (Procursus, Elucubratus) is the jailbreak's to add, so it is
+  not listed here. Irisin's own repository is left out: its builds are for
+  iOS 15 and later.
+-->
+<plist version="1.0">
+<array>
+	<dict>
+		<key>source</key>
+		<string>https://havoc.app</string>
+	</dict>
+	<dict>
+		<key>source</key>
+		<string>https://repo.chariz.com</string>
+	</dict>
+	<dict>
+		<key>source</key>
+		<string>deb http://apt.thebigboss.org/repofiles/cydia stable main</string>
+	</dict>
+</array>
+</plist>

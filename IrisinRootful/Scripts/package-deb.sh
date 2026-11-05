@@ -41,13 +41,14 @@ done
 [[ "$architecture" =~ ^[A-Za-z0-9][A-Za-z0-9-]+$ ]] || { echo "error: invalid architecture" >&2; exit 64; }
 [[ "$minimum_ios" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "error: invalid minimum iOS version" >&2; exit 64; }
 case "$flavor" in
+    rootful) [[ -z "$install_prefix" ]] || { echo "error: rootful packages install at the system's paths" >&2; exit 64; } ;;
     roothide) [[ -z "$install_prefix" ]] || { echo "error: roothide packages install at rootful paths" >&2; exit 64; } ;;
     rootless) [[ "$install_prefix" == /var/jb ]] || { echo "error: rootless packages install under /var/jb" >&2; exit 64; } ;;
-    *) echo "error: flavor must be roothide or rootless" >&2; exit 64 ;;
+    *) echo "error: flavor must be rootful, roothide or rootless" >&2; exit 64 ;;
 esac
 
 case "$architecture:$install_prefix" in
-iphoneos-arm64:/var/jb | iphoneos-arm64e:) ;;
+iphoneos-arm64:/var/jb | iphoneos-arm64e: | iphoneos-arm:) ;;
 *) echo "error: architecture and install prefix name different bootstrap layouts" >&2; exit 64 ;;
 esac
 
@@ -218,7 +219,11 @@ done
 chmod 0644 "$debian/control"
 chmod 0755 "$debian/postinst" "$debian/prerm"
 
-dpkg-deb --root-owner-group -Zxz -b "$staging" "$temporary_deb"
+# iOS 12's dpkg (Elucubratus, older Procursus) may predate zstd; gzip is
+# read by every dpkg
+compression=-Zxz
+[[ "$flavor" == rootful ]] && compression=-Zgzip
+dpkg-deb --root-owner-group "$compression" -b "$staging" "$temporary_deb"
 [[ "$(dpkg-deb -f "$temporary_deb" Package)" == "$package_id" ]]
 [[ "$(dpkg-deb -f "$temporary_deb" Version)" == "$version" ]]
 [[ "$(dpkg-deb -f "$temporary_deb" Architecture)" == "$architecture" ]]

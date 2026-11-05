@@ -23,6 +23,12 @@ nonisolated enum JailbreakRoot {
         static let isRoothide = libraryRoot.isRoothide
     #endif
 
+    /// iOS 12 port: a rootful jailbreak's bootstrap is the system root
+    /// itself, so its prefix is empty.
+    static var isRootful: Bool {
+        !isRoothide && prefix.isEmpty
+    }
+
     /// libroot defines the rootfs prefix as empty on Dopamine and `/rootfs`
     /// on roothide. Older implementations may omit that API: only then
     /// compare `/var/jb` with its target, never just their spelling.
@@ -52,6 +58,11 @@ nonisolated enum JailbreakRoot {
     private static let libraryRoot: (prefix: String, isRoothide: Bool) = {
         if let root = roothideRoot(ofBundleAt: Bundle.main.bundlePath) {
             return (root, true)
+        }
+        // iOS 12 port: on a rootful jailbreak (Amethyst, unc0ver, checkra1n)
+        // the app is installed in the system's /Applications
+        if Bundle.main.bundlePath.hasPrefix("/Applications/") {
+            return ("", false)
         }
         // roothide does not ship libroot.dylib, probe its own library first
         let roothideLibrary = Bundle.main.bundlePath + "/.jbroot/usr/lib/libroothide.dylib"
