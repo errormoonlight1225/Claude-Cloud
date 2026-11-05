@@ -41,7 +41,7 @@ extension ParsableCommand {
             let context: Context
             let index: PackageIndex
             if let catalogue {
-                (context, index) = try await Session.open(options, repositories: repositories, in: catalogue, output: output)
+                (context, index) = try Session.open(options, repositories: repositories, in: catalogue, output: output)
             } else {
                 (context, index) = try Session.open(options)
             }
@@ -63,7 +63,7 @@ extension ParsableCommand {
                 run.bootstrapInstall = true
             }
             try pipeline.confirm(run)
-            try await pipeline.run(plan, options: run)
+            try pipeline.run(plan, options: run)
         }
     }
 }
@@ -167,7 +167,7 @@ struct Respring: ParsableCommand {
         let output = Output(json: options.json)
         try guarded(output) {
             let context = try Context.load()
-            try await Runner(context: context, output: output).run(.respring)
+            try Runner(context: context, output: output).run(.respring)
         }
     }
 }

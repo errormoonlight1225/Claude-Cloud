@@ -1,3 +1,4 @@
+import LegacyCompat
 import ArgumentParser
 import AptRepository
 import Foundation
@@ -44,12 +45,12 @@ enum Session {
     /// `--repository`: a catalogue of these sources alone, refreshed now
     /// into `workspace`, root's own. The app's catalogue is neither read nor
     /// written, so this works before Irisin has ever been opened.
-    static func open(
+    static nonisolated func open(
         _ options: GlobalOptions,
         repositories lines: [String],
         in workspace: Workspace,
         output: Output
-    ) async throws -> (Context, PackageIndex) {
+    ) throws -> (Context, PackageIndex) {
         let sources = try lines.map { line in
             guard let source = RepositorySource(line: line), source.isValid else {
                 throw CommandFailure.refused("\(line) is not a repository: give its address, or `deb <url> <suite> <components>`.")
@@ -58,31 +59,36 @@ enum Session {
         }
         let context = try Context.load()
         context.bootstrapEnvironment(verbose: options.verbose, workingLocation: workspace.directory)
-        return (context, try await refresh(sources, output: output))
+        return (context, try refresh(sources, output: output))
     }
 
     /// The app's own refresh, through the same center, waited for here.
-    @MainActor
-    private static func refresh(_ sources: [RepositorySource], output: Output) async throws -> PackageIndex {
+    /// iOS 12 port: runs on the command's background thread; the center's
+    /// calls go to the main queue, which `blocking` keeps turning.
+    private static nonisolated func refresh(_ sources: [RepositorySource], output: Output) throws -> PackageIndex {
         let center = RepositoryCenter.default
-        await center.load()
-        for source in sources {
-            center.registerRepository(source)
+        center.load()
+        DispatchQueue.main.sync {
+            for source in sources {
+                center.registerRepository(source)
+            }
         }
         let deadline = Date().addingTimeInterval(300)
-        while center.obtainUpdateRemain() > 0 {
+        while DispatchQueue.main.sync(execute: { center.obtainUpdateRemain() }) > 0 {
             guard Date() < deadline else {
                 throw CommandFailure.unavailable("The repositories did not finish refreshing within five minutes.")
             }
-            try await Task.sleep(nanoseconds: 250_000_000)
+            try LegacyTask.sleep(seconds: Double(250_000_000) / 1_000_000_000)
         }
         for source in sources {
-            guard let repository = center.obtainImmutableRepository(withUrl: source.url), repository.packageCount > 0 else {
+            guard let repository = DispatchQueue.main.sync(execute: { center.obtainImmutableRepository(withUrl: source.url) }),
+                  repository.packageCount > 0
+            else {
                 throw CommandFailure.unavailable("\(source.line) offers no packages for this device, or could not be refreshed. Run again with --verbose to see why.")
             }
             output.note("Refreshed \(source.url.absoluteString): \(repository.packageCount) packages.")
         }
-        return PackageCenter.default.index
+        return DispatchQueue.main.sync { PackageCenter.default.index }
     }
 
     /// dpkg's own record of what is installed, read directly: the

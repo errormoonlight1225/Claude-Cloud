@@ -118,7 +118,7 @@ MODULES = [
     M("PackageDepiction", [P / "PackageDepiction/Sources/PackageDepiction"],
       ["SDWebImage", "MarkdownView", "SnapKit", "Then", "LegacyCompat", "LegacyCrypto"], resources=True),
     # Products.
-    M("irisind", [ROOT / "IrisinDaemon"], ["IrisinProtocol", "LegacyCompat", "LegacyCrypto"], executable=True),
+    M("irisind", [ROOT / "IrisinDaemon"], ["IrisinProtocol"], executable=True),
     M("irisin_install", [ROOT / "IrisinInstall"], ["IrisinProtocol", "IrisinInstaller", "LegacyCompat", "LegacyCrypto"], executable=True),
     M("irisin_cli", [ROOT / "IrisinCLI"],
       ["IrisinProtocol", "IrisinClient", "IrisinVendor", "AptRepository", "AptResolver", "ArgumentParser", "LegacyCompat", "LegacyCrypto"],

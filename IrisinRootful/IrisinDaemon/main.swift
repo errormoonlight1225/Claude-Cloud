@@ -1,7 +1,7 @@
 import Dispatch
 import Foundation
 import IrisinProtocol
-import os
+import os.log
 
 autoreleasepool {
     // Where the jailbreak put us. An unknown layout must not become an

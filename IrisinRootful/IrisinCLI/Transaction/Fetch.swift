@@ -1,3 +1,4 @@
+import LegacyCompat
 import AptRepository
 import LegacyCrypto
 import Foundation
@@ -7,28 +8,28 @@ import IrisinVendor
 /// cached or resumed (Documentation/CommandLine.md). The file is checked
 /// against the hash its repository published, as `Downloads.verify` does.
 enum Fetch {
-    static func file(
+    static nonisolated func file(
         for package: Package,
         into directory: URL,
         context: Context,
         index: PackageIndex,
         output: Output
-    ) async throws -> URL {
+    ) throws -> URL {
         if let local = package.localFileURL {
             return local
         }
-        let url = try await link(for: package, index: index)
+        let url = try link(for: package, index: index)
         output.line("Downloading \(package.identity) \(package.latestVersion ?? "")…")
         var request = URLRequest(url: url, timeoutInterval: 60)
         // as the app: HTTP/3 packets outgrow a VPN tunnel's MTU
-        request.assumesHTTP3Capable = false
+        if #available(iOS 14.5, *) { request.assumesHTTP3Capable = false }
         let device = Vendor.device
         for (field, value) in ["X-Machine": device.machine, "X-Unique-ID": device.udid, "X-Firmware": device.firmware] {
             request.setValue(value, forHTTPHeaderField: field)
         }
         let downloaded: URL
         do {
-            let (file, response) = try await URLSession.shared.download(for: request)
+            let (file, response) = try URLSession.shared.compatDownload(for: request)
             if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
                 throw CommandFailure.unavailable("\(package.identity) could not be downloaded: HTTP \(http.statusCode) from \(url.host ?? url.absoluteString).")
             }
@@ -49,7 +50,7 @@ enum Fetch {
 
     /// A paid package's link comes from its vendor, for the version and
     /// build the plan chose; every other package's from its repository.
-    private static func link(for package: Package, index: PackageIndex) async throws -> URL {
+    private static nonisolated func link(for package: Package, index: PackageIndex) throws -> URL {
         let commercial = package.latestMetadata?["tag"]?.contains("cydia::commercial") ?? false
         guard commercial,
               let repository = package.repoRef,
@@ -64,7 +65,7 @@ enum Fetch {
         let architecture = package.architectures.first { $0 != "all" } ?? AptEnvironment.current.deviceArchitecture
         let link: URL?
         do throws(VendorService.Failure) {
-            link = try await VendorService.downloadLink(
+            link = try VendorService.downloadLink(
                 for: package.identity,
                 version: package.latestVersion,
                 architecture: architecture,
@@ -89,7 +90,10 @@ enum Fetch {
     static func verify(_ package: Package, at file: URL) throws -> Bool {
         let data = try Data(contentsOf: file, options: .mappedIfSafe)
         let metadata = package.latestMetadata ?? [:]
-        let hex: (any Sequence<UInt8>) -> String = { $0.map { String(format: "%02x", $0) }.joined() }
+        // iOS 12 port: a generic where `any Sequence<UInt8>` needs iOS 16
+        func hex<S: Sequence>(_ bytes: S) -> String where S.Element == UInt8 {
+            bytes.map { String(format: "%02x", $0) }.joined()
+        }
         if let expected = metadata["sha256"] {
             return hex(SHA256.hash(data: data)) == expected.lowercased()
         }

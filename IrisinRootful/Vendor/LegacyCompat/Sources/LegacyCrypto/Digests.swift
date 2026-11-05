@@ -2,7 +2,8 @@
 //  Digests.swift
 //  LegacyCrypto
 //
-//  The slice of CryptoKit the port uses (SHA256 and Insecure.MD5), on
+//  The slice of CryptoKit the port uses (SHA256, Insecure.SHA1 and
+//  Insecure.MD5), on
 //  CommonCrypto: CryptoKit is iOS 13. Same spelling, so a file swaps
 //  `import CryptoKit` for `import LegacyCrypto` and nothing else.
 //
@@ -75,6 +76,37 @@ public struct SHA256 {
 }
 
 public enum Insecure {
+    public struct SHA1 {
+        public typealias Digest = LegacyDigest
+        private var context = CC_SHA1_CTX()
+
+        public init() {
+            CC_SHA1_Init(&context)
+        }
+
+        public mutating func update(data: some DataProtocol) {
+            for region in data.regions {
+                region.withUnsafeBytes { buffer in
+                    guard let base = buffer.baseAddress, buffer.count > 0 else { return }
+                    CC_SHA1_Update(&context, base, CC_LONG(buffer.count))
+                }
+            }
+        }
+
+        public func finalize() -> LegacyDigest {
+            var copy = context
+            var out = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+            CC_SHA1_Final(&out, &copy)
+            return LegacyDigest(bytes: out)
+        }
+
+        public static func hash(data: some DataProtocol) -> LegacyDigest {
+            var hasher = SHA1()
+            hasher.update(data: data)
+            return hasher.finalize()
+        }
+    }
+
     public struct MD5 {
         public typealias Digest = LegacyDigest
         private var context = CC_MD5_CTX()

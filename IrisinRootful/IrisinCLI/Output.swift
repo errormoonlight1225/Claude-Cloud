@@ -1,3 +1,4 @@
+import LegacyCompat
 import ArgumentParser
 import Foundation
 
@@ -25,9 +26,11 @@ struct Output: Sendable {
 
     func object(_ object: [String: Any]) {
         guard json else { return }
-        let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes]))
+        // iOS 12 port: .withoutEscapingSlashes is iOS 13; the slashes are
+        // unescaped below
+        let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]))
             ?? Data("{}".utf8)
-        print(String(decoding: data, as: UTF8.self))
+        print(String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\\/", with: "/"))
         fflush(stdout)
     }
 
@@ -71,7 +74,7 @@ enum CommandFailure: Error, CustomStringConvertible {
 extension ParsableCommand {
     /// Runs `body` and turns a `CommandFailure` into its message and exit
     /// status; anything else is ArgumentParser's to report.
-    func guarded(_ output: Output, _ body: @escaping () async throws -> Void) throws {
+    func guarded(_ output: Output, _ body: @escaping () throws -> Void) throws {
         do {
             try Self.blocking(body)
         } catch let failure as CommandFailure {
@@ -83,19 +86,17 @@ extension ParsableCommand {
         }
     }
 
-    /// The async work of a command, on a task of its own while this thread
-    /// waits. Commands are synchronous on purpose: an async `main` imports
-    /// `swift_task_asyncMainDrainQueue` and `swift_job_run`, which the iOS
-    /// 15 floor is not known to export (Scripts/check-floor-imports.py).
-    /// The main run loop keeps turning meanwhile: `--repository` refreshes
-    /// through the repository center, which is the main actor's.
-    static func blocking(_ body: @escaping () async throws -> Void) throws {
+    /// The work of a command, on a background thread while this thread
+    /// waits. The main run loop keeps turning meanwhile: `--repository`
+    /// refreshes through the repository center, whose state is the main
+    /// thread's. (iOS 12 port: a LegacyTask where a detached Task was.)
+    static func blocking(_ body: @escaping () throws -> Void) throws {
         let work = Unchecked(body)
         let outcome = Unchecked(Outcome())
         let finished = DispatchSemaphore(value: 0)
-        Task.detached {
+        LegacyTask.detached {
             do {
-                try await work.value()
+                try work.value()
                 outcome.value.result = .success(())
             } catch {
                 outcome.value.result = .failure(error)

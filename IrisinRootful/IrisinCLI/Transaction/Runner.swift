@@ -1,3 +1,4 @@
+import LegacyCompat
 import Darwin
 import Dispatch
 import Foundation
@@ -15,14 +16,14 @@ struct Runner {
     let context: Context
     let output: Output
 
-    func run(_ job: InstallerJob) async throws {
-        await waitForLock()
+    nonisolated func run(_ job: InstallerJob) throws {
+        waitForLock()
         let link = DaemonLink(daemonIsInstalled: true)
-        let transcript = try await start(job, on: link)
+        let transcript = try start(job, on: link)
         let interrupt = Self.announceInterrupt(log: context.shellPath(context.logFile))
         defer { interrupt.cancel() }
         let output = output
-        let status = await transcript.collect { event in
+        let status = transcript.collect { event in
             Self.print(event, output)
         }
         link.invalidate()
@@ -38,11 +39,11 @@ struct Runner {
 
     /// irisind is on demand: launchd starts it at the first lookup, and a
     /// daemon replaced a moment ago takes a moment to answer again.
-    private func start(_ job: InstallerJob, on link: DaemonLink) async throws -> JobTranscript {
+    private nonisolated func start(_ job: InstallerJob, on link: DaemonLink) throws -> JobTranscript {
         let deadline = Date().addingTimeInterval(15)
         while true {
             do {
-                return try await link.run(job)
+                return try link.run(job)
             } catch let failure as IrisinFailure where failure.code != .operationFailed {
                 // an answer, not a silence: the daemon read the job and refused it
                 throw CommandFailure.refused("Irisin's service refused the job (code \(failure.code), errno \(failure.systemError)).")
@@ -51,14 +52,14 @@ struct Runner {
                     throw CommandFailure.unavailable("Irisin's service did not answer. Reinstall Irisin, or reboot and try again.")
                 }
                 link.invalidate()
-                try await Task.sleep(nanoseconds: 500_000_000)
+                try LegacyTask.sleep(seconds: Double(500_000_000) / 1_000_000_000)
             }
         }
     }
 
     /// The helper takes dpkg's frontend lock for the whole run and refuses
     /// to start beside a holder; this asks who holds it, and never takes it.
-    private func waitForLock() async {
+    private nonisolated func waitForLock() {
         let path = context.path("/Library/dpkg/lock-frontend")
         var announced = false
         while let holder = Self.lockHolder(path) {
@@ -66,7 +67,7 @@ struct Runner {
                 output.note("Waiting for another operation (process \(holder)) to finish…")
                 announced = true
             }
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            try? LegacyTask.sleep(seconds: Double(500_000_000) / 1_000_000_000)
         }
     }
 

@@ -133,7 +133,7 @@ struct VendorPurchases: ParsableCommand {
             }
             let identities: [String]
             do throws(VendorService.Failure) {
-                identities = try await VendorService.purchasedIdentities(
+                identities = try VendorService.purchasedIdentities(
                     endpoint: endpoint, credentials: credentials, device: Vendor.device
                 )
             } catch {
@@ -162,7 +162,7 @@ struct VendorStatus: ParsableCommand {
             let (record, endpoint, credentials) = try Vendor.seller(of: package, in: index)
             let status: VendorService.PurchaseStatus
             do throws(VendorService.Failure) {
-                status = try await VendorService.purchaseStatus(
+                status = try VendorService.purchaseStatus(
                     of: package.lowercased(), endpoint: endpoint, credentials: credentials, device: Vendor.device
                 )
             } catch {
@@ -192,7 +192,7 @@ struct VendorPurchase: ParsableCommand {
             let (record, endpoint, credentials) = try Vendor.seller(of: package, in: index)
             let page: URL?
             do throws(VendorService.Failure) {
-                page = try await VendorService.purchasePage(
+                page = try VendorService.purchasePage(
                     for: package.lowercased(), architecture: context.architecture,
                     endpoint: endpoint, credentials: credentials, device: Vendor.device
                 )

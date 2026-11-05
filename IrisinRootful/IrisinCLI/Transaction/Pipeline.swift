@@ -106,13 +106,13 @@ struct Pipeline {
 
     /// Downloads and prepares what the plan installs, sends the transaction
     /// and prints its transcript; the helper's exit status, thrown when not 0.
-    func run(_ plan: ResolutionPlan, options: Options) async throws {
+    nonisolated func run(_ plan: ResolutionPlan, options: Options) throws {
         let workspace = try Workspace.make()
         defer { workspace.remove() }
 
         var items: [InstallerJob.Transaction.Item] = []
         for package in plan.install {
-            let file = try await Fetch.file(for: package, into: workspace.directory, context: context, index: index, output: output)
+            let file = try Fetch.file(for: package, into: workspace.directory, context: context, index: index, output: output)
             items.append(try Stage.item(for: package, file: file, in: workspace.directory))
         }
 
@@ -138,7 +138,7 @@ struct Pipeline {
             bootstrapInstall: options.bootstrapInstall
         )
         try InstallerJob.transaction(transaction).validate()
-        try await Runner(context: context, output: output).run(.transaction(transaction))
+        try Runner(context: context, output: output).run(.transaction(transaction))
     }
 }
 
