@@ -1,0 +1,9 @@
+# Sourced by macboot-session and login shells.
+export REIMS_CTL_DATA_DIR=/data/reims/data
+export REIMS_CTL_CONFIG_DIR=/data/reims/config
+export XDG_CACHE_HOME=/data/reims/cache
+export PATH=/usr/local/bin:$PATH
+export REIMS_CTL_UTIL=/usr/local/bin/reims-util
+# macOS version reims-util installs, and the VM's name.
+MACOS=tahoe
+VM=mac

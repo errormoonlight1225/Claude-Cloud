@@ -1,0 +1,17 @@
+#!/bin/sh
+# Grow the last partition (MACDATA) to the end of the disk, grow its filesystem, lay out /data.
+set -e
+dev=$(blkid -L MACDATA || true)
+[ -n "$dev" ] || { echo "macboot-firstboot: no MACDATA partition"; exit 0; }
+base=$(basename "$dev")
+pn=$(cat "/sys/class/block/$base/partition")
+disk="/dev/$(basename "$(readlink -f "/sys/class/block/$base/..")")"
+echo ", +" | sfdisk --no-reread -N "$pn" "$disk" >/dev/null 2>&1 || true
+partx -u "$disk" 2>/dev/null || true
+e2fsck -fp "$dev" >/dev/null 2>&1 || true
+resize2fs "$dev" >/dev/null 2>&1 || true
+mkdir -p /run/macboot-mnt && mount "$dev" /run/macboot-mnt
+mkdir -p /run/macboot-mnt/reims/data /run/macboot-mnt/reims/config /run/macboot-mnt/reims/cache
+chown -R 1000:1000 /run/macboot-mnt/reims
+umount /run/macboot-mnt
+touch /var/lib/macboot-firstboot.done

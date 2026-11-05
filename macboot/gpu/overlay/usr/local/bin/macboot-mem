@@ -1,0 +1,11 @@
+#!/bin/sh
+# Host-side memory use. Guest RAM is a shared memfd, so the kernel counts it as Shmem (inside "Cached"),
+# which is why "used excluding cache" is the host overhead and Shmem is (mostly) the guest.
+kb() { awk -v k="$1" '$1==k":"{print $2}' /proc/meminfo; }
+total=$(kb MemTotal); free=$(kb MemFree); buf=$(kb Buffers); cache=$(kb Cached); srec=$(kb SReclaimable); shm=$(kb Shmem)
+used=$(( total - free - buf - cache - srec ))
+echo "MemTotal                  : $((total/1024)) MB"
+echo "Host overhead (excl. cache): $((used/1024)) MB   <- compare with the 512 MB goal"
+echo "Shmem (guest RAM + GPU)    : $((shm/1024)) MB"
+echo "--- largest processes (RSS, MB)"
+ps -eo rss,comm --sort=-rss | head -8 | awk 'NR>1{printf "%7.0f  %s\n",$1/1024,$2}'

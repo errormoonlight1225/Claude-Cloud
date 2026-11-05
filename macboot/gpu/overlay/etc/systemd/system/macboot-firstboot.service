@@ -1,0 +1,14 @@
+[Unit]
+Description=MacBoot first boot: grow and prepare the MACDATA partition
+DefaultDependencies=no
+After=systemd-udev-settle.service local-fs-pre.target
+Before=data.mount
+ConditionPathExists=!/var/lib/macboot-firstboot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/macboot-firstboot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=local-fs.target

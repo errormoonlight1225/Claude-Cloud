@@ -1,0 +1,44 @@
+#!/bin/bash
+# Runs on tty1 as user "macboot": prepare the VM on first run (text mode), then run it fullscreen under cage.
+. /etc/macboot/env
+set -u
+say() { printf '\n== %s\n' "$*"; }
+need() { command -v "$1" >/dev/null 2>&1; }
+
+# QEMU lives on the read-only system side; reims-ctl expects it under its data dir.
+mkdir -p "$REIMS_CTL_DATA_DIR"
+ln -sfn /opt/reims/qemu "$REIMS_CTL_DATA_DIR/qemu"
+
+say "MacBoot: checking this machine"
+reims-ctl doctor || true
+
+if ! need reims-util; then
+    echo "reims-util is not installed in this image. Without it the VM's OpenCore image and the"
+    echo "macOS installer cannot be made. See /usr/share/doc/macboot/README.md. Dropping to a shell."
+    exec bash -l
+fi
+
+if ! reims-ctl list 2>/dev/null | grep -qw "$VM"; then
+    say "First run: creating the macOS VM '$VM' ($MACOS). This downloads about 1 GB from Apple."
+    until ping -c1 -W2 apple.com >/dev/null 2>&1; do
+        echo "No network. Wired works automatically; for Wi-Fi press Alt+F2, log in and run: iwctl"
+        sleep 5
+    done
+    d=/data/reims/data/setup; mkdir -p "$d"; cd "$d"
+    reims-util opencore -o OpenCore.qcow2 &&
+    reims-util online-installer "$MACOS" &&
+    reims-ctl create "$VM" --opencore OpenCore.qcow2 --installer "$d"/*"$MACOS"*installer*.dmg --memory "${GUEST_RAM:-8G}" ||
+        { echo "VM creation failed; shell on this console. Retry: macboot-session"; exec bash -l; }
+    echo "VM created. It will boot into macOS Recovery: erase the disk in Disk Utility, Reinstall macOS."
+    echo "Then follow 'METAL_ERROR_MODE' in /usr/share/doc/macboot/README.md once, or the desktop will not appear."
+fi
+
+say "Starting macOS fullscreen"
+# `reims-ctl command` prints the exact QEMU command as a shell script; run it in the foreground inside cage
+# so closing the guest ends the session and powers the machine off.
+reims-ctl command "$VM" > /tmp/run-vm.sh
+REIMS_VGPU_WINDOW_BORDERLESS=1 cage -s -- bash /tmp/run-vm.sh
+rc=$?
+echo "VM exited (code $rc). Press Enter for a shell, or wait 10 s to power off."
+read -t 10 _ && exec bash -l
+sudo -n systemctl poweroff 2>/dev/null || systemctl poweroff
