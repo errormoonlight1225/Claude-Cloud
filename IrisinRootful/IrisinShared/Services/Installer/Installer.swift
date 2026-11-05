@@ -18,7 +18,7 @@ import IrisinProtocol
 /// main actor and the files are staged off it. A running operation is an
 /// `OperationMonitor`, which the console binds to.
 final class Installer {
-    static let shared = Installer()
+    nonisolated static let shared = Installer()
 
     nonisolated let workingLocation: URL
     private(set) var inProcessingQueue = false

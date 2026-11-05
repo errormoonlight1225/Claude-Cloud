@@ -198,7 +198,7 @@ extension AppDelegate {
 
     /// The file's bytes. Opened in place from iCloud Drive, it may have to
     /// download first; an inbox copy is read at once.
-    private static func read(_ url: URL) -> Data? {
+    private nonisolated static func read(_ url: URL) -> Data? {
         do {
             return try url.readingCoordinated { try Data(contentsOf: $0) }
         } catch {

@@ -43,7 +43,7 @@ nonisolated enum PrivilegedBackend {
     /// Runs `body` on the main queue once, with the backend, as soon as one
     /// is bound. iOS 12 port: what reading `backendUpdates.values` until a
     /// non-nil value did.
-    static func whenBackendIsKnown(_ body: @escaping (DaemonLink.Backend) -> Void) {
+    @MainActor static func whenBackendIsKnown(_ body: @escaping (DaemonLink.Backend) -> Void) {
         var done = false
         var token: AnyCancellable?
         token = backendUpdates

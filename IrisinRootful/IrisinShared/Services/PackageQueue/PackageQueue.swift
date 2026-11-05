@@ -43,7 +43,7 @@ nonisolated extension Notification.Name {
 /// confirms and when the plan stages. An operation finishing is never
 /// held.
 final class PackageQueue {
-    static let shared = PackageQueue()
+    nonisolated static let shared = PackageQueue()
 
     /// What the user asked for, one per identity, in the order asked.
     private(set) var actions: [ResolutionAction] = []

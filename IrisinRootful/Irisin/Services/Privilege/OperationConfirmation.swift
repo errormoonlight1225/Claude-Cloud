@@ -42,16 +42,16 @@ enum OperationConfirmation {
     }
 
     /// On until the user turns it off, in onboarding or in Settings.
-    private static let enabledStore = Stored(key: "operation.ownerConfirmation", defaultValue: true)
+    private nonisolated static let enabledStore = Stored(key: "operation.ownerConfirmation", defaultValue: true)
 
-    static var isEnabled: Bool {
+    nonisolated static var isEnabled: Bool {
         get { enabledStore.wrappedValue }
         set { enabledStore.wrappedValue = newValue }
     }
 
     /// nil on a device with no passcode: there is no owner to ask, and the
     /// setting has no row.
-    static var method: Method? {
+    nonisolated static var method: Method? {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return nil }

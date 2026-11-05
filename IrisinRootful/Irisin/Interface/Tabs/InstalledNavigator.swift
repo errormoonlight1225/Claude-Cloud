@@ -38,7 +38,8 @@ class InstalledNavigator: UINavigationController {
     func updateAvailableUpdateBadge() {
         updateCountTask?.cancel()
         updateCountTask = LegacyMainTask { [weak self] in
-            let count = awaitBackground { Self.updateCount(in: PackageCenter.default.index) }
+            let index = PackageCenter.default.index
+            let count = awaitBackground { Self.updateCount(in: index) }
             guard !LegacyTask.isCancelled, let self else { return }
             setTabBadge(count > 0 ? String(count) : nil)
         }

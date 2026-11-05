@@ -22,7 +22,7 @@ final class OperationMonitor {
         }
     }
 
-    enum Outcome: Equatable {
+    nonisolated enum Outcome: Equatable {
         case succeeded
         /// The summary the console shows, already localized.
         case failed(String)

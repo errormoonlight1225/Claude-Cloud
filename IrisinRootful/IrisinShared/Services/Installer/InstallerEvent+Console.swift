@@ -44,7 +44,7 @@ extension InstallerEvent {
     }
 }
 
-extension InstallerEvent.Problem {
+nonisolated extension InstallerEvent.Problem {
     /// The headline in the user's language; the helper's detail follows it
     /// where there is one, as it came.
     var localizedDescription: String {

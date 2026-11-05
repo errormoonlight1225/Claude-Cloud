@@ -3,6 +3,7 @@
 //  Irisin
 //
 
+import LegacyCompat
 import AptRepository
 import AptResolver
 import Foundation
@@ -39,7 +40,8 @@ enum QueueInstallChecks {
     static nonisolated func packagesRunningScripts(in plan: ResolutionPlan) -> [String] {
         var files: [(identity: String, file: URL)] = []
         for package in plan.install {
-            var file = package.fileOnDisk
+            // called off the main thread (QueueController)
+            var file = DispatchQueue.main.sync { package.fileOnDisk }
             if file == nil {
                 file = Downloads.shared.downloadedFile(for: package)
             }

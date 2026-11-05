@@ -145,11 +145,12 @@ final class VendorAccount {
         else {
             return nil
         }
+        let device = DeviceIdentity.vendorDevice
         return Self.logged(endpoint.appendingPathComponent("user_info")) {
             try awaitBackground { try VendorService.purchasedIdentities(
                 endpoint: endpoint,
                 credentials: userInfo,
-                device: DeviceIdentity.vendorDevice
+                device: device
             ) }
         }
     }
@@ -163,12 +164,13 @@ final class VendorAccount {
         else {
             return nil
         }
+        let device = DeviceIdentity.vendorDevice
         return Self.logged(VendorService.package(identity, "info", at: endpoint)) {
             try awaitBackground { try VendorService.purchaseStatus(
                 of: identity,
                 endpoint: endpoint,
                 credentials: userInfo,
-                device: DeviceIdentity.vendorDevice
+                device: device
             ) }
         }
     }
@@ -187,13 +189,14 @@ final class VendorAccount {
             return
         }
         // nil as well for a purchase that already went through: no page to open
+        let device = DeviceIdentity.vendorDevice
         let page = Self.logged(VendorService.package(identity, "purchase", at: endpoint)) {
             try awaitBackground { try VendorService.purchasePage(
                 for: identity,
                 architecture: PackagedArchitecture.architecture,
                 endpoint: endpoint,
                 credentials: userInfo,
-                device: DeviceIdentity.vendorDevice
+                device: device
             ) }
         }
         guard let url = page ?? nil else {
@@ -221,6 +224,7 @@ final class VendorAccount {
         else {
             return nil
         }
+        let device = DeviceIdentity.vendorDevice
         let link = Self.logged(VendorService.package(package.identity, "authorize_download", at: endpoint)) {
             try awaitBackground { try VendorService.downloadLink(
                 for: package.identity,
@@ -229,7 +233,7 @@ final class VendorAccount {
                 repository: represent,
                 endpoint: endpoint,
                 credentials: userInfo,
-                device: DeviceIdentity.vendorDevice
+                device: device
             ) }
         }
         return link ?? nil

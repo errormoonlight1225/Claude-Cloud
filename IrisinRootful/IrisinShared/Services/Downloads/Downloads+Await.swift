@@ -9,7 +9,7 @@ extension Downloads {
     nonisolated func awaitFiles(
         of packages: [Package],
         in plan: UUID,
-        progress: @escaping () -> Void = {}
+        progress: @escaping @MainActor () -> Void = {}
     ) -> String? {
         // ponytail: polls the statuses four times a second; a publisher on
         // the statuses if the tick ever shows. iOS 12 port: polls from the
