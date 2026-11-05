@@ -7,17 +7,17 @@ import PackageDescription
 let package = Package(
     name: "MarkdownView",
     platforms: [
-        .iOS(.v15),
+        .iOS(.v12),
     ],
     products: [
         .library(name: "MarkdownView", targets: ["MarkdownView"]),
         .library(name: "MarkdownParser", targets: ["MarkdownParser"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Lakr233/Litext", from: "3.6.5"),
+        .package(path: "../../Vendor/Litext"),
         .package(url: "https://github.com/apple/swift-collections", from: "1.7.3"),
         .package(url: "https://github.com/swiftlang/swift-cmark", from: "0.9.0"),
-        .package(url: "https://github.com/nicklockwood/LRUCache", from: "1.3.0"),
+        .package(path: "../../Vendor/LRUCache"),
     ],
     targets: [
         .target(
@@ -36,5 +36,7 @@ let package = Package(
                 .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
             ]
         ),
-    ]
+    ],
+    // iOS 12 port: Swift 5 mode (no concurrency checking to satisfy)
+    swiftLanguageModes: [.v5]
 )

@@ -1,0 +1,111 @@
+# Irisin for rootful iOS 12 (IrisinRootful/): build with Xcode on macOS and
+# check that what was built can launch on iOS 12. The port's progress is in
+# IrisinRootful/Documentation/iOS12Port.md.
+name: Irisin rootful (iOS 12)
+
+on:
+  push:
+    branches: [claude/irisin-rootful-ios12]
+    paths:
+      - "IrisinRootful/**"
+      - ".github/workflows/irisin-rootful.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: irisin-rootful-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: IrisinRootful
+        shell: bash
+    env:
+      DERIVED_DATA: ${{ github.workspace }}/../irisin-deriveddata
+      XCODEBUILD_FLAGS: >-
+        -workspace Irisin.xcworkspace
+        -configuration Release
+        -destination generic/platform=iOS
+        -skipMacroValidation
+        -skipPackagePluginValidation
+        ARCHS=arm64
+        ONLY_ACTIVE_ARCH=YES
+        ENABLE_DEBUG_DYLIB=NO
+        CODE_SIGNING_ALLOWED=NO
+        CODE_SIGNING_REQUIRED=NO
+        CODE_SIGN_IDENTITY=
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode 26
+        run: |
+          xcode="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -V | tail -n 1)"
+          [[ -n "$xcode" ]] || xcode="$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort -V | tail -n 1)"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -resolvePackageDependencies -workspace Irisin.xcworkspace -scheme irisin-cli \
+            -derivedDataPath "$DERIVED_DATA" > resolve.log 2>&1 || { tail -n 80 resolve.log; exit 1; }
+          tail -n 30 resolve.log
+
+      - name: Build irisind and irisin-install
+        run: |
+          xcodebuild $XCODEBUILD_FLAGS -scheme irisin-privileged -derivedDataPath "$DERIVED_DATA" \
+            -xcconfig Configuration/Size.xcconfig build > build-privileged.log 2>&1 \
+            || { grep -E "error:|fatal" build-privileged.log | sort -u | head -n 200; tail -n 40 build-privileged.log; exit 1; }
+          grep -cE "warning:" build-privileged.log || true
+
+      - name: Build irisin-cli
+        run: |
+          xcodebuild $XCODEBUILD_FLAGS -scheme irisin-cli -derivedDataPath "$DERIVED_DATA" \
+            -xcconfig Configuration/Size.xcconfig build > build-cli.log 2>&1 \
+            || { grep -E "error:|fatal" build-cli.log | sort -u | head -n 200; tail -n 40 build-cli.log; exit 1; }
+          grep -cE "warning:" build-cli.log || true
+
+      - name: Fetch iOS 12 library stubs
+        working-directory: ${{ github.workspace }}/..
+        run: |
+          git clone -q --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git theos-sdks
+          git -C theos-sdks sparse-checkout set iPhoneOS12.4.sdk
+          git clone -q --depth 1 --filter=blob:none --no-checkout https://github.com/xybp888/iOS-SDKs.git ios-sdks
+          git -C ios-sdks sparse-checkout init --no-cone
+          git -C ios-sdks sparse-checkout set "/iPhoneOS13.0.sdk/usr/lib/swift/"
+          git -C ios-sdks checkout -q master
+
+      - name: Check iOS 12 imports
+        run: |
+          products="$DERIVED_DATA/Build/Products/Release-iphoneos"
+          ls -la "$products"
+          for binary in irisind irisin-install irisin-cli; do
+            echo "== $binary"; otool -L "$products/$binary"; vtool -show-build "$products/$binary" | grep -E "minos|sdk"
+          done
+          python3 Scripts/ios12/check-ios12-imports.py \
+            --sdk ../../theos-sdks/iPhoneOS12.4.sdk \
+            --swift-stubs ../../ios-sdks/iPhoneOS13.0.sdk/usr/lib/swift \
+            --allow Scripts/ios12/ios12-imports-allowed.txt \
+            "$products/irisind" "$products/irisin-install" "$products/irisin-cli"
+
+      - name: Collect binaries and logs
+        if: always()
+        run: |
+          mkdir -p build/ci
+          cp -f *.log build/ci/ 2>/dev/null || true
+          for binary in irisind irisin-install irisin-cli; do
+            cp -f "$DERIVED_DATA/Build/Products/Release-iphoneos/$binary" build/ci/ 2>/dev/null || true
+          done
+
+      - name: Upload binaries and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: irisin-rootful-privileged
+          path: IrisinRootful/build/ci
+          if-no-files-found: warn

@@ -1,0 +1,2 @@
+# Imports check-ios12-imports.py accepts without an iOS 12.4 stub entry,
+# each with why it is known to be there on iOS 12.2 and later.

@@ -1,6 +1,10 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
+// iOS 12 rootful port: iOS 12 minimum, Swift 5 language mode (5.9 tools'
+// default), icli and LegacyCompat from Vendor/, no tvOS or visionOS, and no
+// external client contract tests (IrisinExternalClient is not ported).
+
 /// Everything that is not UIKit lives here so it can be built and tested on a
 /// Mac with plain `swift test`: the wire protocol, the job the root helper
 /// carries out, and the app's link to the daemon.
@@ -13,7 +17,7 @@ import PackageDescription
 /// third-party may reach the daemon: launchd caps it at 6 MB.
 let package = Package(
     name: "IrisinKit",
-    platforms: [.iOS(.v15), .tvOS(.v16), .visionOS("2.0"), .macOS(.v13)],
+    platforms: [.iOS(.v12), .macOS(.v13)],
     products: [
         .library(name: "IrisinProtocol", targets: ["IrisinProtocol"]),
         .library(name: "IrisinInstaller", type: .static, targets: ["IrisinInstaller"]),
@@ -25,14 +29,13 @@ let package = Package(
         // Our own LaunchServices and SpringBoard code, linked into the helper
         // as a library: app registration and the graceful respring (PineBoard's
         // on tvOS, from 0.10.0). Not on the Mac.
-        .package(url: "https://github.com/owngoal-dev/icli.git", from: "0.10.0"),
+        .package(path: "../../Vendor/icli"),
+        // iOS 12 port: the stand-ins for iOS 13+ APIs (Vendor/LegacyCompat).
+        .package(path: "../../Vendor/LegacyCompat"),
         // icli's own libarchive, named here for `IrisinPreparation`: the same
         // package, so the helper gains no second copy, and the app already
         // links it through AptRepository.
         .package(url: "https://github.com/Lakr233/libarchive.xcframework.git", from: "1.0.1"),
-        // The external clients' library, for the test that holds its wire to
-        // IrisinProtocol's. Nothing that ships links it from here.
-        .package(path: "../IrisinExternalClient"),
     ],
     targets: [
         // The SDK's XPC constants, read through C so nothing links the Swift
@@ -62,6 +65,8 @@ let package = Package(
             dependencies: [
                 "IrisinProtocol",
                 .product(name: "ArchiveKit", package: "libarchive.xcframework"),
+                .product(name: "LegacyCompat", package: "LegacyCompat"),
+                .product(name: "LegacyCrypto", package: "LegacyCompat"),
             ]
         ),
 
@@ -74,6 +79,8 @@ let package = Package(
                 "IrisinProtocol",
                 "IrisinPreparation",
                 .product(name: "IcliKit", package: "icli", condition: .when(platforms: [.iOS, .tvOS])),
+                .product(name: "LegacyCompat", package: "LegacyCompat"),
+                .product(name: "LegacyCrypto", package: "LegacyCompat"),
             ]
         ),
 
@@ -83,21 +90,20 @@ let package = Package(
         // simulator alone, where there is no daemon and `SimulatorDaemon`
         // runs the job in the app's own process; SwiftPM cannot say "only
         // there", and nothing names the module outside that condition.
-        .target(name: "IrisinClient", dependencies: ["IrisinProtocol", "IrisinInstaller"]),
+        .target(
+            name: "IrisinClient",
+            dependencies: ["IrisinProtocol", "IrisinInstaller", .product(name: "LegacyCompat", package: "LegacyCompat")]
+        ),
 
         // A paid repository's sign-in in the Keychain and the vendor's
         // endpoints, for the app and the command line alike: one spelling
         // of the Keychain names and one shape of every request, so the two
         // cannot drift. Foundation and Security only.
-        .target(name: "IrisinVendor"),
+        .target(name: "IrisinVendor", dependencies: [.product(name: "LegacyCompat", package: "LegacyCompat")]),
 
         .testTarget(name: "IrisinProtocolTests", dependencies: ["IrisinProtocol"]),
         .testTarget(name: "IrisinVendorTests", dependencies: ["IrisinVendor"]),
         .testTarget(name: "IrisinInstallerTests", dependencies: ["CIrisinDB", "IrisinInstaller"]),
         .testTarget(name: "IrisinClientTests", dependencies: ["IrisinClient"]),
-        .testTarget(
-            name: "IrisinExternalContractTests",
-            dependencies: ["IrisinProtocol", .product(name: "IrisinExternalClient", package: "IrisinExternalClient")]
-        ),
     ]
 )

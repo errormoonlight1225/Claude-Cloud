@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "PackageDepiction",
     platforms: [
-        .iOS(.v15),
+        .iOS(.v12),
     ],
     products: [
         .library(
@@ -16,7 +16,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/SDWebImage/SDWebImage", from: "5.21.7"),
         .package(path: "../MarkdownView"),
-        .package(url: "https://github.com/SnapKit/SnapKit", from: "6.0.0"),
+        .package(path: "../../Vendor/SnapKit"),
         .package(url: "https://github.com/devxoul/Then", from: "3.0.0"),
     ],
     targets: [

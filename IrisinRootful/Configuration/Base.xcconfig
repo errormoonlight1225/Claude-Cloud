@@ -7,13 +7,13 @@
 // Whatever number is here is a promise the SDK will try to break for you: the
 // linker believes the SDK's availability metadata, and where that is wrong
 // the app dies in dyld before `main` on the old device. See AGENTS.md.
-IPHONEOS_DEPLOYMENT_TARGET = 15.0
-// Apple TV: the daemon, the helper and the launchpad, on RootHide
-// (Documentation/AppleTV.md).
-TVOS_DEPLOYMENT_TARGET = 16.0
-// Vision Pro: the launchpad alone (IrisinLaunchpad). No bootstrap serves it
-// yet, so it browses, and installs only in the simulator.
-XROS_DEPLOYMENT_TARGET = 2.0
+//
+// iOS 12 rootful port: iOS 12.2, the first iOS 12 with the Swift runtime in
+// the OS (current Xcode no longer embeds one), for the Amethyst and Chimera
+// jailbreaks this build is for. Nothing may need the iOS 13 Swift
+// concurrency runtime (Documentation/iOS12Port.md). Apple TV and Vision Pro
+// are not built by the port.
+IPHONEOS_DEPLOYMENT_TARGET = 12.2
 MACOSX_DEPLOYMENT_TARGET = 13.0
 
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon

@@ -5,10 +5,7 @@ import PackageDescription
 let package = Package(
     name: "AptRepository",
     platforms: [
-        .iOS(.v15),
-        // the Apple TV and Vision Pro launchpad (IrisinLaunchpad)
-        .tvOS(.v16),
-        .visionOS(.v2),
+        .iOS(.v12),
         .macOS(.v13),
     ],
     products: [
@@ -28,7 +25,10 @@ let package = Package(
         .package(url: "https://github.com/Lakr233/wcdb.xcframework", from: "2.1.26102501"),
         // the packages a list draws, held by the center; MarkdownView
         // already links it into the app
-        .package(url: "https://github.com/nicklockwood/LRUCache", from: "1.3.0"),
+        .package(path: "../../Vendor/LRUCache"),
+        // iOS 12 port: Combine and the iOS 13+ stand-ins
+        .package(path: "../../Vendor/OpenCombine"),
+        .package(path: "../../Vendor/LegacyCompat"),
     ],
     targets: [
         .target(
@@ -45,6 +45,10 @@ let package = Package(
                 .product(name: "IrisinPreparation", package: "IrisinKit"),
                 .product(name: "WCDBSwift", package: "wcdb.xcframework"),
                 "LRUCache",
+                .product(name: "OpenCombine", package: "OpenCombine"),
+                .product(name: "OpenCombineDispatch", package: "OpenCombine"),
+                .product(name: "LegacyCompat", package: "LegacyCompat"),
+                .product(name: "LegacyCrypto", package: "LegacyCompat"),
             ]
         ),
         .target(
@@ -53,6 +57,7 @@ let package = Package(
                 "AptRepository",
                 .product(name: "LibSolv", package: "libsolv.xcframework"),
                 .product(name: "IrisinProtocol", package: "IrisinKit"),
+                .product(name: "LegacyCompat", package: "LegacyCompat"),
             ]
         ),
         .executableTarget(
@@ -82,5 +87,5 @@ let package = Package(
             resources: [.copy("Fixtures")]
         ),
     ],
-    swiftLanguageModes: [.v6]
+    swiftLanguageModes: [.v5]
 )

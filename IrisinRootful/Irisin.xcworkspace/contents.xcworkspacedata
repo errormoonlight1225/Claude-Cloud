@@ -8,9 +8,6 @@
       location = "group:Packages/IrisinKit">
    </FileRef>
    <FileRef
-      location = "group:Packages/IrisinExternalClient">
-   </FileRef>
-   <FileRef
       location = "group:Packages/AptRepository">
    </FileRef>
    <FileRef
@@ -23,6 +20,33 @@
       location = "group:Packages/Runestone">
    </FileRef>
    <FileRef
-      location = "group:Packages/IrisinWeb">
+      location = "group:Vendor/LegacyCompat">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/OpenCombine">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/AlertController">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/DisplayLink">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/Dog">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/LRUCache">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/Litext">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/SPIndicator">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/SnapKit">
+   </FileRef>
+   <FileRef
+      location = "group:Vendor/icli">
    </FileRef>
 </Workspace>
