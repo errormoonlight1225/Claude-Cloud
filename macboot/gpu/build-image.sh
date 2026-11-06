@@ -70,7 +70,7 @@ Components: main universe
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 SRC
 echo macboot > "$M/etc/hostname"
-printf 'LABEL=rootfs / ext4 defaults,noatime 0 1\nLABEL=ESP /boot/efi vfat umask=0077,nofail 0 2\nLABEL=MACDATA /data ext4 defaults,noatime,nofail 0 2\n' > "$M/etc/fstab"
+printf 'LABEL=rootfs / ext4 defaults,noatime 0 1\nLABEL=ESP /boot/efi vfat umask=0077,nofail,x-systemd.device-bound=no 0 2\nLABEL=MACDATA /data ext4 defaults,noatime,nofail,x-systemd.device-bound=no 0 2\n' > "$M/etc/fstab"
 mkdir -p "$M/data"
 
 # The chroot needs the build machine's DNS and, if set, its proxy; resolv.conf is replaced at the end of this step.
@@ -99,6 +99,10 @@ chroot "$M" systemctl enable systemd-networkd systemd-resolved iwd macboot-first
 chroot "$M" test -e /etc/systemd/system/local-fs.target.wants/macboot-firstboot.service
 mkdir -p "$M/etc/systemd/system/getty@tty1.service.d" "$M/usr/share/doc/macboot"
 cat > "$M/etc/systemd/system/getty@tty1.service.d/autologin.conf" <<'GT'
+[Unit]
+Wants=data.mount
+After=data.mount macboot-firstboot.service
+
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin macboot --noclear %I $TERM

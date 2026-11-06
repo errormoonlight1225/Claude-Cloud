@@ -8,6 +8,11 @@ pn=$(cat "/sys/class/block/$base/partition")
 disk="/dev/$(basename "$(readlink -f "/sys/class/block/$base/..")")"
 echo ", +" | sfdisk --no-reread -N "$pn" "$disk" >/dev/null 2>&1 || true
 partx -u "$disk" 2>/dev/null || true
+# sfdisk's close-write makes udev re-read the disk later; if that happens after data.mount is up,
+# systemd sees the device vanish and unmounts /data. Let udev finish before anything is mounted.
+udevadm settle --timeout=120 || true
+sleep 2
+udevadm settle --timeout=120 || true
 e2fsck -fp "$dev" >/dev/null 2>&1 || true
 resize2fs "$dev" >/dev/null 2>&1 || true
 mkdir -p /run/macboot-mnt && mount "$dev" /run/macboot-mnt

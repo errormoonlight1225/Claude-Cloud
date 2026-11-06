@@ -9,6 +9,9 @@ ConditionPathExists=!/var/lib/macboot-firstboot.done
 Type=oneshot
 ExecStart=/usr/local/bin/macboot-firstboot
 RemainAfterExit=yes
+# The partition rewrite makes udev recreate vda3, which cancels the boot-time start job of data.mount.
+# Start it again once the device has settled.
+ExecStartPost=-/usr/bin/systemctl --no-block start data.mount
 
 [Install]
 WantedBy=local-fs.target

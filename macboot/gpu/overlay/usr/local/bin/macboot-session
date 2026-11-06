@@ -5,6 +5,10 @@ set -u
 say() { printf '\n== %s\n' "$*"; }
 need() { command -v "$1" >/dev/null 2>&1; }
 
+# Wait (max 60 s) for the MACDATA partition to be mounted on /data.
+for _ in $(seq 60); do mountpoint -q /data && break; sleep 1; done
+mountpoint -q /data || { echo "MACDATA (/data) is not mounted; check 'lsblk -f'."; MACBOOT_NO_SESSION=1 exec bash -l; }
+
 # QEMU lives on the read-only system side; reims-ctl expects it under its data dir.
 mkdir -p "$REIMS_CTL_DATA_DIR"
 ln -sfn /opt/reims/qemu "$REIMS_CTL_DATA_DIR/qemu"
