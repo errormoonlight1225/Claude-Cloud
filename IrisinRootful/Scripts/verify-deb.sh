@@ -131,12 +131,16 @@ grep -F '{"bootoutIrisinDaemon":{}}' <<<"$prerm" >/dev/null || {
     echo "error: prerm does not ask the helper to boot out Irisin's daemon" >&2
     exit 65
 }
-for script in postinst prerm; do
-    if grep -Eq '(^|[/[:space:]])launchctl([[:space:]]|$)' <<<"${!script}"; then
-        echo "error: $script still invokes launchctl" >&2
-        exit 65
-    fi
-done
+# Rootful iOS 12 keeps launchctl as the fallback where the helper cannot
+# reach launchd itself; every other layout talks to launchd only in-process.
+if [[ "$architecture" != iphoneos-arm ]]; then
+    for script in postinst prerm; do
+        if grep -Eq '(^|[/[:space:]])launchctl([[:space:]]|$)' <<<"${!script}"; then
+            echo "error: $script still invokes launchctl" >&2
+            exit 65
+        fi
+    done
+fi
 if ! otool -l "$installed/usr/libexec/irisin-install" | grep -F 'sectname __launchctl' >/dev/null; then
     echo "error: irisin-install is missing IcliKit's launchctl client marker" >&2
     exit 65
