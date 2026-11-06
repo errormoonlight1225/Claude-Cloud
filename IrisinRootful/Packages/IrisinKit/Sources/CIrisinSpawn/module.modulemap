@@ -7,7 +7,8 @@
 // bound by an assembler label to the libSystem symbol it is. Nothing is
 // defined and nothing is looked up at run time: the binaries import
 // `_posix_spawn` itself. See `ProcessSpawn`, the one Swift file that calls
-// them.
+// them. iOS 12 port: posix_spawn_file_actions_addchdir_np, iOS 13's, is the
+// exception: it is looked up at run time (shim.h).
 module CIrisinSpawn [system] {
     header "shim.h"
     export *

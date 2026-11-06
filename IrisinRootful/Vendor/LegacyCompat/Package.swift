@@ -14,7 +14,9 @@ let package = Package(
         .library(name: "LegacyCrypto", targets: ["LegacyCrypto"]),
     ],
     targets: [
-        .target(name: "LegacyCompat", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "LegacyCompat", dependencies: ["LegacyRuntime"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        // what the compiler calls by name and iOS 12's libSystem lacks
+        .target(name: "LegacyRuntime"),
         // SHA256 and Insecure.MD5 with CryptoKit's spelling, on CommonCrypto.
         .target(name: "LegacyCrypto", swiftSettings: [.swiftLanguageMode(.v5)]),
     ]

@@ -59,6 +59,14 @@ references `libswift_Concurrency` or `swift_task_*`.
   then removed (`Scripts/ios12/strip_isolation.py`). The shipped build is Swift 5
   language mode without default isolation.
 
+**libSystem calls iOS 12 does not have.** Swift 6's code generator calls the
+stack probe `___chkstk_darwin` (iOS 13) for runtime-sized stack values, so
+`Vendor/LegacyCompat/Sources/LegacyRuntime` defines it. icli's launchd client
+falls back from `_xpc_pipe_interface_routine` (iOS 13) to `xpc_pipe_routine`
+with the subsystem and routine in the message, as iOS 12's launchctl did;
+`ProcessSpawn` falls back from `posix_spawn_file_actions_addchdir_np` (iOS 13)
+to moving the spawning thread's directory.
+
 **Frameworks iOS 12 does not have.** Combine is OpenCombine; CryptoKit is
 CommonCrypto (`Vendor/LegacyCrypto`); `UTType` is a file-extension enum.
 

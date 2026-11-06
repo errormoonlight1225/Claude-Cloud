@@ -1,2 +1,12 @@
 # Imports check-ios12-imports.py accepts without an iOS 12.4 stub entry,
 # each with why it is known to be there on iOS 12.2 and later.
+
+# WCDBSwift's KeyedEncodingContainer/KeyedDecodingContainer conformances name
+# Swift 6's Int128 default implementations, lazily bound: called only to code
+# an Int128, a type iOS 12's runtime does not have, so never there.
+_$ss30KeyedDecodingContainerProtocolPsE6decode_6forKeys6Int128VAFm_0G0QztKF
+_$ss30KeyedDecodingContainerProtocolPsE6decode_6forKeys7UInt128VAFm_0G0QztKF
+_$ss30KeyedEncodingContainerProtocolPsE15encodeIfPresent_6forKeyys6Int128VSg_0I0QztKF
+_$ss30KeyedEncodingContainerProtocolPsE15encodeIfPresent_6forKeyys7UInt128VSg_0I0QztKF
+_$ss30KeyedEncodingContainerProtocolPsE6encode_6forKeyys6Int128V_0G0QztKF
+_$ss30KeyedEncodingContainerProtocolPsE6encode_6forKeyys7UInt128V_0G0QztKF

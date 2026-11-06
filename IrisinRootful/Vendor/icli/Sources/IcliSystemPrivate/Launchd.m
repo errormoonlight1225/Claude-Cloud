@@ -7,6 +7,7 @@
 #import <mach/mach.h>
 #import <errno.h>
 #import <string.h>
+#import <unistd.h>
 
 // libxpc selects its launchctl client initialization path when this marker is
 // present in the main image, matching the system launchctl executable.
@@ -44,13 +45,17 @@ struct xpc_global_data {
 // as an implicitly __autoreleasing out parameter, ARC retains it once more and
 // it is never freed; a load reply carries the job's listening sockets, so the
 // ports stayed bound after bootout for as long as this process lived.
+// iOS 12 port: libxpc exports _xpc_pipe_interface_routine from iOS 13 on, so
+// it is imported weakly; iOS 12's launchd reads the subsystem and the routine
+// from the message itself, sent with xpc_pipe_routine, as launchctl did then.
 extern int _xpc_pipe_interface_routine(
     xpc_object_t pipe,
     uint64_t routine,
     xpc_object_t message,
     xpc_object_t __strong *reply,
     uint64_t flags
-);
+) __attribute__((weak_import));
+extern int xpc_pipe_routine(xpc_object_t pipe, xpc_object_t message, xpc_object_t __strong *reply);
 extern const char *xpc_strerror(int error);
 
 /// Job records carry whatever a plist or an XPC submission put in them, so
@@ -130,10 +135,26 @@ static int launchdRoutine(
 ) {
     struct xpc_global_data *global = _os_alloc_once_table[1].ptr;
     if (!global || !global->xpc_bootstrap_pipe) return ENXIO;
+    bool interface = _xpc_pipe_interface_routine != NULL;
+    if (!interface && domain == DomainCaller) {
+        // iOS 12's launchd has no caller-resolved domain: root's daemons are
+        // the system domain's, anyone else's jobs their own user domain's
+        uid_t uid = getuid();
+        domain = uid == 0 ? DomainSystem : DomainUser;
+        handle = uid == 0 ? 0 : uid;
+    }
     xpc_dictionary_set_uint64(message, "type", domain);
     xpc_dictionary_set_uint64(message, "handle", handle);
     xpc_object_t response = NULL;
-    int status = _xpc_pipe_interface_routine(global->xpc_bootstrap_pipe, routine, message, &response, 0);
+    int status;
+    if (interface) {
+        status = _xpc_pipe_interface_routine(global->xpc_bootstrap_pipe, routine, message, &response, 0);
+    } else {
+        // the 700s act on one service (subsystem 2), the 800s on a domain (3)
+        xpc_dictionary_set_uint64(message, "subsystem", routine < 800 ? 2 : 3);
+        xpc_dictionary_set_uint64(message, "routine", routine);
+        status = xpc_pipe_routine(global->xpc_bootstrap_pipe, message, &response);
+    }
     if (status == 0 && response) status = (int)xpc_dictionary_get_int64(response, "error");
     if (reply) *reply = response;
     return status;

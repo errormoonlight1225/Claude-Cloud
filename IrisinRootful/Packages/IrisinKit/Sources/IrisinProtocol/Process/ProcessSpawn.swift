@@ -53,8 +53,14 @@ public enum ProcessSpawn {
                 try check(irisin_posix_spawn_file_actions_addopen(&actions, target, path, flags, 0))
             }
         }
+        // iOS 12 has no file action for it: the thread moves there itself
+        var threadDirectory: String?
         if let workingDirectory {
-            try check(irisin_posix_spawn_file_actions_addchdir_np(&actions, workingDirectory))
+            if let addchdir = irisin_spawn_addchdir() {
+                try check(irisin_posix_spawn_file_actions_addchdir(addchdir, &actions, workingDirectory))
+            } else {
+                threadDirectory = workingDirectory
+            }
         }
 
         var attributes: posix_spawnattr_t?
@@ -77,8 +83,14 @@ public enum ProcessSpawn {
         var pid: pid_t = 0
         // the arrays free their strings when they go, which without this
         // could be as soon as their pointers are read
-        let spawned = withExtendedLifetime((argv, envp)) {
-            irisin_posix_spawn(&pid, executable, &actions, &attributes, argv.pointers, envp.pointers)
+        let spawned = withExtendedLifetime((argv, envp)) { () -> Int32 in
+            if let threadDirectory {
+                let moved = irisin_thread_chdir(threadDirectory)
+                guard moved == 0 else { return moved }
+                defer { irisin_thread_chdir_reset() }
+                return irisin_posix_spawn(&pid, executable, &actions, &attributes, argv.pointers, envp.pointers)
+            }
+            return irisin_posix_spawn(&pid, executable, &actions, &attributes, argv.pointers, envp.pointers)
         }
         try check(spawned)
         return pid

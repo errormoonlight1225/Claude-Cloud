@@ -170,6 +170,9 @@ def main():
         name = Path(install).name
         short = re.sub(r"\.dylib$", "", name)
         by_short.setdefault(short, install)
+        # nm names a versioned library without its version: libSystem for
+        # libSystem.B.dylib, libc++ for libc++.1.dylib, libobjc for libobjc.A
+        by_short.setdefault(short.split(".")[0], install)
 
     failures = 0
     checked = 0
@@ -201,10 +204,10 @@ def main():
                 if install not in libraries:
                     print(f"error: {binary} loads {install} strongly; the iOS 12 SDK has no such library")
                     failures += 1
-            # A lazily bound import is resolved on its first call, not at
-            # launch, so `[lazy bound]` lines are not matched here.
+            # A lazily bound import is resolved on its first call rather
+            # than at launch, and aborts the process there all the same.
             for line in run([*NM, "-m", str(binary)]).splitlines():
-                m = re.match(r"\s*\(undefined\)\s+(weak\s+)?external\s+(\S+)\s+\(from\s+([^)]+)\)", line)
+                m = re.match(r"\s*\(undefined(?: \[lazy bound\])?\)\s+(weak\s+)?external\s+(\S+)\s+\(from\s+([^)]+)\)", line)
                 if not m:
                     continue
                 weak, symbol, short = m.groups()
