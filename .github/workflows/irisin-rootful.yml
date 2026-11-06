@@ -96,6 +96,12 @@ jobs:
           for binary in irisind irisin-install irisin-cli; do
             echo "== $binary"; otool -L "$products/$binary"; vtool -show-build "$products/$binary" | grep -E "minos|sdk"
           done
+          echo "== irisin.app"; otool -L "$products/irisin.app/irisin"
+          for library in "$products"/irisin.app/Frameworks/*; do
+            name="$(basename "$library")"; binary="$library"
+            [[ -d "$library" ]] && binary="$library/${name%.framework}"
+            echo "== Frameworks/$name"; file "$binary"; otool -D "$binary"; vtool -show-build "$binary" | grep -E "minos|sdk" || true
+          done
           python3 Scripts/ios12/check-ios12-imports.py \
             --sdk ../../theos-sdks/iPhoneOS12.4.sdk \
             --swift-stubs ../../ios-sdks/iPhoneOS13.0.sdk/usr/lib/swift \
@@ -122,6 +128,7 @@ jobs:
           for binary in irisind irisin-install irisin-cli; do
             cp -f "$DERIVED_DATA/Build/Products/Release-iphoneos/$binary" build/ci/ 2>/dev/null || true
           done
+          (cd "$DERIVED_DATA/Build/Products/Release-iphoneos" && ditto -c -k --keepParent irisin.app "$OLDPWD/build/ci/irisin.app.zip") 2>/dev/null || true
 
       - name: Upload binaries and logs
         if: always()

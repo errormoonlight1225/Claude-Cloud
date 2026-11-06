@@ -109,6 +109,35 @@ def run(cmd):
     return subprocess.run(cmd, capture_output=True, text=True, check=False).stdout
 
 
+# Xcode's tools by default; LLVM's stand in elsewhere (OTOOL="llvm-objdump
+# --macho --dylibs-used", OTOOL_ID="llvm-objdump --macho --dylib-id",
+# NM="llvm-nm", OBJDUMP="llvm-objdump").
+OTOOL = os.environ.get("OTOOL", "otool -L").split()
+OTOOL_ID = os.environ.get("OTOOL_ID", "otool -D").split()
+NM = os.environ.get("NM", "nm").split()
+OBJDUMP = os.environ.get("OBJDUMP", "objdump").split()
+
+
+def own_install_name(binary):
+    """A dylib's LC_ID_DYLIB, which otool -L lists first among its loads."""
+    lines = run([*OTOOL_ID, str(binary)]).splitlines()
+    return lines[1].strip() if len(lines) > 1 else None
+
+
+def bind_weak_imports(binary):
+    """Symbols the dyld bind information imports weakly. dyld binds by this,
+    not by the symbol table, and a binary whose header says
+    NLIST_OUTOFSYNC_WITH_DYLDINFO (WCDBSwift, built for 12.0) has weak
+    imports the symbol table still lists as strong."""
+    weak = set()
+    for line in run([*OBJDUMP, "--macho", "--bind", str(binary)]).splitlines():
+        if "(weak_import)" in line:
+            fields = line.replace("(weak_import)", "").split()
+            if fields:
+                weak.add(fields[-1])
+    return weak
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sdk", required=True, type=Path)
@@ -148,10 +177,12 @@ def main():
         for binary in machos(path):
             checked += 1
             loads = []
-            for line in run(["otool", "-L", str(binary)]).splitlines()[1:]:
-                m = re.match(r"\s*(\S+)\s+\(", line)
-                if m:
+            own = own_install_name(binary)
+            for line in run([*OTOOL, str(binary)]).splitlines()[1:]:
+                m = re.match(r"\s*(.+?)\s+\(compatibility", line)
+                if m and m.group(1) != own:
                     loads.append((m.group(1), "weak)" in line or ", weak" in line))
+            bound_weak = bind_weak_imports(binary)
             weak_loads = set()
             concurrency_ok = binary.name in args.weak_concurrency_ok
             for install, weak in loads:
@@ -170,7 +201,9 @@ def main():
                 if install not in libraries:
                     print(f"error: {binary} loads {install} strongly; the iOS 12 SDK has no such library")
                     failures += 1
-            for line in run(["nm", "-m", str(binary)]).splitlines():
+            # A lazily bound import is resolved on its first call, not at
+            # launch, so `[lazy bound]` lines are not matched here.
+            for line in run([*NM, "-m", str(binary)]).splitlines():
                 m = re.match(r"\s*\(undefined\)\s+(weak\s+)?external\s+(\S+)\s+\(from\s+([^)]+)\)", line)
                 if not m:
                     continue
@@ -180,7 +213,7 @@ def main():
                     print(f"error: {binary} imports {symbol}: Swift concurrency cannot run on iOS 12")
                     failures += 1
                     continue
-                if weak or symbol in allowed:
+                if weak or symbol in allowed or symbol in bound_weak:
                     continue
                 install = by_short.get(short)
                 if install is None or install in weak_loads:
