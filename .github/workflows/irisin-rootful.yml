@@ -19,6 +19,9 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
+    # the .deb is published as a release asset: a .deb to download, not a zip
+    permissions:
+      contents: write
     timeout-minutes: 90
     defaults:
       run:
@@ -120,6 +123,18 @@ jobs:
           dpkg-deb -I build/Packages/irisin-rootful-ios12.deb
           dpkg-deb -c build/Packages/irisin-rootful-ios12.deb > build/Packages/contents.txt
           head -n 40 build/Packages/contents.txt; wc -l < build/Packages/contents.txt
+
+      - name: Publish the .deb
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=irisin-rootful-ios12
+          gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$tag" build/Packages/irisin-rootful-ios12.deb \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "Irisin rootful iOS 12 ($(git rev-parse --short HEAD))" \
+            --notes "wiki.qaq.irisin for rootful iOS 12.2 and later (iphoneos-arm), built from $(git rev-parse --short HEAD). Not yet run on a device."
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/irisin-rootful-ios12.deb"
 
       - name: Collect binaries and logs
         if: always()
