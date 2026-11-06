@@ -118,14 +118,15 @@ jobs:
           make _package-deb FLAVOR=rootful CONFIGURATION=Release DERIVED_DATA="$DERIVED_DATA" \
             DEB_OUTPUT="$PWD/build/Packages/irisin-rootful-ios12.deb"
           dpkg-deb -I build/Packages/irisin-rootful-ios12.deb
-          dpkg-deb -c build/Packages/irisin-rootful-ios12.deb | head -n 40
+          dpkg-deb -c build/Packages/irisin-rootful-ios12.deb > build/Packages/contents.txt
+          head -n 40 build/Packages/contents.txt; wc -l < build/Packages/contents.txt
 
       - name: Collect binaries and logs
         if: always()
         run: |
           mkdir -p build/ci
           cp -f *.log build/ci/ 2>/dev/null || true
-          cp -f build/Packages/*.deb build/ci/ 2>/dev/null || true
+          cp -f build/Packages/*.deb build/Packages/contents.txt build/ci/ 2>/dev/null || true
           for binary in irisind irisin-install irisin-cli; do
             cp -f "$DERIVED_DATA/Build/Products/Release-iphoneos/$binary" build/ci/ 2>/dev/null || true
           done

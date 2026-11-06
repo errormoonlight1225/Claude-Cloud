@@ -20,6 +20,17 @@ binary's imports against the iOS 12.4 SDK's stubs, and packages the .deb with
 On a Mac with Xcode 26, `make deb FLAVOR=rootful` does the same; `brew install
 dpkg ldid` first.
 
+Off a Mac, `SIL=1 SHIPPING=1 python3 Scripts/ios12/typecheck.py` compiles every
+module against an iOS SDK through the mandatory SIL passes, which report what
+Xcode's compile does (escaping captures, use before declaration) beyond the
+type check.
+
+The import check goes by the dyld bind information, as dyld does: the
+prebuilt WCDBSwift imports Swift 6's `Int128` coding requirements weakly
+there while its symbol table still calls them strong. The vendored packages
+use `#fileID` rather than `#file`, which in their Swift 5 mode would embed
+each caller's absolute source path.
+
 ## Why 12.2
 
 iOS 12.2 is the first system with the Swift runtime in the OS. Xcode 26 no
