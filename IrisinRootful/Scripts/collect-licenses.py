@@ -158,6 +158,35 @@ def local_entries(project, homepage):
     return entries
 
 
+def vendor_entries(project, homepage):
+    """The iOS 12 port's copies of what were remote packages, under Vendor/
+    with their upstream revisions in UPSTREAM-REVISIONS.txt."""
+    root = os.path.join(project, "Vendor")
+    if not os.path.isdir(root):
+        return []
+    revisions = {}
+    record = os.path.join(root, "UPSTREAM-REVISIONS.txt")
+    if os.path.isfile(record):
+        for line in read(record).splitlines():
+            fields = line.split()
+            if len(fields) >= 2:
+                tagged = re.search(r"\(([^)]+)\)", line)
+                revisions[fields[0]] = tagged.group(1) if tagged else fields[1][:7]
+    entries = []
+    for package in sorted(os.listdir(root)):
+        directory = os.path.join(root, package)
+        if not os.path.isdir(directory) or package.lower() in NOT_SHIPPED:
+            continue
+        found = [os.path.join(directory, f) for f in sorted(os.listdir(directory)) if LICENSE_FILE.match(f)]
+        if not found:
+            # LegacyCompat is the port's own code, under the app's license
+            continue
+        url = f"{homepage}/tree/main/Vendor/{package}"
+        for path in found:
+            entries.append(entry(package, revisions.get(package), url, read(path)))
+    return entries
+
+
 def license_files(root):
     found = []
     for directory, subdirectories, files in os.walk(root):
@@ -182,7 +211,26 @@ def source_copyright(checkout):
     return None
 
 
-def package_entries(project, source_packages):
+def resolved_pins(project, source_packages):
+    """The remote packages this build checked out. SwiftPM's own record in
+    SourcePackages says exactly what is on disk; Package.resolved is read
+    only when that record is missing, in either of its layouts."""
+    state_path = os.path.join(source_packages, "workspace-state.json")
+    if os.path.isfile(state_path):
+        state = json.load(open(state_path, encoding="utf-8"))
+        pins = []
+        for dependency in state.get("object", {}).get("dependencies", []):
+            reference = dependency.get("packageRef", {})
+            if reference.get("kind") not in ("remoteSourceControl", "remote"):
+                continue
+            pins.append({
+                "identity": reference["identity"],
+                "location": reference["location"],
+                "state": dependency.get("state", {}).get("checkoutState", {}),
+                "subpath": dependency.get("subpath"),
+            })
+        if pins:
+            return pins
     # Irisin.xcworkspace is what builds, and it keeps its own pins; the
     # project's are there only when someone opened the project by itself.
     resolved_path = os.path.join(project, "Irisin.xcworkspace", "xcshareddata", "swiftpm", "Package.resolved")
@@ -191,8 +239,17 @@ def package_entries(project, source_packages):
             project, "Irisin.xcodeproj", "project.xcworkspace", "xcshareddata", "swiftpm", "Package.resolved"
         )
     resolved = json.load(open(resolved_path, encoding="utf-8"))
+    pins = resolved.get("pins")
+    if pins is None:
+        pins = resolved.get("object", {}).get("pins")
+    if pins is None:
+        fail(f"{resolved_path} lists no pins (keys: {', '.join(sorted(resolved))})")
+    return pins
+
+
+def package_entries(project, source_packages):
     entries = []
-    for pin in sorted(resolved["pins"], key=lambda pin: pin["identity"]):
+    for pin in sorted(resolved_pins(project, source_packages), key=lambda pin: pin["identity"]):
         if pin["identity"] in NOT_SHIPPED:
             continue
         location = pin["location"]
@@ -200,7 +257,7 @@ def package_entries(project, source_packages):
         package = url.rstrip("/").rsplit("/", 1)[-1]
         state = pin.get("state", {})
         version = state.get("version") or state.get("revision")
-        checkout = os.path.join(source_packages, "checkouts", package)
+        checkout = os.path.join(source_packages, "checkouts", pin.get("subpath") or package)
         if not os.path.isdir(checkout):
             fail(f"{package} is pinned in Package.resolved but has no checkout under {source_packages}")
         found = license_files(checkout)
@@ -253,6 +310,9 @@ def resolve_node_module(name, origin):
 def web_entries(project):
     """The shipped WebUI runtime dependencies, including transitive packages."""
     root = os.path.join(project, "WebUI")
+    # the iOS 12 port ships no web interface
+    if not os.path.isdir(root):
+        return []
     manifest = json.load(open(os.path.join(root, "package.json"), encoding="utf-8"))
     entries = []
     seen = set()
@@ -307,6 +367,7 @@ def main():
     entries = [app]
     entries += copied_entries(arguments.project, app["url"])
     entries += local_entries(arguments.project, app["url"])
+    entries += vendor_entries(arguments.project, app["url"])
     entries += package_entries(arguments.project, source_packages)
     entries += web_entries(arguments.project)
 
