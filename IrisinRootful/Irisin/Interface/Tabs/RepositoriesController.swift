@@ -39,6 +39,13 @@ class RepositoriesNavigator: UINavigationController {
             .store(in: &subscriptions)
     }
 
+    /// iOS 12 port: iOS 12's init(rootViewController:) calls this initializer
+    /// on the subclass, which a Swift subclass with its own designated
+    /// initializer does not inherit: it trapped as unimplemented at launch.
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")

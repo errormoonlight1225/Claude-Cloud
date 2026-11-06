@@ -52,6 +52,13 @@ final class LicenseController: UITableViewController {
         super.init(style: .compatInsetGrouped)
     }
 
+    /// iOS 12 port: iOS 12's UIKit calls this initializer on the subclass from
+    /// its own init(style:) / init(collectionViewLayout:), and a Swift
+    /// subclass with its own designated initializer does not inherit it.
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+    }
+
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError()

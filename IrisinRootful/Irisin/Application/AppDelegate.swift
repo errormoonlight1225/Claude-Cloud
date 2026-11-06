@@ -27,6 +27,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _: UIApplication,
         willFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        // iOS 12 port: the controllers whose stored properties keep them
+        // from overriding init(nibName:bundle:) themselves (LegacyCompat)
+        LegacyReentrantInit.inheritNibInitializer([
+            PackageVersionPickerController.self,
+            PathListController.self,
+            EmptyRepositoriesController.self,
+            RepositoryAddController.self,
+        ])
         AppEnvironment.prepare()
         return true
     }
