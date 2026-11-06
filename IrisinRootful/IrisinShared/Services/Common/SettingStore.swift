@@ -8,6 +8,7 @@
 
 import AptRepository
 import Foundation
+import LegacyCompat
 
 /// One file per key under a directory `main.swift` picks before anything reads
 /// a value. Not UserDefaults: the app is installed by dpkg into a jailbreak
@@ -88,10 +89,10 @@ final nonisolated class Stored<Value: Codable & Sendable>: @unchecked Sendable {
 
     private static func readDisk(key: String) -> Value? {
         guard let data = SettingStore().read(key: key) else { return nil }
-        return try? JSONDecoder().decode(Value.self, from: data)
+        return LegacyJSON.decode(Value.self, from: data)
     }
 
     private func writeDisk(_ newValue: Value) {
-        SettingStore().write(key: key, value: try? JSONEncoder().encode(newValue))
+        SettingStore().write(key: key, value: LegacyJSON.encode(newValue))
     }
 }

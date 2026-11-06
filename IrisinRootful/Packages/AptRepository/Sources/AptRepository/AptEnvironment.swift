@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import LegacyCompat
 
 // MARK: - Seams
 
@@ -138,12 +139,12 @@ public final class AptSetting<Value: Codable & Sendable> {
         get { value }
         set {
             value = newValue
-            AptEnvironment.current.storage.write(key: key, value: try? JSONEncoder().encode(newValue))
+            AptEnvironment.current.storage.write(key: key, value: LegacyJSON.encode(newValue))
         }
     }
 
     private static func readDisk(key: String) -> Value? {
         guard let data = AptEnvironment.current.storage.read(key: key) else { return nil }
-        return try? JSONDecoder().decode(Value.self, from: data)
+        return LegacyJSON.decode(Value.self, from: data)
     }
 }

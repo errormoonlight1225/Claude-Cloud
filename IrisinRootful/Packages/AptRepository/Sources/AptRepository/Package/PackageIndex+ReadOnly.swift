@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import LegacyCompat
 
 /// Why another process's catalogue was not opened: one of its files is not
 /// there, is not a file, or belongs to someone else.
@@ -56,7 +57,7 @@ public extension PackageIndex {
     /// it in: what a process without `PackageCenter` sets before it solves.
     mutating func restoreUpdatePreferences(from storage: any AptStorage) {
         func value<Value: Decodable>(_ key: String, _ fallback: Value) -> Value {
-            storage.read(key: key).flatMap { try? JSONDecoder().decode(Value.self, from: $0) } ?? fallback
+            storage.read(key: key).flatMap { LegacyJSON.decode(Value.self, from: $0) } ?? fallback
         }
         blockedUpdateTable = value(UpdatePreferenceKey.blockedUpdates, [])
     }
