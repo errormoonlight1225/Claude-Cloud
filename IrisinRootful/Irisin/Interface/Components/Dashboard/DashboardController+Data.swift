@@ -30,7 +30,7 @@ extension DashboardController {
 
     func reload(
         animated: Bool,
-        load: () -> [DashboardController.Section] = DashboardController.sections
+        load: @escaping () -> [DashboardController.Section] = DashboardController.sections
     ) {
         let requestID = UUID()
         reloadID = requestID

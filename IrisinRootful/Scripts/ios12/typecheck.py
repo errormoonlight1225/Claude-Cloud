@@ -169,11 +169,31 @@ def check(module, common):
         stub.write_text("import Foundation\nextension Foundation.Bundle {\n"
                         "    static let module: Bundle = .main\n}\n")
         extra.append(stub)
+    # Xcode generates a UIImage member for every image set in an asset
+    # catalogue; stand-ins so the check gets past them to the SIL passes.
+    catalogues = [c for src in module["sources"] for c in Path(src).rglob("*.xcassets")]
+    if catalogues:
+        names = sorted({i.stem for c in catalogues for i in c.rglob("*.imageset")})
+        members = []
+        for name in names:
+            words = [w for w in re.split(r"[^0-9A-Za-z]+", name) if w]
+            member = words[0][:1].lower() + words[0][1:] + "".join(w[:1].upper() + w[1:] for w in words[1:])
+            members.append(f"    static var {member}: UIImage {{ UIImage() }}\n")
+        stub = OUT / "stubs" / f"{module['name']}_assets.swift"
+        stub.parent.mkdir(parents=True, exist_ok=True)
+        stub.write_text("import UIKit\nextension UIImage {\n" + "".join(members) + "}\n")
+        extra.append(stub)
     cmd = [SWIFTC, "-wmo", "-swift-version", "5", "-emit-module",
            "-emit-module-path", str(OUT / "modules" / f"{module['name']}.swiftmodule"),
            "-module-name", module["name"], "-I", str(OUT / "modules"),
            "-Xfrontend", "-enable-upcoming-feature", "-Xfrontend", "ConciseMagicFile",
            *common, *module["flags"]]
+    # SIL=1: also run the mandatory SIL passes, whose diagnostics (escaping
+    # captures, use before declaration, definite initialization) a type
+    # check alone does not report but Xcode's compile does.
+    if os.environ.get("SIL"):
+        cmd += ["-emit-sil", "-o", str(OUT / "sil" / f"{module['name']}.sil")]
+        (OUT / "sil").mkdir(parents=True, exist_ok=True)
     if not (module["executable"] and any(f.name == "main.swift" for f in files)):
         cmd.append("-parse-as-library")
     cmd += [str(f) for f in files + extra]

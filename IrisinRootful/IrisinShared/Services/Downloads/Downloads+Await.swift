@@ -17,7 +17,7 @@ extension Downloads {
         while !LegacyTask.isCancelled, DispatchQueue.main.sync(execute: { PackageQueue.shared.plan?.id }) == plan {
             let (statuses, downloading) = DispatchQueue.main.sync { () -> ([(package: Package, status: Status?)], Set<URL>) in
                 let statuses = packages.map { (package: $0, status: status(for: $0.obtainDownloadLink())) }
-                let downloading = Set(packages.map { $0.obtainDownloadLink() }.filter { isDownloading($0) })
+                let downloading = Set(packages.map { $0.obtainDownloadLink() }.filter { self.isDownloading($0) })
                 return (statuses, downloading)
             }
             func isDownloading(_ url: URL) -> Bool { downloading.contains(url) }
