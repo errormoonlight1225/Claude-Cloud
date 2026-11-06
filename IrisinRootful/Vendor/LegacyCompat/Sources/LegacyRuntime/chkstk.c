@@ -9,11 +9,13 @@
 // an allocation larger than the guard page faults on it; these allocations
 // are a few hundred bytes, inside the page the stack already has, so the
 // copy returns at once and changes no register, as the caller requires.
+//
+// A plain global: Xcode prelinks each package target with `clang -r`, which
+// turns a private extern into a local the other objects cannot bind to.
 #if defined(__APPLE__) && defined(__aarch64__)
 __asm__(
     ".text\n"
     ".globl ___chkstk_darwin\n"
-    ".private_extern ___chkstk_darwin\n"
     ".p2align 2\n"
     "___chkstk_darwin:\n"
     "    ret\n");
