@@ -47,6 +47,8 @@ let package = Package(
                 "LRUCache",
                 .product(name: "OpenCombine", package: "OpenCombine"),
                 .product(name: "OpenCombineDispatch", package: "OpenCombine"),
+                // the app's publishers on timers and notifications
+                .product(name: "OpenCombineFoundation", package: "OpenCombine"),
                 .product(name: "LegacyCompat", package: "LegacyCompat"),
                 .product(name: "LegacyCrypto", package: "LegacyCompat"),
             ]

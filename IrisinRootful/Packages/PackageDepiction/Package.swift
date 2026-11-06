@@ -18,6 +18,7 @@ let package = Package(
         .package(path: "../MarkdownView"),
         .package(path: "../../Vendor/SnapKit"),
         .package(url: "https://github.com/devxoul/Then", from: "3.0.0"),
+        .package(path: "../../Vendor/LegacyCompat"),
     ],
     targets: [
         .target(
@@ -27,6 +28,7 @@ let package = Package(
                 "MarkdownView",
                 "SnapKit",
                 "Then",
+                .product(name: "LegacyCompat", package: "LegacyCompat"),
             ]
         ),
     ]

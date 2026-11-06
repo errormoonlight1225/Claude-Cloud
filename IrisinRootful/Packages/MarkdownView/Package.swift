@@ -18,6 +18,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections", from: "1.7.3"),
         .package(url: "https://github.com/swiftlang/swift-cmark", from: "0.9.0"),
         .package(path: "../../Vendor/LRUCache"),
+        .package(path: "../../Vendor/OpenCombine"),
+        .package(path: "../../Vendor/LegacyCompat"),
     ],
     targets: [
         .target(
@@ -27,6 +29,9 @@ let package = Package(
                 "MarkdownParser",
                 "LRUCache",
                 .product(name: "DequeModule", package: "swift-collections"),
+                .product(name: "OpenCombine", package: "OpenCombine"),
+                .product(name: "OpenCombineDispatch", package: "OpenCombine"),
+                .product(name: "LegacyCompat", package: "LegacyCompat"),
             ]
         ),
         .target(

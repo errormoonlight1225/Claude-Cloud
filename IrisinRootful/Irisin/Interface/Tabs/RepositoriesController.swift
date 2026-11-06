@@ -15,7 +15,6 @@ import Dog
 import SPIndicator
 import Then
 import UIKit
-import UniformTypeIdentifiers
 
 class RepositoriesNavigator: UINavigationController {
     private var subscriptions = Set<AnyCancellable>()
