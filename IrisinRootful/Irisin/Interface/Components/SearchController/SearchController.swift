@@ -20,7 +20,7 @@ class SearchController: UITableViewController {
         hostedSearchController ?? ownSearchController
     }
 
-    private lazy var ownSearchController = UISearchController()
+    private lazy var ownSearchController = UISearchController(searchResultsController: nil)
     /// Weak: it owns this controller as its results.
     private weak var hostedSearchController: UISearchController?
 

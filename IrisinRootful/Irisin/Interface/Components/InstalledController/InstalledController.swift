@@ -97,7 +97,7 @@ class InstalledController: UICollectionViewController {
 
     // MARK: - PROPERTY
 
-    let searchController = UISearchController()
+    let searchController = UISearchController(searchResultsController: nil)
     let cellId = UUID().uuidString
     let headerId = UUID().uuidString
 

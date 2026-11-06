@@ -63,7 +63,7 @@ class RepositoriesController: UIViewController {
 
     private let footer = ListFootnoteView()
 
-    let searchController = UISearchController()
+    let searchController = UISearchController(searchResultsController: nil)
     private let emptyStateLabel = EmptyStateView(
         text: String(legacyLocalized: "No repositories match the search.")
     )
