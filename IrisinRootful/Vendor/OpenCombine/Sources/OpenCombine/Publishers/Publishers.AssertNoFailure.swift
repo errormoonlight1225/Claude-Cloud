@@ -41,12 +41,12 @@ extension Publisher {
     ///
     /// - Parameters:
     ///   - prefix: A string used at the beginning of the fatal error message.
-    ///   - file: A filename used in the error message. This defaults to `#file`.
+    ///   - file: A filename used in the error message. This defaults to `#fileID`.
     ///   - line: A line number used in the error message. This defaults to `#line`.
     /// - Returns: A publisher that raises a fatal error when its upstream publisher
     ///   fails.
     public func assertNoFailure(_ prefix: String = "",
-                                file: StaticString = #file,
+                                file: StaticString = #fileID,
                                 line: UInt = #line) -> Publishers.AssertNoFailure<Self> {
         return .init(upstream: self, prefix: prefix, file: file, line: line)
     }

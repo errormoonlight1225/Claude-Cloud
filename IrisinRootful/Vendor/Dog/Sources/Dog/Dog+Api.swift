@@ -153,8 +153,8 @@ public extension Dog {
             .joined()
             #if DEBUG
                 // double check
-                assert(!name.contains(" "), "\(#file) \(#line) invalid log file name: \(name)")
-                assert(name.count == cLogFilenameLenth, "\(#file) \(#line) invalid log file name: \(name)")
+                assert(!name.contains(" "), "\(#fileID) \(#line) invalid log file name: \(name)")
+                assert(name.count == cLogFilenameLenth, "\(#fileID) \(#line) invalid log file name: \(name)")
             #endif
             logFileLocation = storeLocationDir.appendingPathComponent(name)
             // for very edge case, we handle this

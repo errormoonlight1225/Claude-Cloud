@@ -658,14 +658,14 @@ extension Publishers.TryCatch {
     }
 }
 
-private func completionBeforeSubscription(file: StaticString = #file,
+private func completionBeforeSubscription(file: StaticString = #fileID,
                                           line: UInt = #line) -> Never {
     fatalError("Unexpected state: received completion but do not have subscription",
                file: file,
                line: line)
 }
 
-private func requestBeforeSubscription(file: StaticString = #file,
+private func requestBeforeSubscription(file: StaticString = #fileID,
                                        line: UInt = #line) -> Never {
     fatalError("Unexpected state: request before subscription sent",
                file: file,
