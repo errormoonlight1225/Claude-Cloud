@@ -148,6 +148,7 @@ jobs:
           cp control "$root/DEBIAN/"
           dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/FilaSwitzach.deb >/dev/null
           dpkg-deb -c ../build/FilaSwitzach.deb
+          ./repack-fila.sh 0.8.4 ../build/Fila_switzach.deb
 
       - name: Upload deb artifacts
         uses: actions/upload-artifact@v4
@@ -162,7 +163,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          FILES="build/ExitKey_arm64e.deb build/IrisinSwitzachFix.deb build/FilaSwitzach.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa"
+          FILES="build/ExitKey_arm64e.deb build/IrisinSwitzachFix.deb build/FilaSwitzach.deb build/Fila_switzach.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa"
           NOTES="悬浮退出键 + Irisin/Switzach 修复，自动编译自 ${{ github.sha }}。"
           # 先尝试删除旧 release（GitHub 偶发 500，重试几次）
           for i in 1 2 3; do
