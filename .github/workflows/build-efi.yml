@@ -1,10 +1,13 @@
 name: build-efi
 
 # Builds an OpenCore EFI (own serials) + NootedGreen/HookCase kexts from
-# JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe on a macOS runner.
-# NOTE: this is a starting point for YOUR machine, not a finished EFI: ACPI, USB map and
+# JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe on a macOS runner, then assembles a
+# bootable USB image (OpenCore EFI + macOS Recovery downloaded from Apple) on a Linux runner.
+# The image is a raw GPT/FAT32 disk image: write it to a USB stick with Rufus (DD mode) or
+# balenaEtcher, then boot the stick from the BIOS/UEFI boot menu.
+# NOTE: the EFI is a starting point for YOUR machine, not a finished one: ACPI, USB map and
 # input kexts of the Xiaomi laptop still have to be adapted by hand.
-# Use a PRIVATE repo: the artifact contains your SMBIOS serials.
+# Use a PRIVATE repo: the artifacts contain your SMBIOS serials.
 
 on:
   workflow_dispatch:
@@ -52,11 +55,17 @@ jobs:
       - name: Validate with ocvalidate
         working-directory: upstream
         run: |
-          OC=build/deps/OpenCore-1.0.8
           curl -fL -o oc-full.zip https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip
           unzip -q oc-full.zip -d oc-full
           chmod +x oc-full/Utilities/ocvalidate/ocvalidate
           oc-full/Utilities/ocvalidate/ocvalidate dist/EFI/OC/config.plist || true
+
+      - name: Make install variant (acceleration off)
+        working-directory: upstream
+        run: |
+          rm -rf dist/EFI-install
+          ditto dist/EFI dist/EFI-install
+          cp dist/EFI-install/OC/config-install.plist dist/EFI-install/OC/config.plist
 
       - name: Package
         working-directory: upstream
@@ -73,3 +82,59 @@ jobs:
             upstream/NootedGreen.kext.zip
             upstream/HookCase.kext.zip
           retention-days: 3
+
+      # Handed to the Linux job that builds the USB image (zip-less copy of the install EFI).
+      - name: Pack install EFI for the image job
+        working-directory: upstream
+        run: tar -C dist -cf EFI-install.tar EFI-install
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: efi-install-tar
+          path: upstream/EFI-install.tar
+          retention-days: 1
+
+  image:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: efi-install-tar
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y gdisk dosfstools mtools python3
+
+      - name: Download macOS Recovery from Apple (macrecovery)
+        run: |
+          curl -fL -o oc.zip https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip
+          unzip -q oc.zip 'Utilities/macrecovery/*' -d oc
+          mkdir -p recovery && cd recovery
+          python3 ../oc/Utilities/macrecovery/macrecovery.py \
+            -b Mac-7BA5B2D9E42DDD94 -m 00000000000000000 download -os latest
+          ls -lh com.apple.recovery.boot
+
+      - name: Assemble bootable image
+        run: |
+          tar -xf EFI-install.tar
+          # recovery payload + install EFI on a GPT disk with one FAT32 partition
+          SIZE_MB=$(( $(du -sm recovery/com.apple.recovery.boot | cut -f1) + $(du -sm EFI-install | cut -f1) + 512 ))
+          truncate -s ${SIZE_MB}M OpenCore-macOS-USB.img
+          sgdisk -o -n 1:2048:0 -t 1:EF00 -c 1:OPENCORE OpenCore-macOS-USB.img
+          mkfs.vfat -F32 -n OPENCORE --offset 2048 OpenCore-macOS-USB.img
+          mmd   -i OpenCore-macOS-USB.img@@1M ::EFI
+          mcopy -s -i OpenCore-macOS-USB.img@@1M EFI-install/BOOT EFI-install/OC ::EFI/
+          mcopy -s -i OpenCore-macOS-USB.img@@1M recovery/com.apple.recovery.boot ::
+          mdir  -i OpenCore-macOS-USB.img@@1M ::
+          # same bytes under a .iso name: Rufus must be told to use DD Image mode either way
+          cp OpenCore-macOS-USB.img OpenCore-macOS-USB.iso
+          ls -lh OpenCore-macOS-USB.*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usb-image
+          path: |
+            OpenCore-macOS-USB.img
+            OpenCore-macOS-USB.iso
+          retention-days: 3
+          compression-level: 9
