@@ -170,7 +170,11 @@ final class OperationController: UIViewController, UITableViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = String(legacyLocalized: "Installing")
+        // a transaction that only removes says so; anything that installs
+        // or upgrades is Installing, as before
+        title = operation.plan.install.isEmpty && !operation.plan.remove.isEmpty
+            ? String(legacyLocalized: "Removing")
+            : String(legacyLocalized: "Installing")
         if #available(iOS 13.0, *) { isModalInPresentation = true }
         if #available(iOS 13.0, *) { navigationController?.isModalInPresentation = true }
         navigationItem.largeTitleDisplayMode = .always
