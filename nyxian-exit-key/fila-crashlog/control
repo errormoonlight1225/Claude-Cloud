@@ -1,0 +1,9 @@
+Package: com.exitkey.filacrashlog
+Name: Fila Crash Log
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Description: Writes why Fila quits to /var/mobile/fila-crash.log (diagnostic).
+Maintainer: ExitKey
+Author: ExitKey
+Section: Tweaks
+Depends: wiki.qaq.fila
