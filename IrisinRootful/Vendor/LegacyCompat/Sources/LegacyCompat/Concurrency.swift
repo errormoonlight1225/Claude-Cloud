@@ -622,13 +622,15 @@ public final class LegacyMainTask: @unchecked Sendable {
         }
     }
 
-    /// Waits at most `budget` seconds for the body, turning the main run
-    /// loop: a page's first load lands with the page when it is quick.
-    public func wait(upTo budget: TimeInterval) {
-        guard Thread.isMainThread else { return }
-        let deadline = Date(timeIntervalSinceNow: budget)
-        while !finished, Date() < deadline { LegacyRunLoop.turn() }
-    }
+    /// Returns at once: the page comes up with its loading state, and the
+    /// body fills it in when it is done.
+    ///
+    /// It used to turn the main run loop for at most `budget` seconds, so a
+    /// quick first load landed with the page. But the turn ran the body
+    /// itself, and the body's `awaitBackground` turned the loop until its
+    /// background work was done, whatever the budget: on an iPhone 6 the
+    /// queue sheet came up only once the whole solve had finished.
+    public func wait(upTo _: TimeInterval) {}
 
     /// Runs `handler` on the main thread once the body has returned.
     public func whenFinished(_ handler: @escaping () -> Void) {

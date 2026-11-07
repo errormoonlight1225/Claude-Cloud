@@ -137,19 +137,19 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     /// show: its report is the sheet, and closing the report closes it.
     /// Under `takesPlainChanges` the wait is longer, since an answer that
     /// needs no sheet shows none.
+    ///
+    /// iOS 12 port: the solve cannot be waited for a bounded while
+    /// (`LegacyMainTask.wait`), so the sheet comes up at once with its
+    /// spinner. Under `takesPlainChanges` an answer that needs no sheet is
+    /// taken when it arrives, and the sheet closes itself again.
     static func show(_ request: Request, from host: UIViewController) {
         let controller = QueueChangeController(request: request)
-        if takesPlainChanges {
-            controller.prepare(within: 1)
-            if (controller.takeIfPlain()) { return }
-        } else {
-            controller.prepare(within: 0.2)
-        }
-        let root = controller.failure.map {
-            report(of: $0, alone: true, recoveryPackage: controller.recoveryPackage, recoveryRemoval: controller.recoveryRemoval)
-        } ?? controller
-        host.present(UINavigationController.halfSheet(root: root), animated: true)
+        controller.takesPlainAnswer = takesPlainChanges
+        host.present(UINavigationController.halfSheet(root: controller), animated: true)
     }
+
+    /// The first answer is taken without the sheet when it is plain.
+    private var takesPlainAnswer = false
 
     /// `alone` when the report is all the sheet holds, and so closes it.
     private static func report(
@@ -205,10 +205,6 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError()
-    }
-
-    private func prepare(within budget: TimeInterval) {
-        work?.wait(upTo: budget)
     }
 
     override func viewDidLoad() {
@@ -318,6 +314,14 @@ final class QueueChangeController: UIViewController, UITableViewDelegate {
                         Self.report(of: failure, alone: false),
                         animated: true
                     )
+                }
+            }
+            // iOS 12 port: what `show` used to wait for before presenting
+            if takesPlainAnswer {
+                takesPlainAnswer = false
+                if takeIfPlain() {
+                    dismiss(animated: true)
+                    return
                 }
             }
             if isViewLoaded {
