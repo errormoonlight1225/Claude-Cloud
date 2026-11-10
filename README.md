@@ -29,7 +29,7 @@ commit the kernel is built from).
 On GitHub: every push builds `rom.zip` on a macOS runner (Actions > Build ROM >
 artifact `rom`). Set these once under Settings > Secrets and variables > Actions:
 
-- variable `ROM_IDENTIFIER`: your `NXRomIdentifier`, e.g. `com.yourname.rootless`
+- variable `ROM_IDENTIFIER` (optional): overrides the `NXRomIdentifier` in `rom.conf`
 - secret `ROM_SIGNING_KEY`: the contents of your private key (`rom.key.pem`)
 
 Without the secret the ROM is signed with a throwaway key: it proves the build
