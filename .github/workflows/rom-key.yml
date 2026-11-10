@@ -1,0 +1,84 @@
+name: ROM key
+
+# For when there is no computer at hand to run RomGen.py on. Only use this in a
+# private repository: the new private key is handed over as a build artifact.
+#
+#   genkey  makes a key pair. The public key is in the run's summary; the private
+#           key is the artifact "rom-key" (kept one day): put its contents in the
+#           secret ROM_SIGNING_KEY, then delete the artifact.
+#   public  shows the public key of ROM_SIGNING_KEY again.
+#   prove   signs the code the Developer Portal shows with ROM_SIGNING_KEY.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [genkey, public, prove]
+        required: true
+      code:
+        description: The code the Developer Portal shows (for prove)
+        required: false
+  push:
+    paths: [.github/workflows/rom-key.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  key:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      ACTION: ${{ inputs.action }}
+      CODE: ${{ inputs.code }}
+      KEY: ${{ secrets.ROM_SIGNING_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse in a public repository
+        if: github.event.repository.private != true
+        run: |
+          echo "This workflow hands out a private key and only runs in a private repository." >&2
+          exit 1
+
+      - name: Run
+        run: |
+          scripts/build.sh fetch
+          romgen() { python3 -I .build/nyxian/RomGen.py "$@"; }
+          umask 077
+          mkdir -p "$RUNNER_TEMP/key"
+          key=$RUNNER_TEMP/key/rom.key.pem
+          if [ "$ACTION" = genkey ]; then
+            if [ -n "$KEY" ]; then
+              echo "ROM_SIGNING_KEY is set already. Delete the secret first if you really want a new key." >&2
+              exit 1
+            fi
+            romgen genkey --name rom --out "$RUNNER_TEMP/key" > /dev/null
+            echo "NEW_KEY=$key" >> "$GITHUB_ENV"
+          else
+            [ -n "$KEY" ] || { echo "The secret ROM_SIGNING_KEY is not set." >&2; exit 1; }
+            printf '%s\n' "$KEY" > "$key"
+          fi
+          {
+            echo '### Public key (paste this into the Developer Portal)'
+            echo '```'
+            romgen public "$key"
+            echo '```'
+            if [ "$ACTION" = prove ]; then
+              [ -n "$CODE" ] || { echo "prove needs the code the portal shows." >&2; exit 1; }
+              echo '### Proof (paste this line into the Developer Portal)'
+              echo '```'
+              romgen prove --key "$key" "$CODE"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: env.NEW_KEY != ''
+        with:
+          name: rom-key
+          path: ${{ env.NEW_KEY }}
+          retention-days: 1
+          if-no-files-found: error

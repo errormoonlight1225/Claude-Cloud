@@ -3,6 +3,7 @@
 #
 #   scripts/build.sh            the whole build (macOS with Xcode)
 #   scripts/build.sh generate   stop after the template (.build/rom), works on any OS
+#   scripts/build.sh fetch      only fetch Nyxian (.build/nyxian, with RomGen.py)
 #
 # ROM_SIGNING_KEY: your private ROM key (NAME.key.pem). Without it the ROM is signed
 # with a throwaway key: it builds and verifies, but Nyxian will not boot it until
@@ -24,6 +25,7 @@ if [ "$(git -C "$nyxian" rev-parse HEAD 2>/dev/null || true)" != "$NYXIAN_REF" ]
     git -C "$nyxian" checkout -q FETCH_HEAD
 fi
 romgen() { python3 -I "$nyxian/RomGen.py" "$@"; }
+[ "$stage" = fetch ] && exit 0
 
 key=${ROM_SIGNING_KEY:-}
 if [ -z "$key" ]; then
