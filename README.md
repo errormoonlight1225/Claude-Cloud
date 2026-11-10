@@ -54,6 +54,17 @@ it needs Python 3 and `openssl`, on any OS.
    page of the portal ("Signed releases"). Devices then get an install ticket
    for it when they flash, which needs an internet connection.
 
+### Without a registered key
+
+Nyxian reads `NXBootPolicy.plist` from its own app bundle; NyxLoader writes it
+when it installs Nyxian, from NyxLoader's settings. With `NXTrustStoreValidation`
+off, ROMs flash that no TrustStore key signed; with `NXTSSValidation` off, they
+flash and boot without an install ticket. If your Nyxian was installed that way,
+steps 2 to 4 are not needed. Still keep one key of your own in `ROM_SIGNING_KEY`
+rather than the throwaway one, so every build is signed by the same key.
+Changing the policy means installing Nyxian again with NyxLoader (over the
+existing install, not after deleting it).
+
 ## Releases and recovery
 
 - Raise `ROM_SECURITY_VERSION` in `rom.conf` for every build you flash. Nyxian

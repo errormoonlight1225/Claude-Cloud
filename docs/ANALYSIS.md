@@ -200,3 +200,30 @@
 4. SpringBoard、uicache、Sileo/Zebra。
 
 每一步交付：源码、CI 产物、你在真机上执行的测试步骤。
+
+---
+
+## 7. 补充（2026-11-10）：对照 Fluxer 上的 0.12.0 安装包
+
+你给的 `Nyxian.ipa` 是 0.12.0，构建号 `20261106.10.RELEASE`。它在 `Shared/kernel/` 里带了
+1617 个头文件，我拿它们和源码逐个比对：
+
+- 和 0.12.1 源码树（`02947af` 及之后）只有 7 个头文件不同，全部在 `LindChain/Utils/`
+  （`NXROMFileHash.h`、`NXBootPolicy.h`、`NXROMTicket.h`、`NXTrustStore.h`、
+  `NXROMDeviceTrust.h`、`NXROMTrust.h`、`NXDeviceIdentity.h`），是 bootloader 一侧的文件；
+  差别是注释，外加一个函数声明（`NXROMDeviceVerifyOTAExecutable`）。
+- `ProcEnvironment` 下所有头文件、`ksurface_abi.h`、`NXLiveProcessABI.h` 完全一致。
+
+所以用 0.12.1 源码编 ROM 内核、声明最低版本 0.12.0 是合理的。
+这只说明接口声明一致；实现文件我比不了（安装包里只有编译产物），能否启动仍以真机为准。
+
+两处更正前文：
+
+1. **设备身份**（更正第 6 节）：安装包头文件的注释写明来源有三种——
+   `bundle`（NyxLoader 写进 App 包）、`container`（之前保存在容器里的）、
+   `volume`（由数据卷 APFS UUID 算出，用于不是 NyxLoader 安装的版本）。
+2. **不一定要注册密钥**（补充第 1 节）：`NXBootPolicy.plist` 由 NyxLoader 在安装 Nyxian 时
+   按它自己的设置写进 App 包。`NXTrustStoreValidation = false` 时，没有 TrustStore 密钥签名的
+   ROM 也能刷；`NXTSSValidation = false` 时，不需要安装票据。文件列表校验、设备封印、
+   防降级仍然生效（`Nyxian/LindChain/Utils/NXBootPolicy.m`，`NXROMTrust.m:124-141`）。
+   你给的安装包里没有这个文件（它是安装时才写入的），所以你的设备上是哪种设置，我不知道。
