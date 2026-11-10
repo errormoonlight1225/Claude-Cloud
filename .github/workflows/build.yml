@@ -1,0 +1,38 @@
+name: Build ROM
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rom:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Signing key
+        env:
+          KEY: ${{ secrets.ROM_SIGNING_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            umask 077
+            printf '%s\n' "$KEY" > "$RUNNER_TEMP/rom.key.pem"
+            echo "ROM_SIGNING_KEY=$RUNNER_TEMP/rom.key.pem" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        env:
+          ROM_IDENTIFIER: ${{ vars.ROM_IDENTIFIER }}
+        run: |
+          [ -n "$ROM_IDENTIFIER" ] || unset ROM_IDENTIFIER
+          scripts/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rom
+          path: out/rom.zip
+          if-no-files-found: error
