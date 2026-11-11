@@ -14,6 +14,10 @@
 #include <objc/message.h>
 #include <objc/runtime.h>
 #include <string.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <mach-o/dyld.h>
 
 static id fila_undefined_key(id self, SEL _cmd, NSString *key)
 {
@@ -57,12 +61,43 @@ static void patch(const char *name)
     class_addMethod(cls, @selector(forwardInvocation:), (IMP)fix_forward, "v@:@");
 }
 
+/* NSObject 的 valueForUndefinedKey: 换成：LS*Proxy/Record 返回 nil，其它照旧抛异常。
+   这样不管 Switzach 给的是哪个子类都能覆盖到。 */
+static IMP g_orig_undefined;
+static Class g_ls_classes[8];
+static size_t g_ls_count;
+
+static id nsobject_undefined_key(id self, SEL _cmd, NSString *key)
+{
+    for (size_t i = 0; i < g_ls_count; i++)
+        if ([self isKindOfClass:g_ls_classes[i]]) return nil;
+    return ((id (*)(id, SEL, NSString *))g_orig_undefined)(self, _cmd, key);
+}
+
+static bool exe_is(const char *suffix)
+{
+    char exe[PATH_MAX];
+    uint32_t size = sizeof(exe);
+    if (_NSGetExecutablePath(exe, &size) != 0) return false;
+    size_t n = strlen(exe), m = strlen(suffix);
+    return n >= m && strcmp(exe + n - m, suffix) == 0;
+}
+
 __attribute__((constructor))
 static void fila_fix_init(void)
 {
-    NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
-    if (![bid isEqualToString:@"wiki.qaq.fila"] && ![bid isEqualToString:@"com.roothide.manager"]) return;
+    /* 不用 NSBundle（Nyxian 里此时可能还是宿主进程的 bundle），看可执行文件路径 */
+    if (!exe_is("/Fila.app/Fila") && !exe_is("/RootHide.app/RootHide")) return;
+
     const char *classes[] = { "LSApplicationProxy", "LSBundleProxy", "LSResourceProxy",
                               "LSPlugInKitProxy", "LSApplicationRecord", "LSBundleRecord" };
-    for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) patch(classes[i]);
+    for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
+        Class cls = objc_getClass(classes[i]);
+        if (cls && g_ls_count < 8) g_ls_classes[g_ls_count++] = cls;
+        patch(classes[i]);
+    }
+    Method m = class_getInstanceMethod([NSObject class], @selector(valueForUndefinedKey:));
+    if (m) g_orig_undefined = method_setImplementation(m, (IMP)nsobject_undefined_key);
+    fprintf(stderr, "[SwitzachAppFix] loaded, %zu LS classes, NSObject hook %s\n",
+            g_ls_count, g_orig_undefined ? "ok" : "FAILED");
 }
