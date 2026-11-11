@@ -1,0 +1,9 @@
+Package: com.exitkey.filafix
+Name: Fila Switzach Fix
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Description: Stops Fila from crashing on launch in Switzach (LSApplicationProxy KVC).
+Maintainer: ExitKey
+Author: ExitKey
+Section: Tweaks
+Depends: wiki.qaq.fila
