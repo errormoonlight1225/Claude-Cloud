@@ -165,7 +165,7 @@ jobs:
           mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries"
           cp out/FilaCrashLog.dylib FilaCrashLog.plist "$root/Library/MobileSubstrate/DynamicLibraries/"
           cp control "$root/DEBIAN/"
-          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/FilaCrashLog.deb build/FilaFix.deb >/dev/null
+          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/FilaCrashLog.deb >/dev/null
           dpkg-deb -c ../build/FilaCrashLog.deb
 
       - name: Build Fila Fix .deb
