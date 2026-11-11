@@ -77,26 +77,30 @@ static void fila_crashlog_init(void)
     uint32_t size = sizeof(exe);
     if (_NSGetExecutablePath(exe, &size) != 0) return;
     if (realpath(exe, root) == NULL) strlcpy(root, exe, sizeof(root));
+    /* <bootstrap>/Applications/X.app/X → 记下 X，根目录取 /Applications 之前 */
+    char *apps = strstr(root, "/Applications/");
+    if (!apps) return;
+    char name[64];
+    const char *base = strrchr(root, '/');
+    strlcpy(name, base ? base + 1 : "app", sizeof(name));
+    for (char *c = name; *c; c++) if (*c >= 'A' && *c <= 'Z') *c += 32;
+    *apps = '\0';
     size_t len = strlen(root);
-    const char *suffix = "/Applications/Fila.app/Fila";
-    if (len < strlen(suffix) || strcmp(root + len - strlen(suffix), suffix) != 0) return;
-    root[len - strlen(suffix)] = '\0';
-    len = strlen(root);
     const char *boot = "/opt/procursus";
     if (len >= strlen(boot) && strcmp(root + len - strlen(boot), boot) == 0) root[len - strlen(boot)] = '\0';
 
     char path[PATH_MAX];
-    snprintf(path, sizeof(path), "%s/var/mobile/fila-crash.log", root);
+    snprintf(path, sizeof(path), "%s/var/mobile/%s-crash.log", root, name);
     g_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     if (g_fd < 0) {
-        snprintf(path, sizeof(path), "%s/fila-crash.log", NSTemporaryDirectory().fileSystemRepresentation);
+        snprintf(path, sizeof(path), "%s/%s-crash.log", NSTemporaryDirectory().fileSystemRepresentation, name);
         g_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     }
     if (g_fd < 0) return;
 
     char head[256];
     time_t t = time(NULL);
-    snprintf(head, sizeof(head), "Fila crash log, pid %d, uid %d, %s", getpid(), getuid(), ctime(&t));
+    snprintf(head, sizeof(head), "crash log, pid %d, uid %d, %s", getpid(), getuid(), ctime(&t));
     put(head);
     put("exe: "); put(exe); put("\nhome: "); put(NSHomeDirectory().UTF8String); put("\n\n");
 

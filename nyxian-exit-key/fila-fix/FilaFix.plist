@@ -1,1 +1,1 @@
-{ Filter = { Bundles = ( "wiki.qaq.fila" ); }; }
+{ Filter = { Bundles = ( "wiki.qaq.fila", "com.roothide.manager" ); }; }
