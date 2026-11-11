@@ -1,6 +1,6 @@
 Package: com.exitkey.filafix
 Name: Switzach App Fix (Fila, RootHide Manager)
-Version: 1.2.0
+Version: 1.3.0
 Architecture: iphoneos-arm64e
 Description: Stops Fila and RootHide Manager from crashing on launch in Switzach (LSApplicationProxy KVC).
 Maintainer: ExitKey
