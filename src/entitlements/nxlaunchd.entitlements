@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Entitlements for a jailbroken rootless device. The supervisor needs to
+	     fork/exec, set credentials, and signal its children. On a Procursus
+	     rootless bootstrap these are the usual ones for a daemon; add others
+	     (e.g. platform-application) only if your bootstrap requires them. -->
+	<key>platform-application</key>
+	<true/>
+	<key>com.apple.private.security.no-container</key>
+	<true/>
+	<key>com.apple.private.persona-mgmt</key>
+	<true/>
+	<key>get-task-allow</key>
+	<true/>
+</dict>
+</plist>

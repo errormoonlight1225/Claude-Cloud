@@ -1,0 +1,29 @@
+name: Build launchd
+
+# Compiles nxlaunchd / nxlaunchctl for iOS arm64 with the iPhone SDK, so the
+# supervisor is checked by a real compiler without a device in the loop.
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - '.github/workflows/launchd.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for iOS arm64
+        run: make -C src ios
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nxlaunchd
+          path: |
+            src/build/nxlaunchd
+            src/build/nxlaunchctl
+          if-no-files-found: error
