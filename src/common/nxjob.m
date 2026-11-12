@@ -125,9 +125,10 @@ static NSString *const NXJobErrorDomain = @"NXJobError";
 
     // KeepAlive dictionary conditions take precedence when present.
     if (self.kaSuccessfulExit != nil || self.kaCrashed != nil) {
-        BOOL exited   = WIFEXITED(self.lastWaitStatus);
-        BOOL success  = exited && WEXITSTATUS(self.lastWaitStatus) == 0;
-        BOOL crashed  = WIFSIGNALED(self.lastWaitStatus);
+        int st = self.lastWaitStatus;  // W* macros take the address of their arg
+        BOOL exited   = WIFEXITED(st);
+        BOOL success  = exited && WEXITSTATUS(st) == 0;
+        BOOL crashed  = WIFSIGNALED(st);
         if (self.kaSuccessfulExit != nil) {
             // SuccessfulExit=YES: keep alive only if it exited 0; NO: only if nonzero.
             if (self.kaSuccessfulExit.boolValue)  return success;
@@ -152,8 +153,9 @@ static NSString *const NXJobErrorDomain = @"NXJobError";
         [NSString stringWithFormat:@"%d", self.pid] : @"-";
     NSString *last = @"-";
     if (self.hasExited) {
-        if (WIFEXITED(self.lastWaitStatus))      last = [NSString stringWithFormat:@"%d", WEXITSTATUS(self.lastWaitStatus)];
-        else if (WIFSIGNALED(self.lastWaitStatus)) last = [NSString stringWithFormat:@"-%d", WTERMSIG(self.lastWaitStatus)];
+        int st = self.lastWaitStatus;
+        if (WIFEXITED(st))        last = [NSString stringWithFormat:@"%d", WEXITSTATUS(st)];
+        else if (WIFSIGNALED(st)) last = [NSString stringWithFormat:@"-%d", WTERMSIG(st)];
     }
     return [NSString stringWithFormat:@"%-8@ %-8@ %@", pidStr, last, self.label];
 }
@@ -165,10 +167,11 @@ static NSString *const NXJobErrorDomain = @"NXJobError";
     [s appendFormat:@"\tstate = %@\n", @[@"unloaded",@"loaded",@"running",@"stopping"][self.state]];
     [s appendFormat:@"\tpid = %@\n", self.state == NXJobStateRunning ? @(self.pid) : @"-"];
     if (self.hasExited) {
-        if (WIFEXITED(self.lastWaitStatus))
-            [s appendFormat:@"\tlast exit code = %d\n", WEXITSTATUS(self.lastWaitStatus)];
-        else if (WIFSIGNALED(self.lastWaitStatus))
-            [s appendFormat:@"\tlast terminating signal = %d\n", WTERMSIG(self.lastWaitStatus)];
+        int st = self.lastWaitStatus;
+        if (WIFEXITED(st))
+            [s appendFormat:@"\tlast exit code = %d\n", WEXITSTATUS(st)];
+        else if (WIFSIGNALED(st))
+            [s appendFormat:@"\tlast terminating signal = %d\n", WTERMSIG(st)];
     }
     [s appendFormat:@"\tprogram = %@\n", self.program ?: self.programArguments.firstObject ?: @"?"];
     [s appendFormat:@"\targuments = %@\n", [self.programArguments componentsJoinedByString:@" "]];
