@@ -1,0 +1,9 @@
+Package: com.exitkey.filaswitzach
+Name: Fila Switzach Root
+Version: 1.0.0
+Architecture: iphoneos-arm64e
+Description: Fila 只显示 Switzach 容器里的文件系统：Fila 里的 "/" 就是 Switzach 的 "/"。
+Maintainer: ExitKey
+Author: ExitKey
+Section: Tweaks
+Depends: wiki.qaq.fila

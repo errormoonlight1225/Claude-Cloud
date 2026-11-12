@@ -1,0 +1,8 @@
+Package: com.exitkey.filacrashlog
+Name: Switzach Crash Log (Fila, RootHide Manager)
+Version: 1.1.0
+Architecture: iphoneos-arm64e
+Description: Writes why Fila / RootHide Manager quit to /var/mobile/<app>-crash.log (diagnostic).
+Maintainer: ExitKey
+Author: ExitKey
+Section: Tweaks

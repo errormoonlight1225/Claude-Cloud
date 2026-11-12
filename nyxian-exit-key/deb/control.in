@@ -1,0 +1,8 @@
+Package: com.exitkey.tweak
+Name: ExitKey
+Version: 1.1.1
+Architecture: @ARCH@
+Description: 悬浮退出键：在 App 里显示一个可拖动的 ✕，单击退出当前 App，回到桌面。
+Maintainer: errormoonlight1225
+Author: errormoonlight1225
+Section: Tweaks

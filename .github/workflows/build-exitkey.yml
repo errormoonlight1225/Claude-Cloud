@@ -1,0 +1,213 @@
+name: Build ExitKey (Nyxian KEXT)
+
+on:
+  push:
+    paths:
+      - "nyxian-exit-key/**"
+      - ".github/workflows/build-exitkey.yml"
+  pull_request:
+    paths:
+      - "nyxian-exit-key/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: nyxian-exit-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain info
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Compile (arm64, iOS 18+)
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcrun --sdk iphoneos clang \
+            -arch arm64 \
+            -mios-version-min=18.0 \
+            -fobjc-arc -fmodules -O2 \
+            -Wall -Wextra -Wno-unused-parameter -Werror=implicit-function-declaration \
+            -framework Foundation -framework UIKit \
+            -bundle -Wl,-undefined,dynamic_lookup \
+            -o build/ExitKey \
+            Main.m
+
+      - name: Verify binary
+        run: |
+          set -euo pipefail
+          file build/ExitKey
+          xcrun otool -hv build/ExitKey
+          # KEXT 描述结构必须存在，否则 Nyxian 的 KXLD 找不到模块
+          xcrun otool -l build/ExitKey | grep -A2 '__ksurfacemod'
+          xcrun nm -m build/ExitKey | grep -E 'ksurface_kext_info|EKController'
+
+      - name: Package .kext bundle
+        run: |
+          set -euo pipefail
+          KEXT="build/Payload/com.exitkey.nyxian.kext"
+          mkdir -p "$KEXT"
+          cp build/ExitKey "$KEXT/ExitKey"
+          cp Info.plist "$KEXT/Info.plist"
+          codesign --force --sign - "$KEXT/ExitKey"
+          codesign -dv "$KEXT/ExitKey" 2>&1 | head -5
+          # Nyxian 能导入 .ipa / .nipa，安装时在 Payload/ 里找 .kext
+          (cd build && zip -qry ExitKey.ipa Payload && cp ExitKey.ipa ExitKey.nipa)
+          unzip -l build/ExitKey.ipa
+          ls -la build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ExitKey
+          path: |
+            nyxian-exit-key/build/ExitKey.ipa
+            nyxian-exit-key/build/ExitKey.nipa
+            nyxian-exit-key/build/*.deb
+            nyxian-exit-key/Main.m
+          if-no-files-found: error
+
+      - name: Build tweak .deb (rootless + rootful)
+        working-directory: nyxian-exit-key/deb
+        run: |
+          set -euo pipefail
+          brew install dpkg >/dev/null
+          mkdir -p out
+          xcrun --sdk iphoneos clang \
+            -arch arm64 -arch arm64e \
+            -mios-version-min=15.0 \
+            -fobjc-arc -fmodules -O2 \
+            -Wall -Wextra -Wno-unused-parameter \
+            -framework Foundation -framework UIKit \
+            -dynamiclib -install_name @rpath/ExitKey.dylib \
+            -o out/ExitKey.dylib Tweak.m
+          codesign --force --sign - out/ExitKey.dylib
+          lipo -info out/ExitKey.dylib
+
+          build_deb() { # $1=arch $2=prefix $3=output name
+            local root="out/pkg-$1"
+            local dir="$root$2/Library/MobileSubstrate/DynamicLibraries"
+            mkdir -p "$dir" "$root/DEBIAN"
+            cp out/ExitKey.dylib ExitKey.plist "$dir/"
+            sed "s/@ARCH@/$1/" control.in > "$root/DEBIAN/control"
+            dpkg-deb -Zgzip --root-owner-group -b "$root" "out/$3" >/dev/null
+            dpkg-deb -c "out/$3"
+          }
+          build_deb iphoneos-arm64 /var/jb ExitKey_rootless.deb
+          build_deb iphoneos-arm   ""      ExitKey_rootful.deb
+          build_deb iphoneos-arm64e ""     ExitKey_arm64e.deb
+          cp out/*.deb ../build/
+
+      - name: Build Irisin fix .deb
+        working-directory: nyxian-exit-key/irisin-fix
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          CC="xcrun --sdk iphoneos clang"
+          FLAGS="-mios-version-min=15.0 -O2 -Wall -Wextra -Wno-unused-parameter -fblocks"
+          # 注入 Irisin 的 dylib（arm64 + arm64e）
+          $CC -arch arm64 -arch arm64e $FLAGS -fno-objc-arc -dynamiclib \
+            -framework Foundation -framework UIKit \
+            -install_name @rpath/IrisinSwitzach.dylib \
+            -Wl,-undefined,dynamic_lookup \
+            -o out/IrisinSwitzach.dylib IrisinSwitzach.m
+          codesign --force --sign - out/IrisinSwitzach.dylib
+          xcrun nm -u out/IrisinSwitzach.dylib | grep -E 'xpc|MSHook' || true
+
+          root=out/pkg
+          mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries"
+          cp out/IrisinSwitzach.dylib IrisinSwitzach.plist "$root/Library/MobileSubstrate/DynamicLibraries/"
+          cp control postinst triggers "$root/DEBIAN/"
+          chmod 755 "$root/DEBIAN/postinst"
+          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/IrisinSwitzachFix.deb >/dev/null
+          dpkg-deb -I ../build/IrisinSwitzachFix.deb
+          dpkg-deb -c ../build/IrisinSwitzachFix.deb
+
+      - name: Build Fila Switzach .deb
+        working-directory: nyxian-exit-key/fila-jail
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          xcrun --sdk iphoneos clang -arch arm64 -arch arm64e \
+            -mios-version-min=15.0 -O2 -Wall -Wextra -Wno-unused-parameter \
+            -fobjc-arc -framework Foundation -dynamiclib \
+            -install_name @rpath/FilaSwitzach.dylib \
+            -o out/FilaSwitzach.dylib FilaSwitzach.m
+          codesign --force --sign - out/FilaSwitzach.dylib
+          xcrun nm -u out/FilaSwitzach.dylib | grep -E 'opendir|NSSearchPath'
+          root=out/pkg
+          mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries"
+          cp out/FilaSwitzach.dylib FilaSwitzach.plist "$root/Library/MobileSubstrate/DynamicLibraries/"
+          cp control "$root/DEBIAN/"
+          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/FilaSwitzach.deb >/dev/null
+          dpkg-deb -c ../build/FilaSwitzach.deb
+          ./repack-fila.sh 0.8.4 ../build/Fila_switzach.deb
+
+      - name: Build Fila Crash Log .deb
+        working-directory: nyxian-exit-key/fila-crashlog
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          xcrun --sdk iphoneos clang -arch arm64 -arch arm64e \
+            -mios-version-min=15.0 -O2 -Wall -Wextra -Wno-unused-parameter \
+            -fobjc-arc -framework Foundation -dynamiclib \
+            -install_name @rpath/FilaCrashLog.dylib \
+            -o out/FilaCrashLog.dylib FilaCrashLog.m
+          codesign --force --sign - out/FilaCrashLog.dylib
+          root=out/pkg
+          mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries"
+          cp out/FilaCrashLog.dylib FilaCrashLog.plist "$root/Library/MobileSubstrate/DynamicLibraries/"
+          cp control "$root/DEBIAN/"
+          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/FilaCrashLog.deb >/dev/null
+          dpkg-deb -c ../build/FilaCrashLog.deb
+
+      - name: Build Fila Fix .deb
+        working-directory: nyxian-exit-key/fila-fix
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          xcrun --sdk iphoneos clang -arch arm64 -arch arm64e \
+            -mios-version-min=15.0 -O2 -Wall -Wextra -Wno-unused-parameter \
+            -fobjc-arc -framework Foundation -dynamiclib \
+            -install_name @rpath/FilaFix.dylib \
+            -o out/FilaFix.dylib FilaFix.m
+          codesign --force --sign - out/FilaFix.dylib
+          root=out/pkg
+          mkdir -p "$root/DEBIAN" "$root/Library/MobileSubstrate/DynamicLibraries"
+          cp out/FilaFix.dylib FilaFix.plist "$root/Library/MobileSubstrate/DynamicLibraries/"
+          cp control "$root/DEBIAN/"
+          dpkg-deb -Zgzip --root-owner-group -b "$root" ../build/FilaFix.deb >/dev/null
+          dpkg-deb -c ../build/FilaFix.deb
+
+      - name: Upload deb artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs
+          path: nyxian-exit-key/build/*.deb
+          if-no-files-found: error
+
+      - name: Publish release (exitkey-latest)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FILES="build/ExitKey_arm64e.deb build/IrisinSwitzachFix.deb build/FilaSwitzach.deb build/Fila_switzach.deb build/FilaCrashLog.deb build/FilaFix.deb build/ExitKey_rootless.deb build/ExitKey_rootful.deb build/ExitKey.ipa"
+          NOTES="悬浮退出键 + Irisin/Switzach 修复，自动编译自 ${{ github.sha }}。"
+          # 先尝试删除旧 release（GitHub 偶发 500，重试几次）
+          for i in 1 2 3; do
+            gh release delete exitkey-latest --yes --cleanup-tag && break || sleep 5
+          done
+          # 新建；如果 release/tag 仍存在，就改为覆盖上传，保证幂等
+          if ! gh release create exitkey-latest $FILES --target "${{ github.sha }}" --prerelease --title "ExitKey (latest build)" --notes "$NOTES"; then
+            echo "create failed, falling back to upload --clobber"
+            gh release create exitkey-latest --prerelease --title "ExitKey (latest build)" --notes "$NOTES" 2>/dev/null || true
+            gh release upload exitkey-latest $FILES --clobber
+          fi
