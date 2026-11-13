@@ -66,7 +66,8 @@ static BOOL extractTar(NSString *tarPath, NSString *destRoot)
 
     NSFileManager *fm = [NSFileManager defaultManager];
     BOOL ok = YES;
-    NSString *longName = nil, *longLink = nil;
+    NSString *longName = nil, *longLink = nil;   // GNU 'L'/'K'
+    NSString *paxName = nil, *paxLink = nil;      // PAX 'x' path=/linkpath=
     char block[512];
     long nFiles = 0, nDirs = 0, nLinks = 0;
 
@@ -84,9 +85,10 @@ static BOOL extractTar(NSString *tarPath, NSString *destRoot)
         unsigned long size = octal(block + 124, 12);
         unsigned long mode = octal(block + 100, 8);
 
-        // Name: GNU long name override, else name[0..100] (+ ustar prefix).
+        // Name precedence: PAX path=, then GNU long name, then header (+ustar prefix).
         NSString *name;
-        if (longName) { name = longName; longName = nil; }
+        if (paxName) { name = paxName; paxName = nil; }
+        else if (longName) { name = longName; longName = nil; }
         else {
             char nbuf[101]; memcpy(nbuf, block, 100); nbuf[100] = 0;
             NSString *base = [NSString stringWithUTF8String:nbuf] ?: @"";
@@ -96,7 +98,8 @@ static BOOL extractTar(NSString *tarPath, NSString *destRoot)
             name = prefix.length ? [NSString stringWithFormat:@"%@/%@", prefix, base] : base;
         }
         NSString *linkname = nil;
-        if (longLink) { linkname = longLink; longLink = nil; }
+        if (paxLink) { linkname = paxLink; paxLink = nil; }
+        else if (longLink) { linkname = longLink; longLink = nil; }
         else { char lbuf[101]; memcpy(lbuf, block + 157, 100); lbuf[100] = 0; linkname = [NSString stringWithUTF8String:lbuf]; }
 
         size_t dataBlocks = (size + 511) / 512;
@@ -115,10 +118,34 @@ static BOOL extractTar(NSString *tarPath, NSString *destRoot)
             if (typeflag == 'L') longName = s; else longLink = s;
             continue;
         }
-        // PAX headers: skip their data; we rely on ustar/GNU fields.
+        // PAX extended header: records "LEN KEY=VALUE\n". We read path= and
+        // linkpath= and apply them to the next entry. ('g' globals are rare in
+        // bootstraps; treat them the same, applying to what follows.)
         if (typeflag == 'x' || typeflag == 'g') {
-            for (size_t i = 0; i < dataBlocks; i++) if (read(fd, block, 512) != 512) { ok = NO; break; }
+            NSMutableData *acc = [NSMutableData data];
+            for (size_t i = 0; i < dataBlocks; i++) {
+                if (read(fd, block, 512) != 512) { ok = NO; break; }
+                NSUInteger take = (i == dataBlocks - 1) ? (size - i * 512) : 512;
+                [acc appendBytes:block length:take];
+            }
             if (!ok) break;
+            const char *b = acc.bytes; size_t n = acc.length, i = 0;
+            while (i < n) {
+                size_t j = i; unsigned long reclen = 0;
+                while (j < n && b[j] >= '0' && b[j] <= '9') { reclen = reclen * 10 + (b[j] - '0'); j++; }
+                if (reclen == 0 || i + reclen > n || j >= n || b[j] != ' ') break;
+                size_t kstart = j + 1, eq = kstart;
+                while (eq < i + reclen && b[eq] != '=') eq++;
+                if (eq < i + reclen && b[eq] == '=') {
+                    NSString *key = [[NSString alloc] initWithBytes:b + kstart length:eq - kstart encoding:NSUTF8StringEncoding];
+                    size_t vstart = eq + 1, vend = i + reclen;             // record ends with '\n'
+                    if (vend > vstart && b[vend - 1] == '\n') vend--;
+                    NSString *val = [[NSString alloc] initWithBytes:b + vstart length:vend - vstart encoding:NSUTF8StringEncoding];
+                    if ([key isEqualToString:@"path"]) paxName = val;
+                    else if ([key isEqualToString:@"linkpath"]) paxLink = val;
+                }
+                i += reclen;
+            }
             continue;
         }
 

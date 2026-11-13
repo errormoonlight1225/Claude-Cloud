@@ -39,7 +39,9 @@ else
   echo "make-bootstrap: no launchd build dir (skipping nxlaunchd)"
 fi
 
-# 4. a GNU tar, entries relative to /var/jb, reproducible-ish ordering
-tar --format=gnu --numeric-owner --owner=0 --group=0 \
-    -C "$stage" -cf "$out" .
+# 4. a ustar tar, entries relative to /var/jb, reproducible-ish ordering.
+# ustar is understood by both GNU tar and macOS bsdtar; the skeleton's paths are
+# short. A full Procursus strap is dropped in as its own tar (pax is fine too:
+# the installer's extractor understands pax long names).
+tar --format=ustar -C "$stage" -cf "$out" .
 echo "make-bootstrap: wrote $out ($(wc -c < "$out") bytes)"
