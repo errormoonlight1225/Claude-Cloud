@@ -5,30 +5,46 @@ on:
     paths: ["TapRecorder/**", ".github/workflows/build.yml"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Must build on macOS with Xcode: iOS 14+ arm64e processes (SpringBoard on
+    # A12+) need the *new* arm64e ABI, which open-source/Linux toolchains don't emit.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Theos + iOS toolchain + SDK
+      - name: Install Theos
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq fakeroot xz-utils
-          export THEOS=$HOME/theos
-          git clone --recursive --depth=1 -q https://github.com/theos/theos.git $THEOS
-          mkdir -p $THEOS/toolchain/linux/iphone
-          curl -sSL https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain-x86_64.tar.xz \
-            | tar -xJ -C $THEOS/toolchain/linux/iphone --strip-components=1
-          git clone -q --depth=1 --filter=blob:none --sparse https://github.com/theos/sdks.git /tmp/sdks
-          (cd /tmp/sdks && git sparse-checkout set iPhoneOS16.5.sdk)
-          mv /tmp/sdks/iPhoneOS16.5.sdk $THEOS/sdks/
-          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          brew install ldid make dpkg
+          git clone --recursive --depth=1 -q https://github.com/theos/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
 
       - name: Build rootless .deb
         working-directory: TapRecorder
-        run: make package FINALPACKAGE=1
+        run: gmake package FINALPACKAGE=1
+
+      - name: Verify arm64e uses the new ABI
+        working-directory: TapRecorder
+        run: |
+          otool -hv .theos/obj/TapRecorder.dylib
+          # cpusubtype of the arm64e slice must carry CPU_SUBTYPE_PTRAUTH_ABI (0x80000000)
+          lipo -detailed_info .theos/obj/TapRecorder.dylib
+          caps=$(otool -arch arm64e -h .theos/obj/TapRecorder.dylib | tail -1 | awk '{print $4}')
+          echo "arm64e caps: $caps"
+          case "$caps" in 0x8*) echo "new ABI OK" ;; *) echo "::error::arm64e slice uses the OLD ABI"; exit 1 ;; esac
 
       - uses: actions/upload-artifact@v4
         with:
           name: TapRecorder-rootless
           path: TapRecorder/packages/*.deb
+
+      - name: Publish build as a release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: TapRecorder build ${{ github.run_number }}
+          prerelease: true
+          files: TapRecorder/packages/*.deb

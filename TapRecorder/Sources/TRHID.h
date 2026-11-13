@@ -52,6 +52,11 @@ typedef struct {
     void (*ClientSchedule)(IOHIDEventSystemClientRef, CFRunLoopRef, CFStringRef);
     void (*ClientRegisterCallback)(IOHIDEventSystemClientRef, TRHIDEventCallback, void *, void *);
     void (*ClientDispatch)(IOHIDEventSystemClientRef, IOHIDEventRef);
+    // Optional (iOS 13+): dispatch-queue based scheduling.
+    void (*ClientSetDispatchQueue)(IOHIDEventSystemClientRef, dispatch_queue_t);
+    void (*ClientActivate)(IOHIDEventSystemClientRef);
+    void (*ClientCancel)(IOHIDEventSystemClientRef);
+    void (*ClientUnschedule)(IOHIDEventSystemClientRef, CFRunLoopRef, CFStringRef);
 
     uint32_t (*GetType)(IOHIDEventRef);
     CFArrayRef (*GetChildren)(IOHIDEventRef);

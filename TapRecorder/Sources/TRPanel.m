@@ -256,9 +256,10 @@ static const CGFloat kPanelW = 168;
 - (void)recordTapped {
     TRRecorder *r = [TRRecorder shared];
     if (r.state == TRStateRecording) {
-        NSString *name = [r stopRecording];
-        if (name) self.selectedName = name;
-        [self refresh];
+        [r stopRecordingWithCompletion:^(NSString *name) {
+            if (name) self.selectedName = name;
+            [self refresh];
+        }];
     } else {
         [self updateIgnoredRect];
         [r startRecording];

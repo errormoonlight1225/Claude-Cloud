@@ -30,8 +30,8 @@ extern NSString *const TRStateDidChangeNotification;
 @property (atomic) CGRect ignoredNormalizedRect;
 
 - (void)startRecording;
-/// Stops recording and saves to disk. Returns the saved name or nil if nothing was captured.
-- (nullable NSString *)stopRecording;
+/// Stops recording and saves to disk. Completion (main thread) gets the saved name, or nil if nothing was captured.
+- (void)stopRecordingWithCompletion:(nullable void (^)(NSString *_Nullable name))completion;
 
 /// repeatCount 0 = loop forever. speed: 1.0 = real time.
 - (BOOL)playRecordingNamed:(NSString *)name repeatCount:(NSUInteger)repeatCount speed:(double)speed;

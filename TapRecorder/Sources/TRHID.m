@@ -38,6 +38,11 @@ BOOL TRHIDLoad(void) {
     // Optional: monitor-type client.
     *(void **)(&TRHID.ClientCreateWithType) = dlsym(h, "IOHIDEventSystemClientCreateWithType");
 
+    *(void **)(&TRHID.ClientSetDispatchQueue) = dlsym(h, "IOHIDEventSystemClientSetDispatchQueue");
+    *(void **)(&TRHID.ClientActivate) = dlsym(h, "IOHIDEventSystemClientActivate");
+    *(void **)(&TRHID.ClientCancel) = dlsym(h, "IOHIDEventSystemClientCancel");
+    *(void **)(&TRHID.ClientUnschedule) = dlsym(h, "IOHIDEventSystemClientUnscheduleWithRunLoop");
+
     result = ok;
     return ok;
 }

@@ -33,14 +33,17 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
 @property (nonatomic, readwrite) NSUInteger progress;
 @property (nonatomic, readwrite) NSUInteger playLoopTotal;
 @property (atomic) BOOL cancelPlayback;
+@property (atomic) BOOL capturing;
 - (void)handleDigitizerEvent:(IOHIDEventRef)event;
 @end
 
 @implementation TRRecorder {
-    IOHIDEventSystemClientRef _monitorClient;
-    IOHIDEventSystemClientRef _dispatchClient;
+    IOHIDEventSystemClientRef _monitorClient;   // only touched on the HID thread
+    IOHIDEventSystemClientRef _dispatchClient;  // only touched on the playback thread
+    NSThread *_hidThread;
+    CFRunLoopRef _hidRunLoop;
 
-    // Recording state (main thread only)
+    // Recording state (HID thread only)
     NSMutableArray<NSDictionary *> *_frames;
     uint64_t _firstTimestamp;
     uint64_t _senderID;
@@ -70,20 +73,34 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
 
 - (BOOL)setup {
     if (_ready) return YES;
+    // Only resolve symbols here. No HID client is created until the user
+    // actually presses record / play, so SpringBoard launch is not affected.
     if (!TRHIDLoad()) return NO;
 
-    // Prefer a "monitor" client (type 1) so we see every HID event, fall back to an admin client.
-    if (TRHID.ClientCreateWithType) _monitorClient = TRHID.ClientCreateWithType(kCFAllocatorDefault, 1, NULL);
-    if (!_monitorClient) _monitorClient = TRHID.ClientCreate(kCFAllocatorDefault);
-    _dispatchClient = TRHID.ClientCreate(kCFAllocatorDefault);
-    if (!_monitorClient || !_dispatchClient) {
-        NSLog(@"[TapRecorder] failed to create HID clients (%p, %p)", _monitorClient, _dispatchClient);
-        return NO;
-    }
-    TRHID.ClientSchedule(_monitorClient, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
-    TRHID.ClientRegisterCallback(_monitorClient, TRHIDCallback, (__bridge void *)self, NULL);
+    // Dedicated thread + run loop that receives HID events while recording,
+    // so the SpringBoard main thread is never involved.
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    _hidThread = [[NSThread alloc] initWithBlock:^{
+        self->_hidRunLoop = (CFRunLoopRef)CFRetain(CFRunLoopGetCurrent());
+        NSRunLoop *rl = [NSRunLoop currentRunLoop];
+        [rl addPort:[NSMachPort port] forMode:NSDefaultRunLoopMode];  // keep alive
+        dispatch_semaphore_signal(sem);
+        while (YES) {
+            @autoreleasepool { [rl runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]]; }
+        }
+    }];
+    _hidThread.name = @"TapRecorder.hid";
+    _hidThread.qualityOfService = NSQualityOfServiceUserInteractive;
+    [_hidThread start];
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) return NO;
+
     _ready = YES;
     return YES;
+}
+
+- (void)performOnHIDThread:(dispatch_block_t)block {
+    CFRunLoopPerformBlock(_hidRunLoop, kCFRunLoopDefaultMode, block);
+    CFRunLoopWakeUp(_hidRunLoop);
 }
 
 - (void)notifyChanged {
@@ -97,20 +114,40 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
 
 - (void)startRecording {
     if (!_ready || self.state != TRStateIdle) return;
-    _frames = [NSMutableArray array];
-    _firstTimestamp = 0;
-    _senderID = 0;
-    [_activeIDs removeAllObjects];
-    [_ignoredIDs removeAllObjects];
-    [_lastTouchByID removeAllObjects];
     self.progress = 0;
     self.state = TRStateRecording;
     [self notifyChanged];
+
+    [self performOnHIDThread:^{
+        self->_frames = [NSMutableArray array];
+        self->_firstTimestamp = 0;
+        self->_senderID = 0;
+        [self->_activeIDs removeAllObjects];
+        [self->_ignoredIDs removeAllObjects];
+        [self->_lastTouchByID removeAllObjects];
+
+        IOHIDEventSystemClientRef c = NULL;
+        // Prefer a "monitor" client (type 1) so we see every HID event, fall back to an admin client.
+        if (TRHID.ClientCreateWithType) c = TRHID.ClientCreateWithType(kCFAllocatorDefault, 1, NULL);
+        if (!c) c = TRHID.ClientCreate(kCFAllocatorDefault);
+        if (!c) {
+            NSLog(@"[TapRecorder] failed to create HID monitor client");
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.state = TRStateIdle;
+                [self notifyChanged];
+            });
+            return;
+        }
+        TRHID.ClientRegisterCallback(c, TRHIDCallback, (__bridge void *)self, NULL);
+        TRHID.ClientSchedule(c, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+        self->_monitorClient = c;
+        self.capturing = YES;
+    }];
 }
 
 static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, IOHIDEventRef event) {
     TRRecorder *rec = (__bridge TRRecorder *)target;
-    if (rec.state != TRStateRecording) return;
+    if (!rec.capturing) return;
     if (TRHID.GetType(event) != kTRHIDEventTypeDigitizer) return;
     [rec handleDigitizerEvent:event];
 }
@@ -187,51 +224,69 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
     }
     double t = ts >= _firstTimestamp ? TRTicksToSeconds(ts - _firstTimestamp) : 0;
     [_frames addObject:@{ @"t": @(t), @"touches": touches }];
-    self.progress = _frames.count;
-    if (_frames.count % 6 == 1) [self notifyChanged];  // throttle UI updates
+    NSUInteger count = _frames.count;
+    if (count % 6 == 1) {  // throttle UI updates
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.state != TRStateRecording) return;
+            self.progress = count;
+            [self notifyChanged];
+        });
+    }
 }
 
-- (NSString *)stopRecording {
-    if (self.state != TRStateRecording) return nil;
-    self.state = TRStateIdle;
+- (void)stopRecordingWithCompletion:(void (^)(NSString *))completion {
+    if (self.state != TRStateRecording) { if (completion) completion(nil); return; }
+    self.capturing = NO;
 
-    // Make sure every finger is lifted at the end.
-    if (_lastTouchByID.count > 0 && _frames.count > 0) {
-        double lastT = [_frames.lastObject[@"t"] doubleValue] + 0.016;
-        NSMutableArray *lifts = [NSMutableArray array];
-        for (NSDictionary *t in _lastTouchByID.allValues) {
-            NSMutableDictionary *m = [t mutableCopy];
-            m[K_TOUCH] = @NO; m[K_RANGE] = @NO;
-            m[K_MASK] = @(kTRDigMaskRange | kTRDigMaskTouch);
-            [lifts addObject:m];
+    [self performOnHIDThread:^{
+        if (self->_monitorClient) {
+            if (TRHID.ClientUnschedule)
+                TRHID.ClientUnschedule(self->_monitorClient, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+            CFRelease(self->_monitorClient);
+            self->_monitorClient = NULL;
         }
-        [_frames addObject:@{ @"t": @(lastT), @"touches": lifts }];
-    }
-    [_lastTouchByID removeAllObjects];
 
-    NSString *name = nil;
-    if (_frames.count > 0) {
-        NSDateFormatter *df = [NSDateFormatter new];
-        df.dateFormat = @"yyyy-MM-dd_HH-mm-ss";
-        name = [df stringFromDate:[NSDate date]];
-        NSDictionary *doc = @{
-            @"version": @1,
-            @"name": name,
-            @"senderID": [NSString stringWithFormat:@"0x%016llX", _senderID ?: kFallbackSenderID],
-            @"duration": _frames.lastObject[@"t"],
-            @"frames": _frames,
-        };
-        NSError *err = nil;
-        NSData *data = [NSJSONSerialization dataWithJSONObject:doc options:0 error:&err];
-        if (!data || ![data writeToFile:[self pathForName:name] atomically:YES]) {
-            NSLog(@"[TapRecorder] save failed: %@", err);
-            name = nil;
+        // Make sure every finger is lifted at the end.
+        if (self->_lastTouchByID.count > 0 && self->_frames.count > 0) {
+            double lastT = [self->_frames.lastObject[@"t"] doubleValue] + 0.016;
+            NSMutableArray *lifts = [NSMutableArray array];
+            for (NSDictionary *t in self->_lastTouchByID.allValues) {
+                NSMutableDictionary *m = [t mutableCopy];
+                m[K_TOUCH] = @NO; m[K_RANGE] = @NO;
+                m[K_MASK] = @(kTRDigMaskRange | kTRDigMaskTouch);
+                [lifts addObject:m];
+            }
+            [self->_frames addObject:@{ @"t": @(lastT), @"touches": lifts }];
         }
-    }
-    _frames = nil;
-    self.progress = 0;
-    [self notifyChanged];
-    return name;
+        [self->_lastTouchByID removeAllObjects];
+
+        NSString *name = nil;
+        if (self->_frames.count > 0) {
+            NSDateFormatter *df = [NSDateFormatter new];
+            df.dateFormat = @"yyyy-MM-dd_HH-mm-ss";
+            name = [df stringFromDate:[NSDate date]];
+            NSDictionary *doc = @{
+                @"version": @1,
+                @"name": name,
+                @"senderID": [NSString stringWithFormat:@"0x%016llX", self->_senderID ?: kFallbackSenderID],
+                @"duration": self->_frames.lastObject[@"t"],
+                @"frames": self->_frames,
+            };
+            NSError *err = nil;
+            NSData *data = [NSJSONSerialization dataWithJSONObject:doc options:0 error:&err];
+            if (!data || ![data writeToFile:[self pathForName:name] atomically:YES]) {
+                NSLog(@"[TapRecorder] save failed: %@", err);
+                name = nil;
+            }
+        }
+        self->_frames = nil;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.state = TRStateIdle;
+            self.progress = 0;
+            [self notifyChanged];
+            if (completion) completion(name);
+        });
+    }];
 }
 
 #pragma mark - Storage
@@ -300,6 +355,11 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
 }
 
 - (void)playbackLoop:(NSArray *)frames sender:(uint64_t)sender repeat:(NSUInteger)repeat speed:(double)speed {
+    if (!_dispatchClient) _dispatchClient = TRHID.ClientCreate(kCFAllocatorDefault);
+    if (!_dispatchClient) {
+        NSLog(@"[TapRecorder] failed to create HID dispatch client");
+        self.cancelPlayback = YES;
+    }
     NSMutableDictionary<NSNumber *, NSDictionary *> *down = [NSMutableDictionary dictionary];
 
     for (NSUInteger loop = 0; repeat == 0 || loop < repeat; loop++) {
@@ -339,7 +399,7 @@ done:
 }
 
 - (void)dispatchTouches:(NSArray<NSDictionary *> *)touches sender:(uint64_t)sender {
-    if (touches.count == 0) return;
+    if (touches.count == 0 || !_dispatchClient) return;
     uint64_t now = mach_absolute_time();
 
     uint32_t parentMask = 0;
