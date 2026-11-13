@@ -70,6 +70,15 @@ Linux 下的完整环境搭建步骤见 `.github/workflows/build.yml`。
 ```
 `t` 为相对秒数；`x`/`y` 为竖屏方向的归一化坐标；`m` 为 HID event mask；`r`/`t` 为 range/touch。可以手动编辑或用脚本生成后放进目录里直接回放。
 
+## 卡住 / 白苹果怎么办
+
+1. 强制重启（音量+、音量−、长按电源键）。Dopamine 是半越狱，重启后插件不会加载。
+2. 打开 Dopamine → 设置 → 关闭 **Tweak Injection** → 越狱。
+3. 卸载或更新 TapRecorder，再把 Tweak Injection 打开。
+
+从 1.0.1 起，插件在 SpringBoard 启动 5 秒后才初始化，并带有启动保护：
+如果上一次初始化没能完成（卡死或崩溃），下一次启动会自动跳过初始化一次，不会循环卡住。
+
 ## 注意
 
 - 仅支持 rootless（Dopamine）。roothide 需要用 roothide 版 Theos 另外编译。
