@@ -15,11 +15,20 @@ ROM has to implement itself.
 
 Milestone 1 ships a skeleton rootless bootstrap (dpkg/apt config for
 `iphoneos-arm64` plus the directory layout) that the ROM's installer
-(`rom-overlay/installer`) extracts into the data partition on flash; drop a full
-Procursus strap in its place to install real packages. Whether a guest process
-actually resolves `/var/jb` into that data partition is the open question that
-needs a device to confirm. The launchd supervisor (`src/`, see its README) is a
-standard fork/exec init that runs on a jailbroken host.
+(`rom-overlay/installer`) extracts into the data partition on flash. Whether a
+guest process actually resolves `/var/jb` into that data partition is the open
+question that needs a device to confirm.
+
+To ship a real rootless userland (apt, dpkg, bash, …) instead of the skeleton,
+point `STRAP_TAR` at a Procursus rootless bootstrap archive when building; its
+contents become `/var/jb` and the skeleton only fills what it does not provide,
+so the strap's own dpkg database is kept:
+
+    STRAP_TAR=~/bootstrap.tar.zst scripts/build.sh
+    # STRAP_STRIP=N if the strap is not already rooted at /var/jb
+
+Supported strap formats: `.tar`, `.tar.gz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`,
+`.tar.lzma`.
 
 ## Licence: personal use only
 
