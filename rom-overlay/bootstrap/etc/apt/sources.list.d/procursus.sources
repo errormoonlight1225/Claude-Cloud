@@ -1,0 +1,7 @@
+Types: deb
+URIs: https://apt.procurs.us
+Suites: 1800
+Components: main
+Architectures: iphoneos-arm64
+# The Procursus rootless repository. Suite 1800 targets iOS 15+; change it if
+# your device needs a different one. Packages install unconverted under /var/jb.

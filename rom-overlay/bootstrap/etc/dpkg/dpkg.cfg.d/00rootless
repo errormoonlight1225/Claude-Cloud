@@ -1,0 +1,4 @@
+# dpkg configuration for the rootless /var/jb bootstrap.
+# The architecture packages are built for; ordinary rootless packages are
+# iphoneos-arm64 and install unconverted.
+abort-after 100
