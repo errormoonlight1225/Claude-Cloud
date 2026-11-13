@@ -6,11 +6,20 @@ ROM has to implement itself.
 
 | Milestone | State |
 |---|---|
-| 0. Build pipeline: stock template ROM built and signed by CI | in progress |
-| 1. `/var/jb`, path layer, Procursus bootstrap, dpkg | not started |
-| 2. launchd / launchctl / Mach services | not started |
+| 0. Build pipeline: template ROM built and signed by CI | done |
+| 1. `/var/jb` bootstrap laid down on flash, dpkg layout | built, needs device test |
+| 2. launchd / launchctl (`src/`) | built, needs device test |
+| 2b. Mach-service / XPC check-in | not started |
 | 3. sudo/su, tweak injection, safe mode | not started |
 | 4. SpringBoard, uicache, Sileo | not started |
+
+Milestone 1 ships a skeleton rootless bootstrap (dpkg/apt config for
+`iphoneos-arm64` plus the directory layout) that the ROM's installer
+(`rom-overlay/installer`) extracts into the data partition on flash; drop a full
+Procursus strap in its place to install real packages. Whether a guest process
+actually resolves `/var/jb` into that data partition is the open question that
+needs a device to confirm. The launchd supervisor (`src/`, see its README) is a
+standard fork/exec init that runs on a jailbroken host.
 
 ## Licence: personal use only
 

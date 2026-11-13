@@ -64,7 +64,6 @@ static BOOL extractTar(NSString *tarPath, NSString *destRoot)
     int fd = open(tarPath.fileSystemRepresentation, O_RDONLY);
     if (fd < 0) { emit([NSString stringWithFormat:@"cannot open %@: %s", tarPath, strerror(errno)]); return NO; }
 
-    NSFileManager *fm = [NSFileManager defaultManager];
     BOOL ok = YES;
     NSString *longName = nil, *longLink = nil;   // GNU 'L'/'K'
     NSString *paxName = nil, *paxLink = nil;      // PAX 'x' path=/linkpath=
