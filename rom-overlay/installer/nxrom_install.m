@@ -22,6 +22,9 @@
 #import <unistd.h>
 #import <fcntl.h>
 #import <errno.h>
+#import <limits.h>
+
+#import "../../src/rtpatch/jbmap.h"
 
 // Must match NXRomDataPartitionPath in manifest.plist (minus the $(BOOTROOT)/).
 static NSString *const kDataPartitionSuffix = @"Documents/rootfs/var/jb";
@@ -163,7 +166,20 @@ static BOOL extractTar(NSString *tarPath, NSString *destRoot)
         if (typeflag == '2') {                   // symlink
             makeDirs([dest stringByDeletingLastPathComponent]);
             unlink(dest.fileSystemRepresentation);
-            if (symlink(linkname.fileSystemRepresentation, dest.fileSystemRepresentation) != 0)
+            // The real kernel follows symlinks, and the real /var/jb does not
+            // exist: store an absolute /var/jb target relative to the link.
+            const char *target = linkname.fileSystemRepresentation;
+            const char *rest = nx_jb_rest(target);
+            char rel[PATH_MAX];
+            if (rest != NULL) {
+                const char *entry = name.fileSystemRepresentation;
+                while (entry[0] == '.' && entry[1] == '/') entry += 2;
+                const char *r = (rest[0] == '/' && rest[1] != '\0')
+                    ? nx_relative_target(entry, rest + 1, rel, sizeof(rel)) : NULL;
+                if (r != NULL) target = r;
+                else emit([NSString stringWithFormat:@"symlink %@ keeps absolute target %@", name, linkname]);
+            }
+            if (symlink(target, dest.fileSystemRepresentation) != 0)
                 emit([NSString stringWithFormat:@"symlink %@ failed: %s", dest, strerror(errno)]);
             else nLinks++;
             continue;

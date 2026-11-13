@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds out/rom.zip: fetches Nyxian, bakes its ROM template, adds the rootless
-# /var/jb bootstrap and its installer, then compiles and signs it.
+# /var/jb bootstrap, its installer and the /var/jb path layer, then compiles and
+# signs it.
 #
 #   scripts/build.sh            the whole build (macOS with Xcode)
 #   scripts/build.sh generate   stop after the template + bootstrap tar (any OS)
@@ -39,6 +40,11 @@ fi
 romgen generate "$nyxian" "$rom" --identifier "$ROM_IDENTIFIER" --name "$ROM_NAME" \
     --min-nyxian "$ROM_MIN_NYXIAN" --key "$key"
 python3 -I "$root/scripts/set-manifest.py" "$rom/manifest.plist" "$ROM_VERSION" "$ROM_SECURITY_VERSION"
+# this ROM's own kernel sources, over the generated template: the shim cache step
+# that installs the /var/jb path layer (rtpatch) for every guest process
+shimcache=$rom/rom/src/LindChain/ProcEnvironment/Surface/cache/shimcache.m
+[ -f "$shimcache" ] || { echo "build: the ROM template has no shimcache.m to replace" >&2; exit 1; }
+cp "$root/rom-overlay/kernel/shimcache.m" "$shimcache"
 
 mkdir -p "$rom/bootstrap"
 "$root/scripts/make-bootstrap.sh" "$rom/bootstrap/bootstrap.tar"
@@ -52,6 +58,9 @@ make -C "$rom" -j"$(getconf _NPROCESSORS_ONLN)" main 'Application/Hello.app/Hell
 # the NXRomInstaller dylib
 make -C "$root/rom-overlay/installer" ios
 cp "$root/rom-overlay/installer/build/installer" "$rom/installer"
+# the /var/jb path layer, loaded by every guest process
+make -C "$root/src/rtpatch" ios
+cp "$root/src/rtpatch/build/rtpatch" "$rom/rtpatch"
 
 # --- assemble and sign the ROM zip (installer + bootstrap included) ---
 mkdir -p "$root/out"
@@ -59,7 +68,7 @@ out=$root/out/rom.zip
 pkg=$rom/.rompkg
 rm -rf "$pkg" "$out"
 mkdir -p "$pkg/ROM/bootstrap"
-cp "$rom/main" "$rom/manifest.plist" "$rom/installer" "$pkg/ROM/"
+cp "$rom/main" "$rom/manifest.plist" "$rom/installer" "$rom/rtpatch" "$pkg/ROM/"
 cp -R "$rom/Application" "$pkg/ROM/Application"
 cp "$rom/bootstrap/bootstrap.tar" "$pkg/ROM/bootstrap/bootstrap.tar"
 ( cd "$pkg" && zip -qry -X "$out" ROM -x '*.DS_Store' '*/._*' )

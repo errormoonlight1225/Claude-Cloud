@@ -106,6 +106,28 @@
    都要我们自己的注入库改写成 `$vroot/var/jb/...`。功能上等同于 Switzach 的
    `NXRootlessCompatInit`，但必须独立重写。
    **不确定**：这个库怎样保证被注入到每一个 guest 进程（Broadpatch 的加载路径我没读完）。
+   **现状（已实现，未上真机）：**
+   - 注入点已确认：每个 guest 启动时 `Shims/environment.m:235-251` 会
+     `dlopen("$vroot/boot/rtpatch")`，在 guest 自己的代码之前。stock Nyxian 在
+     `ksurface_shimcache_build` 里现场编译它；ROM host 没有编译器，RomGen 模板把这一步留空
+     （`RomGen.py` 的 `SHIMCACHE_M`）。本 ROM 用 `rom-overlay/kernel/shimcache.m`
+     替换这一步：每次启动把 slot 里预编译的 `rtpatch` 拷到 `$mnt/bootfs/rtpatch`。
+   - 改写方式：`libBroadpatch.dylib`（`@rpath`，真 dylib）为每个被 interpose 的函数导出
+     `<name>__ptr` 槽位（`Broadpatch.h` 的 `LIBKERN_DEFINE_INTERPOSE_PATCHABLE`）。
+     `src/rtpatch/nxjbpath.c` 用 `dlsym` 找槽位，把带路径参数的 36 个函数换成"先改写再调原值"的包装，
+     所以 Nyxian 自己的补丁（`posix_spawn`、`access`、`chown`…）仍在下面生效。
+     `posix_spawn` shim 自己先 `realpath` 再把真实路径交给内核（`Shims/posix_spawn.m:170`），
+     所以我们**不**把 `realpath/getcwd` 的结果反向改回 `/var/jb`。
+   - 符号链接：真内核解析符号链接，绝对目标 `/var/jb/...` 会指向不存在的真 `/var/jb`。
+     安装器解包时、以及运行时的 `symlink()`，都把这类目标改存为相对路径。
+   - **管不到的**：dyld 自己打开文件（dylib 的 install name、`dlopen`），不经过这些槽位。
+     链接了 `/var/jb/usr/lib/*.dylib` 的二进制必须在打包 bootstrap 时把 load command 改成
+     `@loader_path/...`（下一步）；之后 dpkg 装的包要靠触发器做同样的事。`#!` 行同理
+     （仓库里没找到 Nyxian 处理 shebang 的代码）。
+   - **不确定**：(a) 槽位符号从 `rtpatch` 里 `dlsym(RTLD_DEFAULT)` 能否拿到（按构建设置应当可以，
+     没在真机上看过）；(b) libc 内部的 `fopen → __open_nocancel` 是否走槽位（Broadpatch 专门
+     留了 `__open_nocancel` 槽位，推测是，但取决于 dyld 对 shared cache 的 interpose）。
+     真机上用 `NXJB_DEBUG=1` 跑任意程序即可看到挂上了几个槽位。
 2. **launchd 兼容守护进程 + launchctl**（设计见第 4 节）。
 3. **libxpc / bootstrap 兼容层**：`bootstrap_check_in / look_up`、
    `xpc_connection_create_mach_service`（监听和连接两个方向）、

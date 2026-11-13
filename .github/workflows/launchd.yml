@@ -1,7 +1,8 @@
 name: Build launchd
 
-# Compiles nxlaunchd / nxlaunchctl for iOS arm64 with the iPhone SDK, so the
-# supervisor is checked by a real compiler without a device in the loop.
+# Compiles nxlaunchd / nxlaunchctl and the /var/jb path layer (rtpatch) for iOS
+# arm64 with the iPhone SDK, so they are checked by a real compiler without a
+# device in the loop, and runs the path layer's host test.
 
 on:
   push:
@@ -22,10 +23,15 @@ jobs:
         run: brew install ldid
       - name: Build for iOS arm64
         run: make -C src ios
+      - name: Path layer, host test
+        run: make -C src/rtpatch test
+      - name: Path layer for iOS arm64
+        run: make -C src/rtpatch ios
       - uses: actions/upload-artifact@v4
         with:
           name: nxlaunchd
           path: |
             src/build/nxlaunchd
             src/build/nxlaunchctl
+            src/rtpatch/build/rtpatch
           if-no-files-found: error

@@ -8,6 +8,7 @@ ROM has to implement itself.
 |---|---|
 | 0. Build pipeline: template ROM built and signed by CI | done |
 | 1. `/var/jb` bootstrap laid down on flash, dpkg layout | built, needs device test |
+| 1b. `/var/jb` path layer for every guest process (`src/rtpatch`) | built, host-tested, needs device test |
 | 2. launchd / launchctl (`src/`) | built, needs device test |
 | 2b. Mach-service / XPC check-in | not started |
 | 3. sudo/su, tweak injection, safe mode | not started |
@@ -15,9 +16,29 @@ ROM has to implement itself.
 
 Milestone 1 ships a skeleton rootless bootstrap (dpkg/apt config for
 `iphoneos-arm64` plus the directory layout) that the ROM's installer
-(`rom-overlay/installer`) extracts into the data partition on flash. Whether a
-guest process actually resolves `/var/jb` into that data partition is the open
-question that needs a device to confirm.
+(`rom-overlay/installer`) extracts into the data partition on flash.
+
+A Nyxian guest runs on the real filesystem, so `/var/jb` does not exist for it
+by itself. Milestone 1b is the path layer that makes every program use the
+`/var/jb` inside the app: `rtpatch` (`src/rtpatch/nxjbpath.c`) is loaded by
+every guest process at startup and rewrites any path at or below `/var/jb` to
+`<container>/Documents/rootfs/var/jb` in the file functions Nyxian lets a ROM
+replace (open, stat, rename, symlink, opendir, posix_spawn, exec, ...). The
+ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
+`make -C src/rtpatch test` runs its test on any OS.
+
+- Not covered, because these never pass through those functions: dylib install
+  names and `dlopen` (the dynamic loader opens files itself), and `#!` lines.
+  Binaries that link `/var/jb/usr/lib/...` need their load commands rewritten
+  to `@loader_path/...` when the bootstrap is built; that is the next step.
+- Not verified without a device: that the slots are reachable from `rtpatch`
+  on your Nyxian version, and that libc-internal opens (`fopen`) go through
+  them. To check on the device, run any program with `NXJB_DEBUG=1` in its
+  environment: it prints where `/var/jb` maps to and how many slots it took
+  (about 36; 0 means the slots are not reachable).
+- If guests stop starting after flashing, add the boot argument `nxjb_off`
+  (Nyxian > Settings > General > Boot Arguments): the ROM then boots without
+  the path layer.
 
 To ship a real rootless userland (apt, dpkg, bash, …) instead of the skeleton,
 point `STRAP_TAR` at a Procursus rootless bootstrap archive when building; its
