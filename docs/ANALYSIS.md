@@ -120,10 +120,12 @@
      所以我们**不**把 `realpath/getcwd` 的结果反向改回 `/var/jb`。
    - 符号链接：真内核解析符号链接，绝对目标 `/var/jb/...` 会指向不存在的真 `/var/jb`。
      安装器解包时、以及运行时的 `symlink()`，都把这类目标改存为相对路径。
-   - **管不到的**：dyld 自己打开文件（dylib 的 install name、`dlopen`），不经过这些槽位。
-     链接了 `/var/jb/usr/lib/*.dylib` 的二进制必须在打包 bootstrap 时把 load command 改成
-     `@loader_path/...`（下一步）；之后 dpkg 装的包要靠触发器做同样的事。`#!` 行同理
-     （仓库里没找到 Nyxian 处理 shebang 的代码）。
+   - **dyld 的路径**：dyld 自己打开文件（dylib 的 install name、rpath），不经过这些槽位。
+     `scripts/relocate-macho.py` 在打包 bootstrap 时把 `/var/jb/usr/lib/libX.dylib` 这类 load command
+     和 `LC_RPATH` 改写成相对所在文件的 `@loader_path/...`（`LC_ID_DYLIB` 不动），dyld 原生支持，
+     树放在哪里都能加载；改写后签名失效，装了 `ldid` 就重签。macOS CI 上用真编译器、真 dyld 验证过
+     （`scripts/test-relocate-real.sh`）。**还没做的**：之后 dpkg 装的包要靠触发器做同样的改写；
+     `dlopen("/var/jb/...")` 和 `#!` 行不处理（仓库里没找到 Nyxian 处理 shebang 的代码）。
    - **不确定**：(a) 槽位符号从 `rtpatch` 里 `dlsym(RTLD_DEFAULT)` 能否拿到（按构建设置应当可以，
      没在真机上看过）；(b) libc 内部的 `fopen → __open_nocancel` 是否走槽位（Broadpatch 专门
      留了 `__open_nocancel` 槽位，推测是，但取决于 dyld 对 shared cache 的 interpose）。

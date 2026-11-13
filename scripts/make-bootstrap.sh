@@ -71,7 +71,24 @@ else
   echo "make-bootstrap: no launchd build dir (skipping nxlaunchd)"
 fi
 
-# 5. a ustar tar when the paths are short, pax when the strap has long ones.
+# 5. library paths. Binaries name their libraries as /var/jb/usr/lib/..., which
+#    the dynamic loader opens itself (the path layer never sees it) and which
+#    does not exist inside Nyxian: rewrite them relative to each binary, then
+#    sign the rewritten files again (their old signature no longer matches).
+changed=$(mktemp)
+python3 -I "$here/scripts/relocate-macho.py" "$stage" --changed="$changed" || \
+  echo "make-bootstrap: WARNING: some binaries could not be relocated (listed above); they will not load" >&2
+if [ -s "$changed" ]; then
+  if command -v ldid >/dev/null; then
+    while IFS= read -r f; do ldid -S "$stage/$f"; done < "$changed"
+    echo "make-bootstrap: signed $(wc -l < "$changed" | tr -d ' ') relocated file(s) with ldid"
+  else
+    echo "make-bootstrap: WARNING: ldid not found; the relocated binaries are left with a stale signature" >&2
+  fi
+fi
+rm -f "$changed"
+
+# 6. a ustar tar when the paths are short, pax when the strap has long ones.
 # Both are understood by GNU tar and macOS bsdtar and by the installer's reader.
 fmt=ustar
 if [ -n "$strap_tar" ]; then fmt=pax; fi

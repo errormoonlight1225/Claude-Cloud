@@ -27,10 +27,13 @@ replace (open, stat, rename, symlink, opendir, posix_spawn, exec, ...). The
 ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
 `make -C src/rtpatch test` runs its test on any OS.
 
-- Not covered, because these never pass through those functions: dylib install
-  names and `dlopen` (the dynamic loader opens files itself), and `#!` lines.
-  Binaries that link `/var/jb/usr/lib/...` need their load commands rewritten
-  to `@loader_path/...` when the bootstrap is built; that is the next step.
+- Library paths never pass through those functions (the dynamic loader opens
+  files itself), so binaries that link `/var/jb/usr/lib/...` are rewritten
+  instead: `scripts/relocate-macho.py` turns those load commands and rpaths
+  into `@loader_path/...` when the bootstrap is packed, and the rewritten files
+  are signed again with `ldid` if it is installed. Packages installed later
+  with dpkg are not rewritten yet (that needs a dpkg trigger), and neither
+  `dlopen("/var/jb/...")` nor `#!/var/jb/...` lines are handled.
 - Not verified without a device: that the slots are reachable from `rtpatch`
   on your Nyxian version, and that libc-internal opens (`fopen`) go through
   them. To check on the device, run any program with `NXJB_DEBUG=1` in its
