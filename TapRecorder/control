@@ -1,6 +1,6 @@
 Package: com.taprecorder.tweak
 Name: TapRecorder
-Version: 1.0.1
+Version: 1.0.2
 Architecture: iphoneos-arm64
 Description: Record and replay screen taps/swipes system-wide (rootless, iOS 15-16, Dopamine).
 Maintainer: TapRecorder

@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = TapRecorder
 
-TapRecorder_FILES = Tweak.x Sources/TRHID.m Sources/TRRecorder.m Sources/TRPanel.m
+TapRecorder_FILES = Tweak.x Sources/TRLog.m Sources/TRHID.m Sources/TRRecorder.m Sources/TRPanel.m
 TapRecorder_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 TapRecorder_FRAMEWORKS = UIKit CoreGraphics
 

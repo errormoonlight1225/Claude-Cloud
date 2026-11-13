@@ -76,8 +76,11 @@ Linux 下的完整环境搭建步骤见 `.github/workflows/build.yml`。
 2. 打开 Dopamine → 设置 → 关闭 **Tweak Injection** → 越狱。
 3. 卸载或更新 TapRecorder，再把 Tweak Injection 打开。
 
-从 1.0.1 起，插件在 SpringBoard 启动 5 秒后才初始化，并带有启动保护：
-如果上一次初始化没能完成（卡死或崩溃），下一次启动会自动跳过初始化一次，不会循环卡住。
+从 1.0.2 起：
+
+- **启动保护**：插件一加载就写下标记 `.launch_guard`，SpringBoard 稳定运行 15 秒后删除。如果上次启动卡死或崩溃，下次启动会自动跳过插件一次。
+- **手动关闭**：用 Filza 在 `/var/mobile/Library/TapRecorder/` 里新建一个名为 `disable` 的空文件，插件就什么都不做。
+- **排查日志**：`/var/mobile/Library/TapRecorder/log.txt` 会记录每一步，最后一行就是卡住的位置。
 
 ## 注意
 

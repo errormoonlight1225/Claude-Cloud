@@ -1,5 +1,6 @@
 #import "TRRecorder.h"
 #import "TRHID.h"
+#import "TRLog.h"
 
 NSString *const TRStateDidChangeNotification = @"TRStateDidChangeNotification";
 
@@ -75,7 +76,9 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
     if (_ready) return YES;
     // Only resolve symbols here. No HID client is created until the user
     // actually presses record / play, so SpringBoard launch is not affected.
+    TRLog(@"setup: loading IOKit symbols");
     if (!TRHIDLoad()) return NO;
+    TRLog(@"setup: starting HID thread");
 
     // Dedicated thread + run loop that receives HID events while recording,
     // so the SpringBoard main thread is never involved.
@@ -92,7 +95,10 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
     _hidThread.name = @"TapRecorder.hid";
     _hidThread.qualityOfService = NSQualityOfServiceUserInteractive;
     [_hidThread start];
-    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) return NO;
+    if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) {
+        TRLog(@"setup: HID thread did not start");
+        return NO;
+    }
 
     _ready = YES;
     return YES;
@@ -126,6 +132,7 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
         [self->_ignoredIDs removeAllObjects];
         [self->_lastTouchByID removeAllObjects];
 
+        TRLog(@"record: creating monitor client");
         IOHIDEventSystemClientRef c = NULL;
         // Prefer a "monitor" client (type 1) so we see every HID event, fall back to an admin client.
         if (TRHID.ClientCreateWithType) c = TRHID.ClientCreateWithType(kCFAllocatorDefault, 1, NULL);
@@ -141,6 +148,7 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
         TRHID.ClientRegisterCallback(c, TRHIDCallback, (__bridge void *)self, NULL);
         TRHID.ClientSchedule(c, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
         self->_monitorClient = c;
+        TRLog(@"record: monitor client active");
         self.capturing = YES;
     }];
 }
@@ -355,7 +363,10 @@ static void TRHIDCallback(void *target, void *refcon, IOHIDServiceRef service, I
 }
 
 - (void)playbackLoop:(NSArray *)frames sender:(uint64_t)sender repeat:(NSUInteger)repeat speed:(double)speed {
-    if (!_dispatchClient) _dispatchClient = TRHID.ClientCreate(kCFAllocatorDefault);
+    if (!_dispatchClient) {
+        TRLog(@"play: creating dispatch client");
+        _dispatchClient = TRHID.ClientCreate(kCFAllocatorDefault);
+    }
     if (!_dispatchClient) {
         NSLog(@"[TapRecorder] failed to create HID dispatch client");
         self.cancelPlayback = YES;

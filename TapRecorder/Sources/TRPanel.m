@@ -1,5 +1,6 @@
 #import "TRPanel.h"
 #import "TRRecorder.h"
+#import "TRLog.h"
 
 static UIWindowScene *TRActiveWindowScene(void) {
     UIWindowScene *fallback = nil;
@@ -44,9 +45,12 @@ static const CGFloat kPanelW = 168;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         UIWindowScene *scene = TRActiveWindowScene();
+        TRLog(@"panel: scene=%@", scene);
         s = scene ? [[TRPanelWindow alloc] initWithWindowScene:scene]
                   : [[TRPanelWindow alloc] initWithFrame:CGRectZero];
+        TRLog(@"panel: window allocated");
         [s commonInit];
+        TRLog(@"panel: commonInit done");
     });
     return s;
 }
@@ -105,6 +109,12 @@ static const CGFloat kPanelW = 168;
     [self applyLayout];
     [self refresh];
 }
+
+// Keep this overlay from taking key-window status, the status bar or
+// orientation away from SpringBoard (same approach as FLEX's window).
+- (BOOL)_canBecomeKeyWindow { return NO; }
+- (BOOL)_canAffectStatusBarAppearance { return NO; }
+- (BOOL)_canAffectHomeAffordanceAutoHide { return NO; }
 
 - (UIButton *)buttonWithAction:(SEL)sel {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
