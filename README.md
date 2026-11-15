@@ -7,7 +7,7 @@ ROM has to implement itself.
 | Milestone | State |
 |---|---|
 | 0. Build pipeline: template ROM built and signed by CI | done |
-| 1. `/var/jb` bootstrap laid down on flash, dpkg layout | built, needs device test |
+| 1. `/var/jb`: the Procursus bootstrap, laid down on flash | built, needs device test |
 | 1b. `/var/jb` path layer for every guest process (`src/rtpatch`) | built, host-tested, needs device test |
 | 1c. Library paths and signing: at packing time, and after every dpkg run (`src/fixup`) | built, host-tested, needs device test |
 | 2. launchd / launchctl (`src/`) | built, run for real on macOS in CI, needs device test |
@@ -16,9 +16,21 @@ ROM has to implement itself.
 | 3. sudo/su, tweak injection, safe mode | not started |
 | 4. SpringBoard, uicache, Sileo | not started |
 
-Milestone 1 ships a skeleton rootless bootstrap (dpkg/apt config for
-`iphoneos-arm64` plus the directory layout) that the ROM's installer
-(`rom-overlay/installer`) extracts into the data partition on flash.
+Milestone 1: `/var/jb` is the Procursus rootless bootstrap (apt, dpkg, bash,
+zsh, coreutils and so on; 67 packages). The build downloads it from
+apt.procurs.us, checks it against the hash in `rom.conf`, and packs it into the
+ROM; the ROM's installer (`rom-overlay/installer`) extracts it into the data
+partition on flash, the first time only. On top of it the build adds this
+project's own files (`rom-overlay/bootstrap`, `nxlaunchctl`, `nxfixup`), makes
+`launchctl` mean `nxlaunchctl` (Procursus' own is kept as `launchctl.procursus`
+through a dpkg diversion), and turns off the two daemons in the bootstrap that
+need Apple's launchd.
+
+    STRAP_TAR=~/bootstrap.tar.zst scripts/build.sh   # a bootstrap of your own
+    STRAP_URL= scripts/build.sh                      # an empty /var/jb instead
+
+Supported formats: `.tar`, `.tar.gz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`,
+`.tar.lzma`.
 
 A Nyxian guest runs on the real filesystem, so `/var/jb` does not exist for it
 by itself. Milestone 1b is the path layer that makes every program use the
@@ -29,12 +41,16 @@ replace (open, stat, rename, symlink, opendir, posix_spawn, exec, ...). The
 ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
 `make -C src/rtpatch test` runs its test on any OS.
 
+- Scripts are started here too: a file that begins with `#!` is run through
+  its interpreter by the path layer, as the real kernel would outside Nyxian
+  (every dpkg package script starts with `#!/var/jb/bin/sh`).
 - Library paths never pass through those functions (the dynamic loader opens
   files itself), so binaries that link `/var/jb/usr/lib/...` are rewritten
   instead: `scripts/relocate-macho.py` turns those load commands and rpaths
   into `@loader_path/...` when the bootstrap is packed, and the rewritten files
-  are signed again with `ldid` if it is installed. Neither
-  `dlopen("/var/jb/...")` nor `#!/var/jb/...` lines are handled.
+  are signed again with `ldid` if it is installed. Symlinks with an absolute
+  `/var/jb` target are made relative at the same time. `dlopen("/var/jb/...")`
+  is not handled.
 - Packages installed later: dpkg runs `/var/jb/usr/libexec/nxfixup`
   (`src/fixup`) after every transaction (`post-invoke` in `dpkg.cfg.d`). It
   does the same rewrite on the device and has Nyxian sign each new or changed
@@ -53,17 +69,6 @@ ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
   (Nyxian > Settings > General > Boot Arguments): the ROM then boots without
   the path layer and without `nxlaunchd`.
 
-To ship a real rootless userland (apt, dpkg, bash, …) instead of the skeleton,
-point `STRAP_TAR` at a Procursus rootless bootstrap archive when building; its
-contents become `/var/jb` and the skeleton only fills what it does not provide,
-so the strap's own dpkg database is kept:
-
-    STRAP_TAR=~/bootstrap.tar.zst scripts/build.sh
-    # STRAP_STRIP=N if the strap is not already rooted at /var/jb
-
-Supported strap formats: `.tar`, `.tar.gz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`,
-`.tar.lzma`.
-
 ### What happens at boot
 
 1. The ROM's kernel installs the path layer and registers `nxlaunchd` (in the
@@ -74,7 +79,10 @@ Supported strap formats: `.tar`, `.tar.gz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`,
 2. `nxlaunchd` loads `/var/jb/Library/LaunchDaemons`.
 3. The first job there, `rootless.nxfixup`, relocates and signs every Mach-O in
    `/var/jb` that is new or changed. On the first boot after flashing that is
-   the whole bootstrap; its log is `/var/jb/var/log/nxfixup.log`.
+   the whole bootstrap (about 390 files); its log is
+   `/var/jb/var/log/nxfixup.log`.
+4. Once, right after that: the bootstrap's own `prep_bootstrap.sh`, which
+   configures the base packages and then deletes itself.
 
 Not verified without a device: that Nyxian starts a service whose entry is
 written at boot rather than mounted, that a slot program built as a dylib with

@@ -148,8 +148,14 @@
      `scripts/relocate-macho.py` 在打包 bootstrap 时把 `/var/jb/usr/lib/libX.dylib` 这类 load command
      和 `LC_RPATH` 改写成相对所在文件的 `@loader_path/...`（`LC_ID_DYLIB` 不动），dyld 原生支持，
      树放在哪里都能加载；改写后签名失效，装了 `ldid` 就重签。macOS CI 上用真编译器、真 dyld 验证过
-     （`scripts/test-relocate-real.sh`）。`dlopen("/var/jb/...")` 和 `#!` 行不处理
-     （仓库里没找到 Nyxian 处理 shebang 的代码）。
+     （`scripts/test-relocate-real.sh`）。对真实的 Procursus bootstrap（suite 1900）跑下来：
+     387 个文件、412 处路径全部改写成功，没有因为头部空间不够而失败的；42 个绝对 `/var/jb`
+     符号链接改成相对的（例如 `usr/bin/sh -> dash`、`var/lib/dpkg -> ../../Library/dpkg`）。
+     `dlopen("/var/jb/...")` 不处理。
+   - **`#!` 脚本**：Nyxian 是 `dlopen` 可执行文件，仓库里没有处理 shebang 的代码，而 dpkg 的维护脚本
+     全是 `#!/var/jb/bin/sh`。路径层在 `posix_spawn / exec*` 包装里自己读首行、改成启动解释器
+     （参数按空白拆分，和 XNU 一样；解释器本身不能再是脚本）。脚本以真实路径传给解释器，
+     这样解释器无论用什么方式打开文件都能找到。
    - **装包之后**：`src/fixup/nxfixup.c` 是同一套改写的 C 版本，跑在设备上，dpkg 每次事务结束后
      通过 `post-invoke` 调用它；同一个测试（`scripts/test-relocate.py`）对 Python 版和 C 版都跑。
      它同时负责签名，见 2.4。
