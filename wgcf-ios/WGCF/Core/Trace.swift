@@ -20,9 +20,11 @@ struct TraceResult: Equatable {
     static let url = URL(string: "https://www.cloudflare.com/cdn-cgi/trace")!
 
     static func parse(_ text: String) -> TraceResult {
-        let entries = text.split(whereSeparator: \.isNewline).compactMap { line -> Entry? in
-            guard let separator = line.firstIndex(of: "=") else { return nil }
-            return Entry(key: String(line[..<separator]), value: String(line[line.index(after: separator)...]))
+        var entries: [Entry] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+            entries.append(Entry(key: String(parts[0]), value: String(parts[1])))
         }
         return TraceResult(entries: entries)
     }
