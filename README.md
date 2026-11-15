@@ -10,8 +10,8 @@ ROM has to implement itself.
 | 1. `/var/jb` bootstrap laid down on flash, dpkg layout | built, needs device test |
 | 1b. `/var/jb` path layer for every guest process (`src/rtpatch`) | built, host-tested, needs device test |
 | 1c. Library paths and signing: at packing time, and after every dpkg run (`src/fixup`) | built, host-tested, needs device test |
-| 2. launchd / launchctl (`src/`) | built, needs device test |
-| 2a. Boot wiring: start launchd from the ROM with entitlements, first-boot `nxfixup` | not started |
+| 2. launchd / launchctl (`src/`) | built, run for real on macOS in CI, needs device test |
+| 2a. Boot wiring: the ROM starts launchd with its entitlements; first-boot `nxfixup` | built, needs device test |
 | 2b. Mach-service / XPC check-in | not started |
 | 3. sudo/su, tweak injection, safe mode | not started |
 | 4. SpringBoard, uicache, Sileo | not started |
@@ -51,7 +51,7 @@ ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
   (about 39; 0 means the slots are not reachable).
 - If guests stop starting after flashing, add the boot argument `nxjb_off`
   (Nyxian > Settings > General > Boot Arguments): the ROM then boots without
-  the path layer.
+  the path layer and without `nxlaunchd`.
 
 To ship a real rootless userland (apt, dpkg, bash, …) instead of the skeleton,
 point `STRAP_TAR` at a Procursus rootless bootstrap archive when building; its
@@ -63,6 +63,25 @@ so the strap's own dpkg database is kept:
 
 Supported strap formats: `.tar`, `.tar.gz`, `.tar.xz`, `.tar.zst`, `.tar.bz2`,
 `.tar.lzma`.
+
+### What happens at boot
+
+1. The ROM's kernel installs the path layer and registers `nxlaunchd` (in the
+   slot, `Application/libexec/nxlaunchd`) as a Nyxian launch service
+   (`rom-overlay/kernel/shimcache.m`). Its entitlements come from the manifest
+   (`scripts/set-manifest.py`): root, and the right to start and sign programs,
+   which Nyxian passes on to everything it starts.
+2. `nxlaunchd` loads `/var/jb/Library/LaunchDaemons`.
+3. The first job there, `rootless.nxfixup`, relocates and signs every Mach-O in
+   `/var/jb` that is new or changed. On the first boot after flashing that is
+   the whole bootstrap; its log is `/var/jb/var/log/nxfixup.log`.
+
+Not verified without a device: that Nyxian starts a service whose entry is
+written at boot rather than mounted, that a slot program built as a dylib with
+`main` starts the way the template's Hello app does, that `fork`/`exec` in
+`nxlaunchd` behaves under Nyxian's emulation of them, and that a socket can be
+bound inside the container. `scripts/test-launchd.sh` covers the daemon itself
+(jobs, restart, unload, a prefix too long for a socket address) on macOS.
 
 ## Licence: personal use only
 

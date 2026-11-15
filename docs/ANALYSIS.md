@@ -100,7 +100,21 @@
   权限（去掉 platform / root / task-for-pid / sugid，`trust.m:795-812`），继承标志本身不被去掉，
   所以只要会话的第一个进程（我们的 launchd，放在 ROM slot 里、由 manifest 授权）带
   `process.spawn` + `inherite-entitlements`，整棵进程树（shell、apt、dpkg、nxfixup）都能派生和签名。
-  **这一步（启动接线）还没做。**
+  **启动接线（已实现，未上真机）：**
+  - `PEUserspaceManager.m:150-170` 的顺序是 `ksurface_shimcache_build` → patchcache →
+    `[PELaunchServiceManager reloadAllEntries]`（读 `Documents/mntfs/lsfs/*.plist`）。
+    本 ROM 在 `shimcache_build` 里往 lsfs 写一个 `rootless.nxlaunchd.plist`，
+    `PEExecutablePath` 指向 slot 的 `Application/libexec/nxlaunchd`（slot 里只有 `Application/`
+    是 guest 可读的目录挂载，`fs.m` 的 `$romapps`）。plist 里的 `PEArguments / PEEnvironment /
+    PEWorkingDirectory` 原样传给 guest（`LPLMain.m:142-148`）；`HOME / TMPDIR` 由内核补默认值
+    （`PEExtension.m:122-133`），我们只设 `PATH`。
+  - 权限：manifest 的 `NXRomPaths[].NXT2Entitlements` 在刷机时由 bootloader 写进文件
+    （`BootViewController.swift:204-225`），和模板的 Hello 应用同一机制。
+  - slot 里的程序做成带 `main` 的 dylib：guest 是 `dlopen` 可执行文件再找入口
+    （`LCBootstrap.m:181-190`），普通 `MH_EXECUTE` 要在签名时改成 `MH_DYLIB`
+    （`LCMachOUtils.m:333-345`），而封存后的 slot 文件不能改。模板的 Hello 就是 `-dynamiclib`。
+  - **不确定**：lsfs 里放普通文件（而非挂载出来的链接）是否被接受；`nxlaunchd` 的
+    `fork` + `exec` 在 Nyxian 的 fork 模拟（`Shims/vfork.m`）下是否如预期；容器里能否 `bind` AF_UNIX。
   也**不确定** 7 天免费证书过期后，数据分区里的二进制由谁重签——
   bootloader 的 `refreshROMSigningIfNeeded` 看名字只处理 ROM slot。
 
