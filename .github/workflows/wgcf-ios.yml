@@ -1,0 +1,76 @@
+name: WGCF iOS
+
+on:
+  push:
+    paths:
+      - "wgcf-ios/**"
+      - ".github/workflows/wgcf-ios.yml"
+  pull_request:
+    paths:
+      - "wgcf-ios/**"
+      - ".github/workflows/wgcf-ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wgcf-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: wgcf-ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl list devices available -j |
+            python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k in sorted(d, reverse=True) if "iOS" in k for x in d[k] if "iPhone" in x["name"]))')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project WGCF.xcodeproj -scheme WGCF \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/test \
+            | tee test.log | grep -E "error|warning: unre|Test Case|Test Suite|\*\* TEST|Executed" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" test.log
+
+      - name: Build unsigned IPA
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project WGCF.xcodeproj -scheme WGCF -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO | tee build.log | grep -E "error|\*\* BUILD" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" build.log
+          mkdir -p Payload
+          cp -R build/device/Build/Products/Release-iphoneos/WGCF.app Payload/
+          zip -qry WGCF-unsigned.ipa Payload
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: wgcf-ios/*.log
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: WGCF-unsigned-ipa
+          path: wgcf-ios/WGCF-unsigned.ipa
+          if-no-files-found: error
