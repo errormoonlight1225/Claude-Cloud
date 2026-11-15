@@ -26,10 +26,14 @@ struct ProfileOptions: Codable, Equatable {
     var dns = ProfileOptions.defaultDNS
     var allowedIPs = ProfileOptions.defaultAllowedIPs
     var endpointMode = EndpointMode.auto
+    /// nil 表示使用 Cloudflare 返回的默认端口。
+    var port: Int?
 }
 
 enum WireGuardProfile {
     static let defaultPort = 2408
+    /// WARP 的 WireGuard 端点监听的 UDP 端口，默认端口被屏蔽时可以换用其他端口。
+    static let knownPorts = [2408, 500, 1701, 4500]
     static let fileName = "wgcf-profile.conf"
 
     /// 生成与 `wgcf generate` 相同格式的 WireGuard 配置。
@@ -37,7 +41,7 @@ enum WireGuardProfile {
         guard (0...ProfileOptions.maxKeepalive).contains(options.keepalive) else {
             throw WGCFError.invalidKeepalive
         }
-        let endpoint = try endpoint(tunnel.endpoint, mode: options.endpointMode)
+        let endpoint = try endpoint(tunnel.endpoint, mode: options.endpointMode, port: options.port)
         let dns = options.dns.trimmingCharacters(in: .whitespaces)
         let allowedIPs = options.allowedIPs.trimmingCharacters(in: .whitespaces)
 
@@ -61,15 +65,19 @@ enum WireGuardProfile {
     }
 
     /// 选择端点。自动模式与 wgcf 一致：优先域名，其次 IPv4，最后 IPv6。
-    static func endpoint(_ endpoint: PeerEndpoint, mode: EndpointMode = .auto) throws -> String {
+    /// 指定 `port` 时覆盖服务器返回的端口。
+    static func endpoint(_ endpoint: PeerEndpoint, mode: EndpointMode = .auto, port override: Int? = nil) throws -> String {
         let host = nonEmpty(endpoint.host)
         let v4 = nonEmpty(endpoint.v4)
         let v6 = nonEmpty(endpoint.v6)
-        let port = endpoint.ports?.first ?? defaultPort
+        let port = override ?? endpoint.ports?.first ?? defaultPort
 
         switch mode {
         case .auto:
-            if let host { return host }
+            if let host {
+                guard let override else { return host }
+                return join(host: hostPart(host), port: override)
+            }
             if let address = v4 ?? v6 { return join(host: hostPart(address), port: port) }
         case .ipv4:
             if let v4 { return join(host: hostPart(v4), port: port) }

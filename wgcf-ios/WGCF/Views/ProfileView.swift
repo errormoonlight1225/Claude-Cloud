@@ -70,7 +70,7 @@ struct ProfileView: View {
                 Label(copied ? "已复制" : "复制配置文本", systemImage: copied ? "checkmark" : "doc.on.doc")
             }
         } footer: {
-            Text("在分享面板中选择 WireGuard 即可导入隧道；二维码可供另一台设备上的 WireGuard 扫描。")
+            Text("在分享面板中选择 WireGuard 即可导入隧道；二维码可供另一台设备上的 WireGuard 扫描。隧道启用后没有收到数据时，可以在下方换一个端点或端口再重新导入。")
         }
     }
 
@@ -79,6 +79,12 @@ struct ProfileView: View {
             Picker("端点", selection: options.endpointMode) {
                 ForEach(EndpointMode.allCases) { mode in
                     Text(mode.title).tag(mode)
+                }
+            }
+            Picker("端口", selection: options.port) {
+                Text("默认").tag(Int?.none)
+                ForEach(WireGuardProfile.knownPorts, id: \.self) { port in
+                    Text(String(port)).tag(Int?.some(port))
                 }
             }
             Toggle("保持连接 (PersistentKeepalive)", isOn: Binding(

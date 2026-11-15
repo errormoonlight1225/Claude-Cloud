@@ -21,7 +21,7 @@
 此外还支持：
 
 - 导入 / 导出与命令行兼容的 `wgcf-account.toml`
-- 配置选项：端点（域名 / IPv4 / IPv6）、PersistentKeepalive、MTU、DNS、AllowedIPs
+- 配置选项：端点（域名 / IPv4 / IPv6）、端口（2408 / 500 / 1701 / 4500）、PersistentKeepalive、MTU、DNS、AllowedIPs
 - 在 Cloudflare 上注销当前设备
 - 凭据（私钥、访问令牌）保存在系统钥匙串中，不随 iCloud 同步
 
@@ -73,3 +73,7 @@ wgcf-ios/
   本应用仅把协议版本固定为 TLS 1.2。如果 Cloudflare 日后按指纹严格拦截，注册请求可能被拒绝。
 - API 版本号与客户端标识跟随 wgcf 2.3.1（`v0a5641`），定义在 `WGCF/Core/WarpAPI.swift`，
   上游更新时需要同步修改。
+
+## 许可证
+
+[MIT](LICENSE)。API 行为参考自同为 MIT 许可的 [wgcf](https://github.com/ViRb3/wgcf)。

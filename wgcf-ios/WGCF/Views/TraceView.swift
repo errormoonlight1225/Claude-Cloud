@@ -44,14 +44,19 @@ struct TraceView: View {
 
     @ViewBuilder
     private var statusRow: some View {
-        if isLoading && result == nil {
+        if isLoading {
             HStack(spacing: 12) {
                 ProgressView()
                 Text("正在检测…")
             }
         } else if let errorText {
-            Label(errorText, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 6) {
+                Label(errorText, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                Text("如果 WireGuard 隧道已启用但没有收到数据，说明握手没有成功，可在「配置」页换一个端点或端口后重新导入。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         } else if let result {
             let status = WarpStatus(result.warp)
             HStack(spacing: 14) {
@@ -84,6 +89,7 @@ struct TraceView: View {
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {
         } catch {
+            result = nil
             errorText = "检测失败：\(error.localizedDescription)"
         }
     }

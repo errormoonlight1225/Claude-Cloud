@@ -113,6 +113,11 @@ final class WireGuardProfileTests: XCTestCase {
         XCTAssertEqual(try WireGuardProfile.endpoint(full, mode: .ipv4), "162.159.192.1:2408")
         XCTAssertEqual(try WireGuardProfile.endpoint(full, mode: .ipv6), "[2606:4700:d0::a29f:c001]:2408")
 
+        XCTAssertEqual(try WireGuardProfile.endpoint(full, port: 4500), "5:4500")
+        XCTAssertEqual(try WireGuardProfile.endpoint(full, mode: .ipv4, port: 500), "162.159.192.1:500")
+        let named = PeerEndpoint(host: "engage.cloudflareclient.com:2408", v4: nil, v6: nil, ports: nil)
+        XCTAssertEqual(try WireGuardProfile.endpoint(named, port: 1701), "engage.cloudflareclient.com:1701")
+
         let noHost = PeerEndpoint(host: "", v4: "162.159.192.1:0", v6: "", ports: nil)
         XCTAssertEqual(try WireGuardProfile.endpoint(noHost), "162.159.192.1:2408")
         XCTAssertThrowsError(try WireGuardProfile.endpoint(noHost, mode: .ipv6))

@@ -32,6 +32,8 @@ struct TraceResult: Equatable {
     static func fetch(session: URLSession = .shared) async throws -> TraceResult {
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        // 隧道不通时请求会一直挂起，尽快给出结果。
+        request.timeoutInterval = 10
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw WGCFError.invalidResponse
