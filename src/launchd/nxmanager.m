@@ -1,6 +1,7 @@
 // nxmanager.m - see nxmanager.h.
 
 #import "nxmanager.h"
+#import "nxcontrol.h"
 #import <spawn.h>
 #import <sys/wait.h>
 #import <sys/stat.h>
@@ -256,8 +257,9 @@ static int openRedirect(const char *path, int flags)
     NSMutableArray *out = [NSMutableArray array];
     for (NSString *p in paths) {
         BOOL dir = NO;
-        if ([fm fileExistsAtPath:p isDirectory:&dir] && dir) {
-            for (NSString *name in [[fm contentsOfDirectoryAtPath:p error:NULL] sortedArrayUsingSelector:@selector(compare:)])
+        NSString *real = NXRealPath(p);     // Foundation gets the real location; names stay as given
+        if ([fm fileExistsAtPath:real isDirectory:&dir] && dir) {
+            for (NSString *name in [[fm contentsOfDirectoryAtPath:real error:NULL] sortedArrayUsingSelector:@selector(compare:)])
                 if ([name.pathExtension isEqualToString:@"plist"])
                     [out addObject:[p stringByAppendingPathComponent:name]];
         } else {

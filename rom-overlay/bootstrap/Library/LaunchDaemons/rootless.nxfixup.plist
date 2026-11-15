@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- At every boot: make any Mach-O in /var/jb that is new or changed loadable
+	     and signed (src/fixup). The first boot after flashing does the whole
+	     bootstrap; later boots find nothing to do. -->
+	<key>Label</key>
+	<string>rootless.nxfixup</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/var/jb/usr/libexec/nxfixup</string>
+		<string>--quiet</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/var/jb/var/log/nxfixup.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/jb/var/log/nxfixup.log</string>
+</dict>
+</plist>

@@ -61,12 +61,16 @@ cp "$root/rom-overlay/installer/build/installer" "$rom/installer"
 # the /var/jb path layer, loaded by every guest process
 make -C "$root/src/rtpatch" ios
 cp "$root/src/rtpatch/build/rtpatch" "$rom/rtpatch"
+# the service supervisor, in the slot (the ROM's kernel starts it at boot)
+make -C "$root/src" slot
+mkdir -p "$rom/Application/libexec"
+cp "$root/src/build/slot/nxlaunchd" "$rom/Application/libexec/nxlaunchd"
 # this project's tools that live in /var/jb, then the bootstrap again with them
 make -C "$root/src" ios
 make -C "$root/src/fixup" ios
 tools=$build/tools
 rm -rf "$tools" && mkdir -p "$tools"
-cp "$root/src/build/nxlaunchd" "$root/src/build/nxlaunchctl" "$root/src/fixup/build/nxfixup" "$tools/"
+cp "$root/src/build/nxlaunchctl" "$root/src/fixup/build/nxfixup" "$tools/"
 "$root/scripts/make-bootstrap.sh" "$rom/bootstrap/bootstrap.tar" "$tools"
 
 # --- assemble and sign the ROM zip (installer + bootstrap included) ---

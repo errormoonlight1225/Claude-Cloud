@@ -11,6 +11,7 @@ Besides NXRomVersion / NXRomSecurityVersion this adds, idempotently:
   - an NXRomPaths entry for that installer so it is code-signed.
   - an NXRomPaths entry for `rtpatch`, the /var/jb path layer the ROM's kernel
     installs for every guest process (src/rtpatch), so it is code-signed too.
+  - an NXRomPaths entry for nxlaunchd with its Nyxian entitlements.
 """
 import plistlib
 import sys
@@ -19,6 +20,7 @@ import sys
 DATA_PARTITION = '$(BOOTROOT)/Documents/rootfs/var/jb'
 INSTALLER_PATH = 'installer'
 RTPATCH_PATH = 'rtpatch'
+LAUNCHD_PATH = 'Application/libexec/nxlaunchd'
 
 path, version, security = sys.argv[1], sys.argv[2], int(sys.argv[3])
 if security < 1:
@@ -40,6 +42,31 @@ for signed in (INSTALLER_PATH, RTPATCH_PATH):
             'NXPermission': 0o555,
             'NXRequiresCodeSigning': True,
         })
+
+# The service supervisor, started by the ROM's kernel as a launch service. It is
+# the first process of everything in /var/jb, so it carries what its children
+# need: Nyxian hands a child the parent's entitlements when the parent has
+# inherite-entitlements (minus platform, root and sugid, which stay here).
+#   platform + platform-root   run as uid 0 (children copy the credentials)
+#   process.spawn              start programs, and have Nyxian sign them
+#   process.kill / enumeration stop and list services
+#   sugid                      UserName / GroupName in a job
+if not any(entry.get('NXPath') == LAUNCHD_PATH for entry in paths):
+    paths.append({
+        'NXPath': LAUNCHD_PATH,
+        'NXPermission': 0o555,
+        'NXRequiresCodeSigning': True,
+        'NXT2Entitlements': {
+            'org.emexlabs.nyxian.platform': True,
+            'org.emexlabs.nyxian.platform-root': True,
+            'org.emexlabs.nyxian.process.spawn': True,
+            'org.emexlabs.nyxian.process.spawn.inherite-entitlements': True,
+            'org.emexlabs.nyxian.process.kill': True,
+            'org.emexlabs.nyxian.process.enumeration': True,
+            'org.emexlabs.nyxian.sugid': True,
+            'org.emexlabs.nyxian.get-task-allow': False,
+        },
+    })
 
 with open(path, 'wb') as file:
     plistlib.dump(manifest, file, sort_keys=False)

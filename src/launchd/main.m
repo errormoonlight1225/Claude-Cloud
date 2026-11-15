@@ -30,37 +30,14 @@ static void setNonBlock(int fd) { fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_N
 static NSString *socketPath(void)
 {
     const char *env = getenv("LAUNCHD_SOCKET");
-    return env ? @(env) : @(NX_DEFAULT_SOCKET);
+    return env ? @(env) : NXRealPath(@(NX_DEFAULT_SOCKET));
 }
 
 static NSString *statePath(void)
 {
     const char *env = getenv("LAUNCHD_OVERRIDES");
     if (env) return @(env);
-    return @(NX_PREFIX "/var/db/nxlaunchd.overrides.plist");
-}
-
-// Ensure the parent directory of `path` exists.
-static void ensureParentDir(NSString *path)
-{
-    NSString *dir = [path stringByDeletingLastPathComponent];
-    [[NSFileManager defaultManager] createDirectoryAtPath:dir
-        withIntermediateDirectories:YES attributes:nil error:NULL];
-}
-
-static int makeListenSocket(NSString *path)
-{
-    ensureParentDir(path);
-    unlink(path.fileSystemRepresentation);
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) return -1;
-    struct sockaddr_un addr; memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, path.fileSystemRepresentation, sizeof(addr.sun_path) - 1);
-    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) { close(fd); return -1; }
-    chmod(path.fileSystemRepresentation, 0600);
-    if (listen(fd, 16) != 0) { close(fd); return -1; }
-    return fd;
+    return NXRealPath(@(NX_PREFIX "/var/db/nxlaunchd.overrides.plist"));
 }
 
 // Handle one request/reply on an accepted connection (blocking, one-shot).
@@ -104,6 +81,8 @@ static void drainReaped(NXManager *mgr)
 int main(int argc, char **argv)
 {
     @autoreleasepool {
+        [[NSFileManager defaultManager] createDirectoryAtPath:statePath().stringByDeletingLastPathComponent
+            withIntermediateDirectories:YES attributes:nil error:NULL];
         NXManager *mgr = [[NXManager alloc] initWithOverridesPath:statePath()];
 
         // Optional: directories to scan at boot, from argv or a default.
@@ -126,7 +105,7 @@ int main(int argc, char **argv)
         sigaction(SIGTERM, &sa, NULL); sigaction(SIGINT, &sa, NULL);
         signal(SIGPIPE, SIG_IGN);
 
-        int lfd = makeListenSocket(socketPath());
+        int lfd = NXSocketListen(socketPath());
         if (lfd < 0) { NSLog(@"nxlaunchd: cannot listen on %@: %s", socketPath(), strerror(errno)); return 1; }
         NSLog(@"nxlaunchd: listening on %@", socketPath());
 

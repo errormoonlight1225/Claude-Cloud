@@ -15,6 +15,21 @@ NS_ASSUME_NONNULL_BEGIN
 #endif
 #define NX_DEFAULT_SOCKET  NX_PREFIX "/var/run/nxlaunchd.sock"
 
+// Where NX_PREFIX really is. On a jailbroken device that is NX_PREFIX itself (or
+// what it links to). Inside Nyxian there is no real /var/jb: the path layer
+// (src/rtpatch) answers realpath() with the directory in the app container.
+NSString *NXPrefix(void);
+
+// `path` with a leading NX_PREFIX replaced by NXPrefix(). Use it for every path
+// handed to Foundation, which may not go through the path layer.
+NSString *NXRealPath(NSString *path);
+
+// A listening / connected AF_UNIX stream socket at `path`, or -1 with errno
+// set. Works for paths longer than sockaddr_un allows (an app container path
+// is) by binding from inside the socket's directory.
+int NXSocketListen(NSString *path);
+int NXSocketConnect(NSString *path);
+
 // Request keys
 extern NSString *const NXReqOp;     // NSString, one of the ops below
 extern NSString *const NXReqArgs;   // NSArray<NSString*>, positional arguments

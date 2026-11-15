@@ -24,8 +24,19 @@ LDID      := $(shell command -v ldid 2>/dev/null)
 IOSFLAGS  = -arch $(ARCH) -isysroot $(SDK_IOS) -miphoneos-version-min=$(MIN_IOS) \
             -framework Foundation
 
-.PHONY: all ios host clean sign
+.PHONY: all ios slot host clean sign
 all: ios
+
+# nxlaunchd for the ROM slot. Nyxian starts a ROM's own programs by dlopen()ing
+# them and calling main (the template's Hello app is built the same way), and a
+# sealed slot file cannot be converted on the device, so it is a dylib here.
+slot: $(BUILD)/slot/nxlaunchd
+
+$(BUILD)/slot/nxlaunchd: $(LAUNCHD_SRC)
+	@test -n "$(SDK_IOS)" || { echo "no iPhone SDK (need macOS + Xcode)"; exit 1; }
+	@mkdir -p $(BUILD)/slot
+	$(CC_IOS) $(CFLAGS_COMMON) $(IOSFLAGS) -dynamiclib -install_name @rpath/nxlaunchd \
+	    $(LAUNCHD_SRC) -o $@
 
 ios: $(BUILD)/nxlaunchd $(BUILD)/nxlaunchctl sign
 

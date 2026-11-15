@@ -22,18 +22,7 @@
 static NSString *socketPath(void)
 {
     const char *env = getenv("LAUNCHD_SOCKET");
-    return env ? @(env) : @(NX_DEFAULT_SOCKET);
-}
-
-static int connectControl(NSString *path)
-{
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) return -1;
-    struct sockaddr_un addr; memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, path.fileSystemRepresentation, sizeof(addr.sun_path) - 1);
-    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) { close(fd); return -1; }
-    return fd;
+    return env ? @(env) : NXRealPath(@(NX_DEFAULT_SOCKET));
 }
 
 static void usage(void)
@@ -81,7 +70,7 @@ int main(int argc, char **argv)
             args = abs;
         }
 
-        int fd = connectControl(socketPath());
+        int fd = NXSocketConnect(socketPath());
         if (fd < 0) {
             fprintf(stderr, "nxlaunchctl: cannot reach nxlaunchd at %s: %s\n",
                     socketPath().UTF8String, strerror(errno));

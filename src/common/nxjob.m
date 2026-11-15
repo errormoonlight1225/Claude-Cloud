@@ -1,6 +1,7 @@
 // nxjob.m - see nxjob.h.
 
 #import "nxjob.h"
+#import "nxcontrol.h"
 #import <sys/wait.h>
 
 static NSString *const NXJobErrorDomain = @"NXJobError";
@@ -9,7 +10,7 @@ static NSString *const NXJobErrorDomain = @"NXJobError";
 
 + (nullable instancetype)jobFromPlistAtPath:(NSString *)path error:(NSError **)error
 {
-    NSData *data = [NSData dataWithContentsOfFile:path options:0 error:error];
+    NSData *data = [NSData dataWithContentsOfFile:NXRealPath(path) options:0 error:error];
     if (!data) return nil;
     id obj = [NSPropertyListSerialization propertyListWithData:data
                                                        options:NSPropertyListImmutable

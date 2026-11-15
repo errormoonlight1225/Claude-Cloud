@@ -3,6 +3,81 @@
 #import "nxcontrol.h"
 #import <unistd.h>
 #import <errno.h>
+#import <fcntl.h>
+#import <limits.h>
+#import <stdlib.h>
+#import <sys/socket.h>
+#import <sys/stat.h>
+#import <sys/un.h>
+
+NSString *NXPrefix(void)
+{
+    static NSString *prefix;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        char real[PATH_MAX];
+        prefix = realpath(NX_PREFIX, real) != NULL ? @(real) : @(NX_PREFIX);
+    });
+    return prefix;
+}
+
+NSString *NXRealPath(NSString *path)
+{
+    NSString *jb = @(NX_PREFIX);
+    if ([path isEqualToString:jb]) return NXPrefix();
+    if ([path hasPrefix:[jb stringByAppendingString:@"/"]])
+        return [NXPrefix() stringByAppendingString:[path substringFromIndex:jb.length]];
+    return path;
+}
+
+// bind() or connect() `fd` to `path`. sun_path holds about 100 bytes; a longer
+// path is reached by its last component from inside its directory.
+static int socketAt(int fd, NSString *path, BOOL listening)
+{
+    struct sockaddr_un addr; memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    const char *full = path.fileSystemRepresentation;
+    if (strlen(full) < sizeof(addr.sun_path)) {
+        strcpy(addr.sun_path, full);
+        return listening ? bind(fd, (struct sockaddr *)&addr, sizeof(addr))
+                         : connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    }
+    const char *name = path.lastPathComponent.fileSystemRepresentation;
+    if (strlen(name) >= sizeof(addr.sun_path)) { errno = ENAMETOOLONG; return -1; }
+    int saved = open(".", O_RDONLY);
+    if (saved < 0) return -1;
+    int rc = -1;
+    if (chdir(path.stringByDeletingLastPathComponent.fileSystemRepresentation) == 0) {
+        strcpy(addr.sun_path, name);
+        rc = listening ? bind(fd, (struct sockaddr *)&addr, sizeof(addr))
+                       : connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    }
+    int err = errno;
+    (void)fchdir(saved);
+    close(saved);
+    errno = err;
+    return rc;
+}
+
+int NXSocketListen(NSString *path)
+{
+    [[NSFileManager defaultManager] createDirectoryAtPath:path.stringByDeletingLastPathComponent
+        withIntermediateDirectories:YES attributes:nil error:NULL];
+    unlink(path.fileSystemRepresentation);
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+    if (socketAt(fd, path, YES) != 0 || listen(fd, 16) != 0) { int err = errno; close(fd); errno = err; return -1; }
+    chmod(path.fileSystemRepresentation, 0600);
+    return fd;
+}
+
+int NXSocketConnect(NSString *path)
+{
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+    if (socketAt(fd, path, NO) != 0) { int err = errno; close(fd); errno = err; return -1; }
+    return fd;
+}
 
 NSString *const NXReqOp    = @"op";
 NSString *const NXReqArgs  = @"args";
