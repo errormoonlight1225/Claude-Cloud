@@ -53,7 +53,7 @@ struct TraceView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label(errorText, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
-                Text("如果 WireGuard 隧道已启用但没有收到数据，说明握手没有成功，可在「配置」页换一个端点或端口后重新导入。")
+                Text("如果 WireGuard 隧道已启用但没有收到数据，说明握手没有成功，可在「配置」页用「端点测速」换一个能连通的端点后重新导入。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -28,6 +28,8 @@ struct ProfileOptions: Codable, Equatable {
     var endpointMode = EndpointMode.auto
     /// nil 表示使用 Cloudflare 返回的默认端口。
     var port: Int?
+    /// 手动指定或测速选出的端点（host:port），非空时优先于上面两项。
+    var customEndpoint: String?
 }
 
 enum WireGuardProfile {
@@ -41,7 +43,10 @@ enum WireGuardProfile {
         guard (0...ProfileOptions.maxKeepalive).contains(options.keepalive) else {
             throw WGCFError.invalidKeepalive
         }
-        let endpoint = try endpoint(tunnel.endpoint, mode: options.endpointMode, port: options.port)
+        let custom = options.customEndpoint?.trimmingCharacters(in: .whitespaces) ?? ""
+        let endpoint = custom.isEmpty
+            ? try endpoint(tunnel.endpoint, mode: options.endpointMode, port: options.port)
+            : custom
         let dns = options.dns.trimmingCharacters(in: .whitespaces)
         let allowedIPs = options.allowedIPs.trimmingCharacters(in: .whitespaces)
 

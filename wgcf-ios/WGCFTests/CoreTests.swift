@@ -107,6 +107,27 @@ final class WireGuardProfileTests: XCTestCase {
         XCTAssertTrue(profile.contains("Endpoint = [2606:4700:d0::a29f:c001]:2408\n"))
     }
 
+    func testCustomEndpointOverridesEverything() throws {
+        var options = ProfileOptions()
+        options.endpointMode = .ipv6
+        options.port = 500
+        options.customEndpoint = " 188.114.97.3:4500 "
+        let profile = try WireGuardProfile.render(privateKey: "1", tunnel: tunnel, options: options)
+        XCTAssertTrue(profile.contains("Endpoint = 188.114.97.3:4500\n"))
+
+        options.customEndpoint = "  "
+        XCTAssertTrue(try WireGuardProfile.render(privateKey: "1", tunnel: tunnel, options: options)
+            .contains("Endpoint = [2606:4700:d0::a29f:c001]:500\n"))
+    }
+
+    func testOptionsDecodeFromOlderVersion() throws {
+        let saved = #"{"keepalive":25,"mtu":1280,"dns":"1.1.1.1","allowedIPs":"0.0.0.0/0","endpointMode":"ipv4"}"#
+        let options = try JSONDecoder().decode(ProfileOptions.self, from: Data(saved.utf8))
+        XCTAssertEqual(options.keepalive, 25)
+        XCTAssertNil(options.port)
+        XCTAssertNil(options.customEndpoint)
+    }
+
     func testEndpointSelection() throws {
         let full = tunnel.endpoint
         XCTAssertEqual(try WireGuardProfile.endpoint(full), "5")
@@ -186,5 +207,30 @@ final class TraceTests: XCTestCase {
         XCTAssertEqual(result["ip"], "1.2.3.4")
         XCTAssertEqual(result["uag"], "a=b")
         XCTAssertNil(result["missing"])
+    }
+}
+
+final class EndpointScannerTests: XCTestCase {
+    func testHandshakePacketShape() {
+        XCTAssertEqual(EndpointScanner.handshakePacket.count, 148)
+        XCTAssertEqual(EndpointScanner.handshakePacket.first, 1)
+    }
+
+    func testCandidates() {
+        let candidates = EndpointScanner.candidates(count: 120)
+        XCTAssertEqual(candidates.count, 120)
+        XCTAssertEqual(Set(candidates).count, 120)
+        XCTAssertEqual(candidates[0], .init(host: "162.159.192.1", port: 2408))
+        XCTAssertEqual(candidates[0].endpoint, "162.159.192.1:2408")
+        for candidate in candidates {
+            XCTAssertTrue(EndpointScanner.prefixes.contains { candidate.host.hasPrefix($0 + ".") })
+            XCTAssertTrue(EndpointScanner.ports.contains(candidate.port))
+        }
+    }
+
+    func testProbeReturnsNilWhenNothingAnswers() async {
+        // 192.0.2.0/24 是保留给文档使用的网段，不会有响应。
+        let rtt = await EndpointScanner.probe(.init(host: "192.0.2.1", port: 2408), timeout: 0.3)
+        XCTAssertNil(rtt)
     }
 }

@@ -70,21 +70,36 @@ struct ProfileView: View {
                 Label(copied ? "已复制" : "复制配置文本", systemImage: copied ? "checkmark" : "doc.on.doc")
             }
         } footer: {
-            Text("在分享面板中选择 WireGuard 即可导入隧道；二维码可供另一台设备上的 WireGuard 扫描。隧道启用后没有收到数据时，可以在下方换一个端点或端口再重新导入。")
+            Text("在分享面板中选择 WireGuard 即可导入隧道；二维码可供另一台设备上的 WireGuard 扫描。隧道启用后上不了网时，用下方的「端点测速」找一个能连通的端点，再重新导入。")
         }
     }
 
     private func optionsSection(options: Binding<ProfileOptions>) -> some View {
         Section("选项") {
-            Picker("端点", selection: options.endpointMode) {
-                ForEach(EndpointMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
+            NavigationLink {
+                EndpointScanView(options: options)
+            } label: {
+                Label("端点测速", systemImage: "speedometer")
             }
-            Picker("端口", selection: options.port) {
-                Text("默认").tag(Int?.none)
-                ForEach(WireGuardProfile.knownPorts, id: \.self) { port in
-                    Text(String(port)).tag(Int?.some(port))
+            if let custom = options.wrappedValue.customEndpoint, !custom.isEmpty {
+                LabeledContent("自定义端点") {
+                    Text(custom)
+                        .font(.system(.footnote, design: .monospaced))
+                }
+                Button("改回默认端点", role: .destructive) {
+                    options.wrappedValue.customEndpoint = nil
+                }
+            } else {
+                Picker("端点", selection: options.endpointMode) {
+                    ForEach(EndpointMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                Picker("端口", selection: options.port) {
+                    Text("默认").tag(Int?.none)
+                    ForEach(WireGuardProfile.knownPorts, id: \.self) { port in
+                        Text(String(port)).tag(Int?.some(port))
+                    }
                 }
             }
             Toggle("保持连接 (PersistentKeepalive)", isOn: Binding(

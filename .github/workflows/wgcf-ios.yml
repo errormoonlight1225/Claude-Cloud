@@ -10,6 +10,11 @@ on:
       - "wgcf-ios/**"
       - ".github/workflows/wgcf-ios.yml"
   workflow_dispatch:
+    inputs:
+      live:
+        description: "Register a real WARP device and check the generated profile connects"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -74,3 +79,63 @@ jobs:
           name: WGCF-unsigned-ipa
           path: wgcf-ios/WGCF-unsigned.ipa
           if-no-files-found: error
+
+  # Manual end-to-end check against the real Cloudflare service: the app code
+  # registers a device and writes a profile, then wireproxy brings the tunnel up
+  # and the trace endpoint must report warp=on. The registration is deleted after.
+  live:
+    if: github.event_name == 'workflow_dispatch' && inputs.live
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: wgcf-ios
+    env:
+      LIVE_DIR: /tmp/wgcf-live
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl list devices available -j |
+            python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k in sorted(d, reverse=True) if "iOS" in k for x in d[k] if "iPhone" in x["name"]))')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Register and generate profile with the app code
+        run: |
+          set -o pipefail
+          mkdir -p "$LIVE_DIR"
+          TEST_RUNNER_WGCF_LIVE_DIR="$LIVE_DIR" xcodebuild test \
+            -project WGCF.xcodeproj -scheme WGCF \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/test \
+            -only-testing:WGCFTests/LiveTests \
+            | tee live.log | grep -E "error|LIVE|Test Case|\*\* TEST|Executed" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" live.log
+          test -s "$LIVE_DIR/wgcf-profile.conf"
+
+      - name: Connect through the generated profile
+        run: |
+          brew install wireproxy
+          printf 'WGConfig = %s/wgcf-profile.conf\n\n[Socks5]\nBindAddress = 127.0.0.1:25344\n' "$LIVE_DIR" > "$LIVE_DIR/wireproxy.conf"
+          wireproxy -c "$LIVE_DIR/wireproxy.conf" > "$LIVE_DIR/wireproxy.log" 2>&1 &
+          sleep 5
+          trace=$(curl -sS --max-time 20 --retry 3 --retry-all-errors \
+            --socks5-hostname 127.0.0.1:25344 https://www.cloudflare.com/cdn-cgi/trace) || { cat "$LIVE_DIR/wireproxy.log"; exit 1; }
+          echo "$trace" | grep -E "^(warp|colo|loc|http)="
+          echo "$trace" | grep -Eq "^warp=(on|plus)$"
+
+      - name: Delete the registration
+        if: always()
+        run: |
+          file="$LIVE_DIR/wgcf-account.toml"
+          [ -s "$file" ] || exit 0
+          value() { sed -n "s/^$1 = '\(.*\)'$/\1/p" "$file"; }
+          curl -sS -o /dev/null -w "delete: %{http_code}\n" -X DELETE \
+            -H "Authorization: Bearer $(value access_token)" \
+            -H "CF-Client-Version: a-6.38.9-5641" \
+            -H "User-Agent: 1.1.1.1/6.38.9-5641 (Android 16.0.0)" \
+            --tls-max 1.2 \
+            "https://api.cloudflareclient.com/v0a5641/reg/$(value device_id)"
+          rm -rf "$LIVE_DIR"
