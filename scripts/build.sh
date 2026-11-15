@@ -45,24 +45,44 @@ python3 -I "$root/scripts/set-manifest.py" "$rom/manifest.plist" "$ROM_VERSION" 
 shimcache=$rom/rom/src/LindChain/ProcEnvironment/Surface/cache/shimcache.m
 [ -f "$shimcache" ] || { echo "build: the ROM template has no shimcache.m to replace" >&2; exit 1; }
 cp "$root/rom-overlay/kernel/shimcache.m" "$shimcache"
+# ... the policy for what lives in /var/jb, and the home screen that lists its apps
+mkdir -p "$rom/rom/src/Rootless"
+cp "$root/rom-overlay/kernel/rootless.m" "$rom/rom/src/Rootless/rootless.m"
+python3 -I "$root/scripts/patch-rom.py" "$rom/rom/src"
+
+# fetch URL SHA256 FILE: download unless FILE is already the right one; a file
+# that does not match its hash stops the build.
+sha256() { if command -v shasum >/dev/null; then shasum -a 256 "$1"; else sha256sum "$1"; fi | cut -d' ' -f1; }
+fetch() {
+    if [ ! -f "$3" ] || [ "$(sha256 "$3")" != "$2" ]; then
+        mkdir -p "$(dirname "$3")"
+        curl -fsSL --retry 3 -o "$3.part" "$1"
+        mv "$3.part" "$3"
+    fi
+    actual=$(sha256 "$3")
+    if [ "$actual" != "$2" ]; then
+        echo "build: $1 has SHA-256 $actual, rom.conf expects $2" >&2
+        echo "build: if a new version was published, check it and update the hash in rom.conf" >&2
+        exit 1
+    fi
+}
 
 # the Procursus bootstrap, unless STRAP_TAR already names one
 if [ -z "${STRAP_TAR:-}" ] && [ -n "${STRAP_URL:-}" ]; then
-    strap=$build/strap/${STRAP_URL##*/}
-    sha256() { if command -v shasum >/dev/null; then shasum -a 256 "$1"; else sha256sum "$1"; fi | cut -d' ' -f1; }
-    if [ ! -f "$strap" ] || [ "$(sha256 "$strap")" != "$STRAP_SHA256" ]; then
-        mkdir -p "$build/strap"
-        curl -fsSL --retry 3 -o "$strap.part" "$STRAP_URL"
-        mv "$strap.part" "$strap"
-    fi
-    actual=$(sha256 "$strap")
-    if [ "$actual" != "$STRAP_SHA256" ]; then
-        echo "build: $STRAP_URL has SHA-256 $actual, rom.conf expects $STRAP_SHA256" >&2
-        echo "build: if Procursus published a new bootstrap, check it and update STRAP_SHA256" >&2
-        exit 1
-    fi
-    export STRAP_TAR=$strap
+    fetch "$STRAP_URL" "$STRAP_SHA256" "$build/strap/${STRAP_URL##*/}"
+    export STRAP_TAR=$build/strap/${STRAP_URL##*/}
 fi
+
+# the packages installed on the first boot
+export FIRSTBOOT_DEB_DIR=$build/debs
+rm -rf "$FIRSTBOOT_DEB_DIR" && mkdir -p "$FIRSTBOOT_DEB_DIR"
+while read -r url hash; do
+    [ -n "$url" ] || continue
+    fetch "$url" "$hash" "$build/debs-cache/${url##*/}"
+    cp "$build/debs-cache/${url##*/}" "$FIRSTBOOT_DEB_DIR/"
+done <<DEBS
+${FIRSTBOOT_DEBS:-}
+DEBS
 
 mkdir -p "$rom/bootstrap"
 "$root/scripts/make-bootstrap.sh" "$rom/bootstrap/bootstrap.tar"
@@ -86,9 +106,10 @@ cp "$root/src/build/slot/nxlaunchd" "$rom/Application/libexec/nxlaunchd"
 # this project's tools that live in /var/jb, then the bootstrap again with them
 make -C "$root/src" ios
 make -C "$root/src/fixup" ios
+make -C "$root/src/stubs" ios
 tools=$build/tools
 rm -rf "$tools" && mkdir -p "$tools"
-cp "$root/src/build/nxlaunchctl" "$root/src/fixup/build/nxfixup" "$tools/"
+cp "$root/src/build/nxlaunchctl" "$root/src/fixup/build/nxfixup" "$root/src/stubs/build/nxnoop" "$tools/"
 "$root/scripts/make-bootstrap.sh" "$rom/bootstrap/bootstrap.tar" "$tools"
 
 # --- assemble and sign the ROM zip (installer + bootstrap included) ---

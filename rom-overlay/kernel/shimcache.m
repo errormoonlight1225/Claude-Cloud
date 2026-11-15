@@ -47,6 +47,9 @@ static NSString *NXJBSlotPath(void)
 // fs.m by RomGen; it is the only part of the slot guests get a read token for).
 extern NSString *NXROMApplicationSourcePath(void);
 
+// rootless.m
+extern NSString *NXJBSearchPath(void);
+
 #define NX_LAUNCHD_SERVICE @"rootless.nxlaunchd"
 
 // Writes (or, when off, removes) the launch service entry for nxlaunchd.
@@ -68,18 +71,13 @@ static void NXJBInstallLaunchService(BOOL enabled)
         return;
     }
 
-    // Guests see the real filesystem, so the search path names the real vroot
-    // for Nyxian's own directories; the /var/jb entries go through the path layer.
     NSString *vroot = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/rootfs"];
-    NSString *path = [NSString stringWithFormat:
-        @"/var/jb/usr/local/sbin:/var/jb/usr/local/bin:/var/jb/usr/sbin:/var/jb/usr/bin:/var/jb/sbin:/var/jb/bin:"
-        @"%@/usr/bin:%@/usr/sbin:%@/bin:%@/sbin", vroot, vroot, vroot, vroot];
     NSDictionary *service = @{
         @"PEServiceIdentifier": NX_LAUNCHD_SERVICE,
         @"PEExecutablePath": executable,
         @"PEArguments": @[ executable ],
         @"PEWorkingDirectory": vroot,
-        @"PEEnvironment": @{ @"PATH": path },
+        @"PEEnvironment": @{ @"PATH": NXJBSearchPath() },
         @"PEShouldAutorestart": @YES,
         @"PEEnabled": @YES,
     };

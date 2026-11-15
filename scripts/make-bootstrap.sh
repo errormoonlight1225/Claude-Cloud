@@ -91,11 +91,11 @@ mkdir -p \
   "$stage/var/log" "$stage/var/run" "$stage/var/db" "$stage/tmp" \
   "$stage/Library/LaunchDaemons" "$stage/Applications"
 
-# 5. this project's own tools, if built: nxlaunchctl and the tool dpkg runs to
-#    relocate and sign.
+# 5. this project's own tools, if built: nxlaunchctl, the tool dpkg runs to
+#    relocate and sign, and the stand-in for tools that cannot work here.
 included=
 if [ -n "$tools_dir" ]; then
-  for tool in bin/nxlaunchctl libexec/nxfixup; do
+  for tool in bin/nxlaunchctl libexec/nxfixup libexec/nxnoop; do
     if [ -f "$tools_dir/${tool##*/}" ]; then
       install -m755 "$tools_dir/${tool##*/}" "$stage/usr/$tool"
       included="$included ${tool##*/}"
@@ -104,19 +104,36 @@ if [ -n "$tools_dir" ]; then
 fi
 echo "make-bootstrap: own tools included:${included:- none (no tools dir)}"
 
-# `launchctl` is what package scripts call to load their daemons, and here the
-# service manager is nxlaunchd. Procursus' launchctl (which talks to Apple's
-# launchd) is moved aside with a dpkg diversion, so that an update of that
-# package does not put it back.
-if [ -f "$stage/usr/bin/nxlaunchctl" ]; then
-  if [ -f "$stage/usr/bin/launchctl" ] && [ ! -L "$stage/usr/bin/launchctl" ]; then
-    mv "$stage/usr/bin/launchctl" "$stage/usr/bin/launchctl.procursus"
-    printf '%s\n' /var/jb/usr/bin/launchctl /var/jb/usr/bin/launchctl.procursus : \
-      >> "$stage/var/lib/dpkg/diversions"
-    echo "make-bootstrap: launchctl diverted to launchctl.procursus"
+# Some of Procursus' tools talk to parts of iOS that do not exist inside Nyxian,
+# and package scripts call them. Each is replaced by a link to this ROM's own
+# tool; the original is kept beside it and recorded as a dpkg diversion, so that
+# an update of its package does not put it back.
+#   launchctl           -> nxlaunchctl (the service manager here is nxlaunchd)
+#   uicache, sbreload   -> nxnoop      (the home screen reads /var/jb/Applications itself)
+divert() {   # divert NAME OWN-TOOL-RELATIVE-TO-usr/bin
+  [ -e "$stage/usr/bin/$2" ] || return 0
+  if [ -f "$stage/usr/bin/$1" ] && [ ! -L "$stage/usr/bin/$1" ]; then
+    mv "$stage/usr/bin/$1" "$stage/usr/bin/$1.procursus"
+    printf '%s\n' "/var/jb/usr/bin/$1" "/var/jb/usr/bin/$1.procursus" : >> "$stage/var/lib/dpkg/diversions"
+    echo "make-bootstrap: $1 diverted to $1.procursus"
   fi
-  ln -sf nxlaunchctl "$stage/usr/bin/launchctl"
-fi
+  ln -sf "$2" "$stage/usr/bin/$1"
+}
+divert launchctl nxlaunchctl
+divert uicache ../libexec/nxnoop
+divert sbreload ../libexec/nxnoop
+
+# Packages to install on the first boot (the package managers), see
+# usr/libexec/nxfirstboot: from FIRSTBOOT_DEB_DIR (downloaded by build.sh) and
+# rom-overlay/debs.
+debs=0
+for deb in ${FIRSTBOOT_DEB_DIR:+"$FIRSTBOOT_DEB_DIR"/*.deb} "$here"/rom-overlay/debs/*.deb; do
+  [ -f "$deb" ] || continue
+  mkdir -p "$stage/var/cache/nxfirstboot"
+  cp "$deb" "$stage/var/cache/nxfirstboot/"
+  debs=$((debs + 1))
+done
+echo "make-bootstrap: $debs package(s) to install on the first boot"
 
 # 6. sign what step 2 rewrote (its old signature no longer matches). Optional:
 #    nxfixup signs everything with the user's certificate on the first boot.

@@ -152,8 +152,18 @@ static int script_of(const char *real, struct script *sc)
         else if (sc->nargs < SCRIPT_ARGS) sc->args[sc->nargs++] = word;
     }
     if (interp == NULL) return 0;
-    char buf[PATH_MAX];
+    char buf[PATH_MAX], alt[PATH_MAX];
     const char *mapped = mp(interp, buf);
+    // "#!/bin/sh": package scripts name the usual places, which do not exist on
+    // iOS. Like Procursus' own libiosexec, look under /var/jb when the
+    // interpreter is not where the line says.
+    if (mapped == interp && interp[0] == '/' && o_access != NULL && o_access(interp, X_OK) != 0 &&
+        strlen(interp) + NX_JB_LEN < PATH_MAX) {
+        memcpy(alt, NX_JB, NX_JB_LEN);
+        strcpy(alt + NX_JB_LEN, interp);
+        const char *under = mp(alt, buf);
+        if (o_access(under, X_OK) == 0) mapped = under;
+    }
     if (strlen(mapped) >= PATH_MAX) return 0;
     strcpy(sc->interp, mapped);
     return 1;

@@ -1,0 +1,20 @@
+#!/var/jb/bin/sh
+# Run by the boot job (Library/LaunchDaemons/rootless.nxfixup.plist) after
+# nxfixup has signed everything. Does what is still left to do after flashing,
+# and nothing once that is done.
+
+# The Procursus bootstrap's own setup: configures the base packages, then
+# deletes itself.
+if [ -x /var/jb/prep_bootstrap.sh ]; then
+    NO_PASSWORD_PROMPT=1 /var/jb/prep_bootstrap.sh
+fi
+
+# Packages shipped with the ROM (the package managers): installed by dpkg like
+# any other, so they can be updated and removed normally. One that fails stays
+# for the next boot.
+for deb in /var/jb/var/cache/nxfirstboot/*.deb; do
+    [ -e "$deb" ] || continue
+    if /var/jb/usr/bin/dpkg -i "$deb"; then
+        rm -f "$deb"
+    fi
+done

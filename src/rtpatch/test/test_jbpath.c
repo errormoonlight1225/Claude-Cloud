@@ -223,6 +223,15 @@ int main(void)
     if (pid == 0) { VIA(execve)("/var/jb/usr/bin/s1", a1, environ); _exit(99); }
     CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 11, "execve a script");
 
+    // "#!/no-such-dir/sh": not there, but /var/jb/no-such-dir/sh is
+    CHECK(VIA(mkdir)("/var/jb/no-such-dir", 0755) == 0 && VIA(symlink)("/bin/sh", "/var/jb/no-such-dir/sh") == 0, "an sh only under /var/jb");
+    const char *s3 = "#!/no-such-dir/sh\nexit 13\n";
+    fd = VIA(open)("/var/jb/usr/bin/s3", O_CREAT | O_WRONLY, 0755);
+    CHECK(fd >= 0 && write(fd, s3, strlen(s3)) > 0, "s3"); if (fd >= 0) close(fd);
+    char *const a3[] = { "s3", NULL };
+    CHECK(VIA(posix_spawn)(&pid, "/var/jb/usr/bin/s3", NULL, NULL, a3, environ) == 0, "spawn with the interpreter under /var/jb");
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 13, "interpreter found under /var/jb");
+
     if (failures) { fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     printf("ok: %d slots hooked, all checks passed\n", g_hooked);
     return 0;
