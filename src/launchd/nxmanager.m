@@ -326,7 +326,7 @@ static int openRedirect(const char *path, int flags)
         [self terminateJob:j signal:SIGTERM];
         [_jobs removeObjectForKey:label];
     }
-    if (ok) *ok = YES;
+    if (ok) *ok = msg.length == 0;        // a target that was not loaded is an error
     return msg;
 }
 

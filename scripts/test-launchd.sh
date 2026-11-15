@@ -64,6 +64,9 @@ sleep 4
 "$ctl" print test.keep | grep -q test.keep
 "$ctl" stop test.keep || true
 
+# unloading something that is not loaded fails
+if "$ctl" unload no.such.job >/dev/null 2>&1; then echo "unload of an unknown job succeeded" >&2; exit 1; fi
+
 # an unknown command or label fails
 if "$ctl" print no.such.job >/dev/null 2>&1; then echo "print of an unknown job succeeded" >&2; exit 1; fi
 

@@ -61,12 +61,17 @@ int main(int argc, char **argv)
         if (!op) { usage(); return 2; }
 
         // Resolve relative plist paths to absolute so the daemon can find them.
-        if ([op isEqual:NXOpLoad] || [op isEqual:NXOpUnload] ||
-            [op isEqual:NXOpBootstrap] || [op isEqual:NXOpBootout]) {
-            NSString *cwd = [[NSFileManager defaultManager] currentDirectoryPath];
+        // unload/bootout also take a label, which must be left as it is: there,
+        // only something that looks like a path or names an existing file is one.
+        BOOL loading = [op isEqual:NXOpLoad] || [op isEqual:NXOpBootstrap];
+        if (loading || [op isEqual:NXOpUnload] || [op isEqual:NXOpBootout]) {
+            NSFileManager *fm = [NSFileManager defaultManager];
+            NSString *cwd = [fm currentDirectoryPath];
             NSMutableArray *abs = [NSMutableArray array];
-            for (NSString *a in args)
-                [abs addObject:a.isAbsolutePath ? a : [cwd stringByAppendingPathComponent:a]];
+            for (NSString *a in args) {
+                BOOL isPath = loading || [a containsString:@"/"] || [fm fileExistsAtPath:a];
+                [abs addObject:(a.isAbsolutePath || !isPath) ? a : [cwd stringByAppendingPathComponent:a]];
+            }
             args = abs;
         }
 
