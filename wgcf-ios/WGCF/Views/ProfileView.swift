@@ -93,10 +93,10 @@ struct ProfileView: View {
             ))
             if options.wrappedValue.keepalive > 0 {
                 Stepper(
-                    "间隔 \(options.wrappedValue.keepalive) 秒",
+                    "间隔 \(String(options.wrappedValue.keepalive)) 秒",
                     value: options.keepalive, in: 1...ProfileOptions.maxKeepalive, step: 5)
             }
-            Stepper("MTU \(options.wrappedValue.mtu)", value: options.mtu, in: 576...1500, step: 10)
+            Stepper("MTU \(String(options.wrappedValue.mtu))", value: options.mtu, in: 576...1500, step: 10)
             VStack(alignment: .leading, spacing: 4) {
                 Text("DNS")
                     .font(.caption)
