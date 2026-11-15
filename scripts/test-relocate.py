@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Test for relocate-macho.py on Mach-O files made up here (runs on any OS)."""
+"""Test for relocate-macho.py on Mach-O files made up here (runs on any OS).
+
+    test-relocate.py                       tests scripts/relocate-macho.py
+    test-relocate.py --tool "CMD ARGS"     the same checks against another tool
+                                           that takes ROOT [--check] [--verbose]
+    test-relocate.py --signing-tool CMD    also tests nxfixup's signing and
+                                           stamps (CMD is built with the fake
+                                           signer, src/fixup/test)
+"""
 import os
 import struct
 import subprocess
@@ -44,9 +52,17 @@ def load_names(data, base=0):
     return names
 
 
-def run(root, *flags):
-    return subprocess.run([sys.executable, '-I', os.path.join(HERE, 'relocate-macho.py'), root, *flags],
-                          capture_output=True, text=True)
+def option(name):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else None
+
+
+TOOL = (option('--tool') or '').split() or [sys.executable, '-I', os.path.join(HERE, 'relocate-macho.py')]
+SIGNING_TOOL = (option('--signing-tool') or '').split()
+
+
+def run(root, *flags, tool=None, env=None):
+    return subprocess.run([*(tool or TOOL), *flags, root], capture_output=True, text=True,
+                          env={**os.environ, **(env or {})})
 
 
 def write(root, rel, data):
@@ -103,4 +119,37 @@ with tempfile.TemporaryDirectory() as root:
     r = run(root)
     assert 'rewrote 0 path(s) in 0 file(s), 1 failed' in r.stdout, 'second run changes nothing'
 
-print('ok: relocate-macho')
+    if SIGNING_TOOL:
+        log = os.path.join(root, 'sign.log')
+        env = {'NXFIXUP_SIGN_LOG': log}
+
+        def signed(result):
+            assert 'failed' in result.stdout, result.stdout + result.stderr
+            line = [l for l in result.stdout.splitlines() if l.startswith('sign: ')]
+            assert line, result.stdout + result.stderr
+            return line[0]
+
+        # everything above ran without signing, so no stamp exists yet: all three
+        # good files are signed now; the one that cannot be relocated is not
+        r = run(root, tool=SIGNING_TOOL, env=env)
+        assert signed(r) == 'sign: signed 3 file(s), 0 failed', r.stdout + r.stderr
+        assert len(open(log).read().splitlines()) == 3 and open(log).read().startswith('761 ')
+        assert os.path.exists(os.path.join(root, 'var/lib/nxfixup/stamps'))
+        r = run(root, tool=SIGNING_TOOL, env=env)
+        assert signed(r) == 'sign: signed 0 file(s), 0 failed', 'stamped files are skipped'
+        os.utime(apt, ns=(1, 1))
+        r = run(root, tool=SIGNING_TOOL, env=env)
+        assert signed(r) == 'sign: signed 1 file(s), 0 failed', 'a changed file is done again'
+        r = run(root, '--all', tool=SIGNING_TOOL, env=env)
+        assert signed(r) == 'sign: signed 3 file(s), 0 failed', '--all ignores the stamps'
+        r = run(root, '--all', tool=SIGNING_TOOL, env={**env, 'NXFIXUP_SIGN_FAIL': '1'})
+        assert signed(r) == 'sign: signed 0 file(s), 3 failed' and r.returncode == 1
+        r = run(root, tool=SIGNING_TOOL, env=env)
+        assert signed(r) == 'sign: signed 3 file(s), 0 failed', 'a failed signing is tried again'
+        # outside Nyxian (no signer) the tool says so and does not stamp anything
+        os.remove(os.path.join(root, 'var/lib/nxfixup/stamps'))
+        r = run(root, tool=[SIGNING_TOOL[0].replace('-signer', '')])
+        assert r.returncode == 1 and 'not running inside Nyxian' in r.stderr, r.stderr
+        assert open(os.path.join(root, 'var/lib/nxfixup/stamps')).read() == ''
+
+print('ok: ' + ' '.join(os.path.basename(t) for t in TOOL[-2:]) + (' + signing' if SIGNING_TOOL else ''))

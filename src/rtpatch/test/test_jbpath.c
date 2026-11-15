@@ -25,7 +25,7 @@ SLOT(rename); SLOT(renameat); SLOT(link); SLOT(symlink); SLOT(symlinkat);
 SLOT(readlink); SLOT(readlinkat); SLOT(mkdir); SLOT(mkdirat); SLOT(rmdir);
 SLOT(chdir); SLOT(opendir); SLOT(chmod); SLOT(chown); SLOT(lchown); SLOT(fchownat);
 SLOT(truncate); SLOT(realpath); SLOT(posix_spawn); SLOT(posix_spawnp);
-SLOT(execv); SLOT(execve); SLOT(execvp);
+SLOT(execv); SLOT(execve); SLOT(execvp); SLOT(execl); SLOT(execlp); SLOT(execle);
 void *__open_nocancel__ptr = (void *)fake_open_nocancel;
 
 // call through a slot with the function's own type
@@ -93,7 +93,7 @@ int main(void)
     const char *vroot = getenv("NXJB_VROOT");
     if (vroot == NULL) { fprintf(stderr, "set NXJB_VROOT\n"); return 2; }
     test_pure();
-    CHECK(g_hooked >= 30, "slots hooked");
+    CHECK(g_hooked >= 33, "slots hooked");
 
     char jb[PATH_MAX]; snprintf(jb, sizeof jb, "%s/var", vroot);
     mkdir(jb, 0755); mkdir(real(""), 0755);
@@ -177,6 +177,22 @@ int main(void)
     pid = fork();
     if (pid == 0) { VIA(execve)("/var/jb/usr/bin/seven", argv, environ); _exit(99); }
     CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 7, "execve");
+
+    pid = fork();
+    if (pid == 0) { VIA(execl)("/var/jb/usr/bin/seven", "seven", (char *)NULL); _exit(99); }
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 7, "execl");
+    pid = fork();
+    if (pid == 0) { VIA(execlp)("seven", "seven", "an-argument", (char *)NULL); _exit(99); }
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 7, "execlp via PATH");
+    // execle hands over its own environment: the script reports one variable from it
+    const char *envscript = "#!/bin/sh\n[ \"$NXJB_T\" = yes ] && exit 5\nexit 6\n";
+    fd = VIA(open)("/var/jb/usr/bin/envcheck", O_CREAT | O_WRONLY, 0755);
+    CHECK(fd >= 0 && write(fd, envscript, strlen(envscript)) == (ssize_t)strlen(envscript), "env script");
+    if (fd >= 0) close(fd);
+    char *const envp[] = { "NXJB_T=yes", NULL };
+    pid = fork();
+    if (pid == 0) { VIA(execle)("/var/jb/usr/bin/envcheck", "envcheck", (char *)NULL, envp); _exit(99); }
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 5, "execle with its environment");
 
     if (failures) { fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     printf("ok: %d slots hooked, all checks passed\n", g_hooked);

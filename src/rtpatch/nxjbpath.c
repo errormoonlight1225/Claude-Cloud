@@ -192,6 +192,37 @@ static int w_execvp(const char *file, char *const a[])
     return o_execvp(mp(file, b), a);
 }
 
+// execl(path, arg0, ..., NULL) and friends: gather the arguments and go through
+// the array forms above.
+#define GATHER_ARGS(last)                                                     \
+    size_t n = 0; va_list ap;                                                 \
+    va_start(ap, arg0);                                                       \
+    if (arg0 != NULL) { n = 1; while (va_arg(ap, char *) != NULL) n++; }      \
+    last;                                                                     \
+    va_end(ap);                                                               \
+    char *argv[n + 1];                                                        \
+    va_start(ap, arg0);                                                       \
+    argv[0] = (char *)arg0;                                                   \
+    for (size_t i = 1; i < n; i++) argv[i] = va_arg(ap, char *);              \
+    va_end(ap);                                                               \
+    argv[n] = NULL
+
+static int (*o_execl)(const char *, const char *, ...);
+static int w_execl(const char *path, const char *arg0, ...)
+{ GATHER_ARGS((void)0); return w_execv(path, argv); }
+
+static int (*o_execlp)(const char *, const char *, ...);
+static int w_execlp(const char *file, const char *arg0, ...)
+{ GATHER_ARGS((void)0); return w_execvp(file, argv); }
+
+static int (*o_execle)(const char *, const char *, ...);
+static int w_execle(const char *path, const char *arg0, ...)
+{
+    char *const *envp = NULL;
+    GATHER_ARGS(envp = va_arg(ap, char *const *));      // the environment follows the NULL
+    return w_execve(path, argv, envp);
+}
+
 // ---- installation -----------------------------------------------------------
 
 static int g_hooked, g_missing;
@@ -268,6 +299,9 @@ static void nxjbpath_init(void)
     HOOK(chflags);   HOOK(truncate);  HOOK(realpath);
     HOOK(posix_spawn); HOOK(posix_spawnp);
     HOOK(execv);     HOOK(execve);    HOOK(execvp);
+    if (o_execv != NULL)  HOOK(execl);        // these three end in the array forms
+    if (o_execvp != NULL) HOOK(execlp);
+    if (o_execve != NULL) HOOK(execle);
 
     if (getenv("NXJB_DEBUG"))
         fprintf(stderr, "nxjbpath: /var/jb -> %s/var/jb (%d slots, %d missing)\n",

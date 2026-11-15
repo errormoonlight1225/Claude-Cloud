@@ -2,3 +2,8 @@
 # The architecture packages are built for; ordinary rootless packages are
 # iphoneos-arm64 and install unconverted.
 abort-after 100
+
+# After every dpkg run, make what was just unpacked loadable inside Nyxian:
+# library paths relative to the binary, and a signature with the user's
+# certificate (src/fixup). Only files that changed are touched.
+post-invoke=/var/jb/usr/libexec/nxfixup --quiet

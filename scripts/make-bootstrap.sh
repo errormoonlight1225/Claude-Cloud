@@ -2,7 +2,10 @@
 # Assemble the rootless /var/jb bootstrap tarball that the ROM's NXRomInstaller
 # extracts on flash. Entries are relative to /var/jb.
 #
-#   scripts/make-bootstrap.sh <out-tar> [launchd-build-dir]
+#   scripts/make-bootstrap.sh <out-tar> [tools-dir]
+#
+# tools-dir holds the built nxlaunchd, nxlaunchctl and nxfixup (any that exist
+# are installed).
 #
 # Without a strap this ships the committed skeleton (rom-overlay/bootstrap): the
 # dpkg/apt rootless configuration and an empty package database. To install a
@@ -16,7 +19,7 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")/.." && pwd)
-out=${1:?usage: make-bootstrap.sh <out-tar> [launchd-build-dir]}
+out=${1:?usage: make-bootstrap.sh <out-tar> [tools-dir]}
 launchd_dir=${2:-}
 strap_tar=${STRAP_TAR:-}
 strap_strip=${STRAP_STRIP:-0}
@@ -62,14 +65,18 @@ mkdir -p \
   "$stage/var/log" "$stage/var/run" "$stage/var/db" "$stage/tmp" \
   "$stage/Library/LaunchDaemons" "$stage/Applications"
 
-# 4. the service supervisor, if built (overwrites any strap copy on purpose)
-if [ -n "$launchd_dir" ] && [ -f "$launchd_dir/nxlaunchd" ]; then
-  install -m755 "$launchd_dir/nxlaunchd"  "$stage/usr/libexec/nxlaunchd"
-  install -m755 "$launchd_dir/nxlaunchctl" "$stage/usr/bin/nxlaunchctl"
-  echo "make-bootstrap: included nxlaunchd/nxlaunchctl"
-else
-  echo "make-bootstrap: no launchd build dir (skipping nxlaunchd)"
+# 4. this project's own tools, if built (overwrite any strap copy on purpose):
+#    the service supervisor and the tool dpkg runs to relocate and sign.
+included=
+if [ -n "$launchd_dir" ]; then
+  for tool in libexec/nxlaunchd bin/nxlaunchctl libexec/nxfixup; do
+    if [ -f "$launchd_dir/${tool##*/}" ]; then
+      install -m755 "$launchd_dir/${tool##*/}" "$stage/usr/$tool"
+      included="$included ${tool##*/}"
+    fi
+  done
 fi
+echo "make-bootstrap: own tools included:${included:- none (no build dir)}"
 
 # 5. library paths. Binaries name their libraries as /var/jb/usr/lib/..., which
 #    the dynamic loader opens itself (the path layer never sees it) and which

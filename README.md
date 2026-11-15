@@ -9,7 +9,9 @@ ROM has to implement itself.
 | 0. Build pipeline: template ROM built and signed by CI | done |
 | 1. `/var/jb` bootstrap laid down on flash, dpkg layout | built, needs device test |
 | 1b. `/var/jb` path layer for every guest process (`src/rtpatch`) | built, host-tested, needs device test |
+| 1c. Library paths and signing: at packing time, and after every dpkg run (`src/fixup`) | built, host-tested, needs device test |
 | 2. launchd / launchctl (`src/`) | built, needs device test |
+| 2a. Boot wiring: start launchd from the ROM with entitlements, first-boot `nxfixup` | not started |
 | 2b. Mach-service / XPC check-in | not started |
 | 3. sudo/su, tweak injection, safe mode | not started |
 | 4. SpringBoard, uicache, Sileo | not started |
@@ -31,14 +33,22 @@ ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
   files itself), so binaries that link `/var/jb/usr/lib/...` are rewritten
   instead: `scripts/relocate-macho.py` turns those load commands and rpaths
   into `@loader_path/...` when the bootstrap is packed, and the rewritten files
-  are signed again with `ldid` if it is installed. Packages installed later
-  with dpkg are not rewritten yet (that needs a dpkg trigger), and neither
+  are signed again with `ldid` if it is installed. Neither
   `dlopen("/var/jb/...")` nor `#!/var/jb/...` lines are handled.
+- Packages installed later: dpkg runs `/var/jb/usr/libexec/nxfixup`
+  (`src/fixup`) after every transaction (`post-invoke` in `dpkg.cfg.d`). It
+  does the same rewrite on the device and has Nyxian sign each new or changed
+  Mach-O with your certificate; Nyxian itself only signs a program when it is
+  started, not the libraries it links. It keeps a list of what it has done, so
+  a run only touches what changed. Run `nxfixup --all` after the signing
+  certificate was renewed. A package's own install script still runs before
+  this, so one that starts a just-unpacked program with new libraries can fail
+  on the first install.
 - Not verified without a device: that the slots are reachable from `rtpatch`
   on your Nyxian version, and that libc-internal opens (`fopen`) go through
   them. To check on the device, run any program with `NXJB_DEBUG=1` in its
   environment: it prints where `/var/jb` maps to and how many slots it took
-  (about 36; 0 means the slots are not reachable).
+  (about 39; 0 means the slots are not reachable).
 - If guests stop starting after flashing, add the boot argument `nxjb_off`
   (Nyxian > Settings > General > Boot Arguments): the ROM then boots without
   the path layer.

@@ -89,8 +89,18 @@
 - 任何要执行的 Mach-O 都必须有用户证书的有效 Apple 签名，否则连身份都建不出来
   （`trust.m` 里每个分支都先做 `LCCheckCodeSignature`）。
 - Procursus 的 deb 是 ad-hoc / ldid 签名，装完必须逐个 `SYS_sign`。
-- **不确定**：`posix_spawn` shim 是否会在执行前自动签名未签名的文件
-  （`Shims/posix_spawn.m` 522 行，我只看了概要，没逐行读）。
+- **已确认**（逐行读过）：`posix_spawn` shim 在签名无效时会自己调 `SYS_sign` 给**主程序**签名
+  （`Shims/posix_spawn.m:181-225`），`dlopen` 钩子对显式 `dlopen` 的路径也会
+  （`LiveContainer/Tweaks/Dyld.m:186-210`）。但程序通过 load command 链接的库不经过这两处，
+  没找到任何地方给它们签名，所以依赖库必须事先签好——这是 `nxfixup` 做的第二件事：
+  对每个新的/变过的 Mach-O 调 `liveshim_syscall(SYS_sign, fd)`（`fd` 需 `O_RDWR`，
+  `Surface/sys/compat/sign.m`）。
+- `SYS_sign` 要求调用者有 `process.spawn` 权限。dpkg 装的二进制是 fallback 身份、权限为空，
+  但父进程带 `org.emexlabs.nyxian.process.spawn.inherite-entitlements` 时子进程会继承父进程的
+  权限（去掉 platform / root / task-for-pid / sugid，`trust.m:795-812`），继承标志本身不被去掉，
+  所以只要会话的第一个进程（我们的 launchd，放在 ROM slot 里、由 manifest 授权）带
+  `process.spawn` + `inherite-entitlements`，整棵进程树（shell、apt、dpkg、nxfixup）都能派生和签名。
+  **这一步（启动接线）还没做。**
   也**不确定** 7 天免费证书过期后，数据分区里的二进制由谁重签——
   bootloader 的 `refreshROMSigningIfNeeded` 看名字只处理 ROM slot。
 
@@ -124,8 +134,11 @@
      `scripts/relocate-macho.py` 在打包 bootstrap 时把 `/var/jb/usr/lib/libX.dylib` 这类 load command
      和 `LC_RPATH` 改写成相对所在文件的 `@loader_path/...`（`LC_ID_DYLIB` 不动），dyld 原生支持，
      树放在哪里都能加载；改写后签名失效，装了 `ldid` 就重签。macOS CI 上用真编译器、真 dyld 验证过
-     （`scripts/test-relocate-real.sh`）。**还没做的**：之后 dpkg 装的包要靠触发器做同样的改写；
-     `dlopen("/var/jb/...")` 和 `#!` 行不处理（仓库里没找到 Nyxian 处理 shebang 的代码）。
+     （`scripts/test-relocate-real.sh`）。`dlopen("/var/jb/...")` 和 `#!` 行不处理
+     （仓库里没找到 Nyxian 处理 shebang 的代码）。
+   - **装包之后**：`src/fixup/nxfixup.c` 是同一套改写的 C 版本，跑在设备上，dpkg 每次事务结束后
+     通过 `post-invoke` 调用它；同一个测试（`scripts/test-relocate.py`）对 Python 版和 C 版都跑。
+     它同时负责签名，见 2.4。
    - **不确定**：(a) 槽位符号从 `rtpatch` 里 `dlsym(RTLD_DEFAULT)` 能否拿到（按构建设置应当可以，
      没在真机上看过）；(b) libc 内部的 `fopen → __open_nocancel` 是否走槽位（Broadpatch 专门
      留了 `__open_nocancel` 槽位，推测是，但取决于 dyld 对 shared cache 的 interpose）。
