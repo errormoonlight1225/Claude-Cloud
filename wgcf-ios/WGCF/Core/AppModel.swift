@@ -158,7 +158,7 @@ final class AppModel {
 
     // MARK: - 内部
 
-    static func resolvePrivateKey(_ input: String) throws -> WireGuardKey {
+    nonisolated static func resolvePrivateKey(_ input: String) throws -> WireGuardKey {
         let input = input.trimmingCharacters(in: .whitespacesAndNewlines)
         if input.isEmpty { return WireGuardKey.generatePrivate() }
         if LicenseKey.isValid(input) { throw WGCFError.privateKeyLooksLikeLicense }
@@ -166,7 +166,7 @@ final class AppModel {
         return key
     }
 
-    static func randomName() -> String {
+    nonisolated static func randomName() -> String {
         (0..<3).map { _ in String(format: "%02X", UInt8.random(in: .min ... .max)) }.joined()
     }
 
