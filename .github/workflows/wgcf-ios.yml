@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wgcf-ios-${{ github.ref }}
+  group: wgcf-ios-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -114,6 +114,11 @@ jobs:
             | tee live.log | grep -E "error|LIVE|Test Case|\*\* TEST|Executed" || true
           grep -q "\*\* TEST SUCCEEDED \*\*" live.log
           test -s "$LIVE_DIR/wgcf-profile.conf"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
 
       - name: Connect through the generated profile
         run: |
