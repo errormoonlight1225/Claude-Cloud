@@ -24,6 +24,11 @@ jobs:
             echo "ROM_SIGNING_KEY=$RUNNER_TEMP/rom.key.pem" >> "$GITHUB_ENV"
           fi
 
+      - name: Tools for packing the bootstrap
+        run: |
+          brew install ldid
+          command -v zstd || brew install zstd
+
       - name: Build
         env:
           ROM_IDENTIFIER: ${{ vars.ROM_IDENTIFIER }}

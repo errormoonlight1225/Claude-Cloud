@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- nxlaunchd's enable/disable state (label -> disabled). The Procursus
+	     bootstrap ships two daemons that need the real kernel and a real
+	     launchd; they start disabled. `nxlaunchctl enable LABEL` turns one on. -->
+	<key>com.apple.atrun</key>
+	<true/>
+	<key>us.diatr.shshd</key>
+	<true/>
+</dict>
+</plist>

@@ -46,6 +46,24 @@ shimcache=$rom/rom/src/LindChain/ProcEnvironment/Surface/cache/shimcache.m
 [ -f "$shimcache" ] || { echo "build: the ROM template has no shimcache.m to replace" >&2; exit 1; }
 cp "$root/rom-overlay/kernel/shimcache.m" "$shimcache"
 
+# the Procursus bootstrap, unless STRAP_TAR already names one
+if [ -z "${STRAP_TAR:-}" ] && [ -n "${STRAP_URL:-}" ]; then
+    strap=$build/strap/${STRAP_URL##*/}
+    sha256() { if command -v shasum >/dev/null; then shasum -a 256 "$1"; else sha256sum "$1"; fi | cut -d' ' -f1; }
+    if [ ! -f "$strap" ] || [ "$(sha256 "$strap")" != "$STRAP_SHA256" ]; then
+        mkdir -p "$build/strap"
+        curl -fsSL --retry 3 -o "$strap.part" "$STRAP_URL"
+        mv "$strap.part" "$strap"
+    fi
+    actual=$(sha256 "$strap")
+    if [ "$actual" != "$STRAP_SHA256" ]; then
+        echo "build: $STRAP_URL has SHA-256 $actual, rom.conf expects $STRAP_SHA256" >&2
+        echo "build: if Procursus published a new bootstrap, check it and update STRAP_SHA256" >&2
+        exit 1
+    fi
+    export STRAP_TAR=$strap
+fi
+
 mkdir -p "$rom/bootstrap"
 "$root/scripts/make-bootstrap.sh" "$rom/bootstrap/bootstrap.tar"
 

@@ -60,8 +60,8 @@ TOOL = (option('--tool') or '').split() or [sys.executable, '-I', os.path.join(H
 SIGNING_TOOL = (option('--signing-tool') or '').split()
 
 
-def run(root, *flags, tool=None, env=None):
-    return subprocess.run([*(tool or TOOL), *flags, root], capture_output=True, text=True,
+def run(root, *flags, tool=None, env=None, after=()):
+    return subprocess.run([*(tool or TOOL), *flags, root, *after], capture_output=True, text=True,
                           env={**os.environ, **(env or {})})
 
 
@@ -94,6 +94,12 @@ with tempfile.TemporaryDirectory() as root:
         [dylib_cmd(LC_LOAD_DYLIB, b'/var/jb/usr/lib/libz.dylib')], text_offset=32 + 152 + 48))
     text = write(root, 'etc/readme', b'/var/jb/usr/lib/libz.dylib is only text here\n')
     before_tight = open(tight, 'rb').read()
+    links = {'usr/bin/sh': '/var/jb/usr/bin/dash', 'bin/cat': '/var/jb/usr/bin/cat',
+             'var/lib/dpkg': '/var/jb/Library/dpkg', 'usr/bin/rel': 'apt', 'usr/bin/out': '/etc/passwd'}
+    if not option('--tool'):                   # the packing tool also makes links relative
+        os.makedirs(os.path.join(root, 'bin')), os.makedirs(os.path.join(root, 'var/lib')), os.makedirs(os.path.join(root, 'Library/dpkg'))
+        for link, target in links.items():
+            os.symlink(target, os.path.join(root, link))
 
     r = run(root, '--check')
     assert 'would rewrite 6 path(s) in 3 file(s), 1 failed' in r.stdout, r.stdout + r.stderr
@@ -115,6 +121,12 @@ with tempfile.TemporaryDirectory() as root:
     assert load_names(open(fatpath, 'rb').read(), 0x4000) == ['@loader_path/../../usr/lib/liba.dylib']
     assert open(tight, 'rb').read() == before_tight, 'a file that does not fit is left alone'
     assert open(text, 'rb').read().startswith(b'/var/jb'), 'only Mach-O files are touched'
+    if not option('--tool'):
+        assert 'made 3 symlink(s) relative' in r.stdout, r.stdout
+        got = {link: os.readlink(os.path.join(root, link)) for link in links}
+        assert got == {'usr/bin/sh': 'dash', 'bin/cat': '../usr/bin/cat', 'var/lib/dpkg': '../../Library/dpkg',
+                       'usr/bin/rel': 'apt', 'usr/bin/out': '/etc/passwd'}, got
+        assert os.path.isdir(os.path.join(root, 'var/lib/dpkg')), 'the relative link resolves'
 
     r = run(root)
     assert 'rewrote 0 path(s) in 0 file(s), 1 failed' in r.stdout, 'second run changes nothing'
@@ -146,6 +158,16 @@ with tempfile.TemporaryDirectory() as root:
         assert signed(r) == 'sign: signed 0 file(s), 3 failed' and r.returncode == 1
         r = run(root, tool=SIGNING_TOOL, env=env)
         assert signed(r) == 'sign: signed 3 file(s), 0 failed', 'a failed signing is tried again'
+        # --then: the named program takes over afterwards, if it exists
+        marker = os.path.join(root, 'then-ran')
+        then = write(root, 'then.sh', b'#!/bin/sh\necho "$1" > "$2"\nexit 3\n')
+        os.chmod(then, 0o755)
+        r = run(root, tool=SIGNING_TOOL, env=env, after=['--then', then, 'hello', marker])
+        assert r.returncode == 3 and open(marker).read() == 'hello\n', r.stdout + r.stderr
+        r = run(root, tool=SIGNING_TOOL, env=env, after=['--then', os.path.join(root, 'missing')])
+        # (1 is nxfixup's own status here: one file of this tree cannot be relocated)
+        assert r.returncode == 1 and 'missing' not in r.stderr, 'a --then program that does not exist is skipped'
+        os.remove(then), os.remove(marker)
         # outside Nyxian (no signer) the tool says so and does not stamp anything
         os.remove(os.path.join(root, 'var/lib/nxfixup/stamps'))
         r = run(root, tool=[SIGNING_TOOL[0].replace('-signer', '')])

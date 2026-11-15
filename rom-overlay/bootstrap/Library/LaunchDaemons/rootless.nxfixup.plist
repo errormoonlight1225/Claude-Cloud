@@ -4,14 +4,23 @@
 <dict>
 	<!-- At every boot: make any Mach-O in /var/jb that is new or changed loadable
 	     and signed (src/fixup). The first boot after flashing does the whole
-	     bootstrap; later boots find nothing to do. -->
+	     bootstrap; later boots find nothing to do.
+	     Then, once: the Procursus bootstrap's own setup script (it configures the
+	     base packages and deletes itself), without its password dialog. -->
 	<key>Label</key>
 	<string>rootless.nxfixup</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/var/jb/usr/libexec/nxfixup</string>
 		<string>--quiet</string>
+		<string>--then</string>
+		<string>/var/jb/prep_bootstrap.sh</string>
 	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>NO_PASSWORD_PROMPT</key>
+		<string>1</string>
+	</dict>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>StandardOutPath</key>

@@ -194,6 +194,35 @@ int main(void)
     if (pid == 0) { VIA(execle)("/var/jb/usr/bin/envcheck", "envcheck", (char *)NULL, envp); _exit(99); }
     CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 5, "execle with its environment");
 
+    // scripts: the interpreter named on the #! line is under /var/jb, where the
+    // real kernel cannot find it, so these only work if the layer runs them
+    CHECK(VIA(mkdir)("/var/jb/bin", 0755) == 0 && VIA(symlink)("/bin/sh", "/var/jb/bin/sh") == 0, "an sh in /var/jb");
+    const char *s1 = "#!/var/jb/bin/sh\nexit 11\n";
+    const char *s2 = "#! /var/jb/bin/sh -e\n[ \"$1\" = one ] && [ \"$2\" = two ] && [ $# -eq 2 ] || exit 1\nfalse\nexit 12\n";
+    fd = VIA(open)("/var/jb/usr/bin/s1", O_CREAT | O_WRONLY, 0755);
+    CHECK(fd >= 0 && write(fd, s1, strlen(s1)) > 0, "s1"); if (fd >= 0) close(fd);
+    fd = VIA(open)("/var/jb/usr/bin/s2", O_CREAT | O_WRONLY, 0755);
+    CHECK(fd >= 0 && write(fd, s2, strlen(s2)) > 0, "s2"); if (fd >= 0) close(fd);
+    char *const a1[] = { "s1", NULL };
+    char *const a2[] = { "s2", "one", "two", NULL };
+    CHECK(VIA(posix_spawn)(&pid, "/var/jb/usr/bin/s1", NULL, NULL, a1, environ) == 0, "spawn a script");
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 11, "script status");
+    CHECK(VIA(posix_spawnp)(&pid, "s1", NULL, NULL, a1, environ) == 0, "spawn a script via PATH");
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 11, "script via PATH status");
+    // "-e" from the #! line reaches the shell (the `false` ends it with 1, not 12),
+    // and the caller's arguments follow the script
+    CHECK(VIA(posix_spawn)(&pid, "/var/jb/usr/bin/s2", NULL, NULL, a2, environ) == 0, "spawn a script with arguments");
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 1, "interpreter and caller arguments");
+    pid = fork();
+    if (pid == 0) { VIA(execv)("/var/jb/usr/bin/s1", a1); _exit(99); }
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 11, "execv a script");
+    pid = fork();
+    if (pid == 0) { VIA(execlp)("s1", "s1", (char *)NULL); _exit(99); }
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 11, "execlp a script");
+    pid = fork();
+    if (pid == 0) { VIA(execve)("/var/jb/usr/bin/s1", a1, environ); _exit(99); }
+    CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && WEXITSTATUS(st) == 11, "execve a script");
+
     if (failures) { fprintf(stderr, "%d failure(s)\n", failures); return 1; }
     printf("ok: %d slots hooked, all checks passed\n", g_hooked);
     return 0;

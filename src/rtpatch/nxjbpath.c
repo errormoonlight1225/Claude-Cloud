@@ -11,10 +11,13 @@
 // rewrites a path at or below /var/jb to $vroot/var/jb and calls whatever was
 // in the slot before, so Nyxian's own patches keep working underneath.
 //
+// It also starts scripts: a file that begins with "#!" is run through its
+// interpreter here, as the real kernel would do outside Nyxian.
+//
 // What it cannot do: paths that never pass through those slots. That is the
-// dynamic loader (dylib install names, dlopen) and anything the real kernel
-// resolves on its own (a symlink whose target is an absolute /var/jb path,
-// a #! line). See docs/ANALYSIS.md, "路径层".
+// dynamic loader (dylib install names, dlopen; scripts/relocate-macho.py and
+// src/fixup deal with the former) and a symlink that already exists with an
+// absolute /var/jb target. See docs/ANALYSIS.md, "路径层".
 //
 // Original work for this project. It uses the slot names as an interface and
 // contains no Nyxian code.
@@ -105,10 +108,102 @@ WRAP_P1(readlinkat, ssize_t, (int fd, const char *p, char *o, size_t n),   (fd, 
 WRAP_P1(realpath,  char *, (const char *p, char *o),                       (mp(p, b), o))
 WRAP_P1(getattrlist, int, (const char *p, void *al, void *ab, size_t n, unsigned long op),
                                                                            (mp(p, b), al, ab, n, op))
-WRAP_P1(execv,     int, (const char *p, char *const a[]),                  (mp(p, b), a))
-WRAP_P1(execve,    int, (const char *p, char *const a[], char *const e[]), (mp(p, b), a, e))
-WRAP_P1(posix_spawn, int, (pid_t *pid, const char *p, const void *fa, const void *at,
-                           char *const a[], char *const e[]),              (pid, mp(p, b), fa, at, a, e))
+
+// ---- starting programs ------------------------------------------------------
+// A script ("#!/var/jb/bin/sh") is normally started by the real kernel, which
+// reads that line and runs the interpreter. Inside Nyxian a program is loaded by
+// Nyxian itself, which only knows Mach-O files, and the interpreter path is a
+// /var/jb path anyway. So do here what the kernel would: run the interpreter,
+// with its arguments from the line, then the script, then the caller's
+// arguments. Like the real kernel, an interpreter cannot itself be a script.
+
+#define SCRIPT_ARGS 8
+struct script {
+    char interp[PATH_MAX];              // the interpreter, real path
+    char line[512];                     // the #! line; args point into it
+    char *args[SCRIPT_ARGS];
+    int nargs;
+};
+
+static int (*o_open)(const char *, int, ...);       // defined with its wrapper above
+
+// Is the file at `real` a script? Fills `sc` if so.
+static int script_of(const char *real, struct script *sc)
+{
+    int fd = o_open != NULL ? o_open(real, O_RDONLY) : open(real, O_RDONLY);
+    if (fd < 0) return 0;
+    ssize_t n = read(fd, sc->line, sizeof sc->line - 1);
+    close(fd);
+    if (n < 3 || sc->line[0] != '#' || sc->line[1] != '!') return 0;
+    sc->line[n] = '\0';
+    char *end = strchr(sc->line, '\n');
+    if (end == NULL) return 0;                      // line too long, or not text
+    *end = '\0';
+
+    char *p = sc->line + 2, *interp = NULL;
+    sc->nargs = 0;
+    while (*p) {
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0') break;
+        char *word = p;
+        while (*p && *p != ' ' && *p != '\t') p++;
+        if (*p) *p++ = '\0';
+        if (interp == NULL) interp = word;
+        else if (sc->nargs < SCRIPT_ARGS) sc->args[sc->nargs++] = word;
+    }
+    if (interp == NULL) return 0;
+    char buf[PATH_MAX];
+    const char *mapped = mp(interp, buf);
+    if (strlen(mapped) >= PATH_MAX) return 0;
+    strcpy(sc->interp, mapped);
+    return 1;
+}
+
+static size_t count_args(char *const a[])
+{
+    size_t n = 0;
+    while (a != NULL && a[n] != NULL) n++;
+    return n;
+}
+
+// The interpreter's argument list: interpreter, its own arguments, the script
+// (by its real path, so that the interpreter finds it however it opens files),
+// then the caller's arguments after argv[0]. `out` needs count_args + SCRIPT_ARGS + 3.
+static void script_argv(struct script *sc, const char *real, char *const a[], char **out)
+{
+    size_t k = 0;
+    out[k++] = sc->interp;
+    for (int i = 0; i < sc->nargs; i++) out[k++] = sc->args[i];
+    out[k++] = (char *)real;
+    for (size_t i = 1; a != NULL && a[0] != NULL && a[i] != NULL; i++) out[k++] = a[i];
+    out[k] = NULL;
+}
+
+#define RUN(real, a, call_script, call_plain)                         \
+    struct script sc;                                                 \
+    if (script_of(real, &sc)) {                                       \
+        char *nv[count_args(a) + SCRIPT_ARGS + 3];                    \
+        script_argv(&sc, real, a, nv);                                \
+        return call_script;                                           \
+    }                                                                 \
+    return call_plain
+
+static int (*o_execv)(const char *, char *const []);
+static int w_execv(const char *p, char *const a[])
+{ BUF; const char *real = mp(p, b); RUN(real, a, o_execv(sc.interp, nv), o_execv(real, a)); }
+
+static int (*o_execve)(const char *, char *const [], char *const []);
+static int w_execve(const char *p, char *const a[], char *const e[])
+{ BUF; const char *real = mp(p, b); RUN(real, a, o_execve(sc.interp, nv, e), o_execve(real, a, e)); }
+
+static int (*o_posix_spawn)(pid_t *, const char *, const void *, const void *,
+                            char *const [], char *const []);
+static int w_posix_spawn(pid_t *pid, const char *p, const void *fa, const void *at,
+                         char *const a[], char *const e[])
+{
+    BUF; const char *real = mp(p, b);
+    RUN(real, a, o_posix_spawn(pid, sc.interp, fa, at, nv, e), o_posix_spawn(pid, real, fa, at, a, e));
+}
 
 static int (*o_rename)(const char *, const char *);
 static int w_rename(const char *a, const char *c) { BUF2; return o_rename(mp(a, b), mp(c, b2)); }
@@ -180,7 +275,7 @@ static int w_posix_spawnp(pid_t *pid, const char *file, const void *fa, const vo
                           char *const a[], char *const e[])
 {
     BUF; const char *found = find_in_path(file, b);
-    if (found != NULL && o_posix_spawn != NULL) return o_posix_spawn(pid, found, fa, at, a, e);
+    if (found != NULL && o_posix_spawn != NULL) return w_posix_spawn(pid, found, fa, at, a, e);
     return o_posix_spawnp(pid, mp(file, b), fa, at, a, e);
 }
 
@@ -188,7 +283,7 @@ static int (*o_execvp)(const char *, char *const []);
 static int w_execvp(const char *file, char *const a[])
 {
     BUF; const char *found = find_in_path(file, b);
-    if (found != NULL && o_execv != NULL) return o_execv(found, a);
+    if (found != NULL && o_execv != NULL) return w_execv(found, a);
     return o_execvp(mp(file, b), a);
 }
 

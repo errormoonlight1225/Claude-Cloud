@@ -22,6 +22,10 @@ a path relative to the file that carries it:
 which the loader resolves on its own, wherever the tree lives. A library's own
 install name (LC_ID_DYLIB) is left alone.
 
+Symbolic links get the same treatment: one whose target is an absolute /var/jb
+path (usr/bin/sh -> /var/jb/usr/bin/dash) is followed by the real kernel to a
+/var/jb that is not there, so it is replaced by a relative link (sh -> dash).
+
 A rewritten file's code signature no longer matches: sign it again afterwards
 (ldid -S, then Nyxian signs with your certificate on the device). The exit
 status is 0 unless a file could not be rewritten for lack of header space.
@@ -131,6 +135,23 @@ def relocate_slice(data, base, file_rel):
     return changes, None
 
 
+def relink(path, file_rel, check):
+    """Make the symlink at path relative if it points to an absolute /var/jb path."""
+    rest = jb_rest(os.readlink(path))
+    if rest is None:
+        return False
+    here = [c for c in os.path.dirname(file_rel).split(b'/') if c]
+    there = [c for c in rest.split(b'/') if c]
+    common = 0
+    while common < len(here) and common < len(there) and here[common] == there[common]:
+        common += 1
+    target = b'/'.join([b'..'] * (len(here) - common) + there[common:]) or b'.'
+    if not check:
+        os.unlink(path)
+        os.symlink(target, path)
+    return True
+
+
 def slices(data):
     """File offsets of the thin Mach-O images in data."""
     if len(data) < 8:
@@ -178,13 +199,16 @@ def main(argv):
     if len(args) != 1:
         sys.exit(__doc__)
     root = os.fsencode(os.path.abspath(args[0]))
-    files = changed = failed = 0
-    for directory, _, names in os.walk(root):
-        for name in names:
+    files = changed = failed = links = 0
+    for directory, subdirs, names in os.walk(root):
+        for name in names + subdirs:           # a link to a directory is listed with the directories
             path = os.path.join(directory, name)
-            if os.path.islink(path) or not os.path.isfile(path):
-                continue
             rel = os.path.relpath(path, root)
+            if os.path.islink(path):
+                links += relink(path, rel, check)
+                continue
+            if not os.path.isfile(path):
+                continue
             try:
                 changes, error = relocate_file(path, rel, check)
             except (OSError, struct.error) as exc:
@@ -204,6 +228,8 @@ def main(argv):
             f.write(b''.join(rel + b'\n' for rel in sorted(rewritten)))
     verb = 'would rewrite' if check else 'rewrote'
     print(f'relocate: {verb} {changed} path(s) in {files} file(s), {failed} failed')
+    if links:
+        print(f'relocate: {"would make" if check else "made"} {links} symlink(s) relative')
     return 1 if failed else 0
 
 

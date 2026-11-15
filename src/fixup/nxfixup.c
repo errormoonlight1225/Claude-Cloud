@@ -1,10 +1,15 @@
 // nxfixup - make the Mach-O files of /var/jb loadable and signed, on the device.
 //
 //   nxfixup [--all] [--check] [--no-sign] [--verbose] [--quiet] [ROOT]
+//           [--then PROGRAM [ARG...]]
 //
 // ROOT is the directory whose contents are /var/jb (default: /var/jb itself).
 // dpkg runs this after every transaction (post-invoke in dpkg.cfg.d), and it is
-// run once after the bootstrap is installed.
+// run at every boot (Library/LaunchDaemons/rootless.nxfixup.plist).
+//
+// --then, which ends the options, names a program to become once the work is
+// done, if that program exists: the boot job uses it to run the bootstrap's
+// own first-time setup after everything has been signed.
 //
 // For every Mach-O file that is new or changed since the last run it does the
 // two things a freshly unpacked rootless binary needs inside Nyxian:
@@ -413,14 +418,20 @@ static void walk(const char *dir, const char *rel)
 int main(int argc, char **argv)
 {
     const char *root = "/var/jb";
+    char **then = NULL;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--all") == 0) opt_all = 1;
+        if (strcmp(argv[i], "--then") == 0) {
+            if (i + 1 < argc) then = argv + i + 1;
+            break;
+        }
+        else if (strcmp(argv[i], "--all") == 0) opt_all = 1;
         else if (strcmp(argv[i], "--check") == 0) opt_check = 1;
         else if (strcmp(argv[i], "--no-sign") == 0) opt_nosign = 1;
         else if (strcmp(argv[i], "--verbose") == 0) opt_verbose = 1;
         else if (strcmp(argv[i], "--quiet") == 0) opt_quiet = 1;
         else if (argv[i][0] == '-') {
-            fprintf(stderr, "usage: nxfixup [--all] [--check] [--no-sign] [--verbose] [--quiet] [ROOT]\n");
+            fprintf(stderr, "usage: nxfixup [--all] [--check] [--no-sign] [--verbose] [--quiet] [ROOT]"
+                            " [--then PROGRAM [ARG...]]\n");
             return 2;
         } else root = argv[i];
     }
@@ -450,5 +461,12 @@ int main(int argc, char **argv)
         if (!opt_nosign && !opt_check && g_syscall != NULL)
             printf("sign: signed %ld file(s), %ld failed\n", n_signed, n_signfail);
     }
-    return (n_failed || n_signfail || (!opt_nosign && !opt_check && g_syscall == NULL)) ? 1 : 0;
+    int status = (n_failed || n_signfail || (!opt_nosign && !opt_check && g_syscall == NULL)) ? 1 : 0;
+    if (then != NULL && !opt_check && access(then[0], X_OK) == 0) {
+        fflush(stdout);
+        execv(then[0], then);
+        fprintf(stderr, "nxfixup: %s: %s\n", then[0], strerror(errno));
+        return 1;
+    }
+    return status;
 }
