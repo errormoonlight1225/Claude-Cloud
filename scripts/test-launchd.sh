@@ -29,7 +29,7 @@ job() {   # job LABEL KEEPALIVE COMMAND
 </dict></plist>
 PLIST
 }
-job test.once false 'echo \$NX_TEST'
+job test.once false 'echo $NX_TEST'
 job test.keep true "echo run >> $prefix/var/log/keep.count; sleep 1"
 
 "$t/build/host-nxlaunchd" 2> "$t/daemon.log" &
@@ -37,7 +37,9 @@ daemon=$!
 wait_for() {   # wait_for SECONDS COMMAND...
   local n=$(( $1 * 10 )); shift
   while [ "$n" -gt 0 ]; do "$@" 2>/dev/null && return 0; sleep 0.1; n=$((n - 1)); done
-  echo "timed out waiting for: $*" >&2; cat "$t/daemon.log" >&2; return 1
+  echo "timed out waiting for: $*" >&2
+  for f in "$t/daemon.log" "$prefix"/var/log/*; do echo "--- $f" >&2; cat "$f" >&2; done
+  return 1
 }
 wait_for 10 test -S "$prefix/var/run/nxlaunchd.sock"
 
