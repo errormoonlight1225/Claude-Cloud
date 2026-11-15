@@ -170,6 +170,17 @@
 4. **bootstrap 安装器**。ROM seal 要求 slot 里的文件除签名外不能变
    （`RomGen.py` 文件头说明），所以 Procursus bootstrap 不能解压进 slot，
    只能首次启动时解压到数据分区，再把它呈现为 `$vroot/var/jb`。
+   **包管理器（已实现，未上真机）：**
+   - 身份策略用内核自己的补丁点加：`trust_identity_create_from_path_with_parent_identity` 是
+     `LIBKERN_DEFINE_PATCHABLE`（`trust.m:750`），和 KEXT 补 `trust_identity_give_file_permissions`
+     是同一机制。`rom-overlay/kernel/rootless.m` 在原规则之后，对 fallback 身份（没有 NXT2 blob）的
+     `/var/jb/Applications/*.app/*` 加 `process.spawn / inherite-entitlements / kill / enumeration / sugid`，
+     对 `/var/jb` 里带 setuid 位的文件加 `sugid`（`setuid.c` 在有 `sugid` 时放行 `setuid(0)`）。
+     必须加在原函数**之后**：原函数会把子进程比父进程多出来的权限剥掉（`trust.m:770-790`）。
+   - Sileo 2.5.1 的包里 `Sileo.app/giveMeRoot` 是 04755，逻辑是 `setuid(0)` 后再启动 dpkg/apt，
+     所以 `sugid` 够用。它的 postinst 是 `#!/bin/sh`（不是 `/var/jb/bin/sh`），并调用 `uicache`。
+   - **不确定**：ROM host 里不能写 NXT2 blob（`trust_nxt2_sign` 是 `NX_BOOT_ONLY`），所以只能走策略；
+     giveMeRoot 对调用者路径的检查在 Nyxian 里是否通过；iOS 是否保留容器内文件的 setuid 位。
 5. **SpringBoard**。模板 ROM 只有窗口服务器和一个应用列表（`NXMainSlot.m`），
    主屏幕、respring、安全模式、`uicache` 的注册接口都要自己做。
 6. **dpkg 触发器**：解包后签名、扫描 `Library/LaunchDaemons`、扫描 `Applications`。

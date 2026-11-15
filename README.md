@@ -13,8 +13,9 @@ ROM has to implement itself.
 | 2. launchd / launchctl (`src/`) | built, run for real on macOS in CI, needs device test |
 | 2a. Boot wiring: the ROM starts launchd with its entitlements; first-boot `nxfixup` | built, needs device test |
 | 2b. Mach-service / XPC check-in | not started |
-| 3. sudo/su, tweak injection, safe mode | not started |
-| 4. SpringBoard, uicache, Sileo | not started |
+| 3. sudo/su, tweak injection, safe mode | set-user-ID bit honoured (built, needs device test); the rest not started |
+| 4. Package managers: apps in `/var/jb/Applications` on the home screen, Sileo and Zebra shipped | built, needs device test |
+| 4b. SpringBoard replacement, respring | not started |
 
 Milestone 1: `/var/jb` is the Procursus rootless bootstrap (apt, dpkg, bash,
 zsh, coreutils and so on; 67 packages). The build downloads it from
@@ -69,6 +70,36 @@ ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
   (Nyxian > Settings > General > Boot Arguments): the ROM then boots without
   the path layer and without `nxlaunchd`.
 
+### Package managers
+
+A package manager is an app that dpkg installs into `/var/jb/Applications`, and
+that runs dpkg and apt itself. Three things make that work here:
+
+- The ROM's home screen lists the apps in `/var/jb/Applications` next to the
+  ROM's own, and starts them the same way (`scripts/patch-rom.py` adapts the
+  template's `NXMainSlot.m`).
+- The ROM's kernel (`rom-overlay/kernel/rootless.m`) lets those apps start, stop
+  and list processes, and lets what they start do the same. It also honours the
+  set-user-ID bit of files in `/var/jb`: such a program may become uid 0, which
+  is how Sileo's `giveMeRoot` helper and `sudo` work. That root is Nyxian's
+  virtual one and reaches nothing outside the app's container.
+- `uicache` and `sbreload`, which package scripts call and which cannot work
+  inside Nyxian, are replaced by a tool that succeeds (the originals are kept
+  as `*.procursus`, with dpkg diversions).
+
+Sileo 2.5.1 and Zebra 1.1.36 are downloaded from Procursus at build time
+(hash-checked, `FIRSTBOOT_DEBS` in `rom.conf`) and installed by dpkg on the
+first boot, so they can be updated and removed like any package. Any other
+package manager that exists as a rootless `.deb` (`iphoneos-arm64`, files under
+`/var/jb`) installs the same way: put the file in `rom-overlay/debs`, add its
+URL to `FIRSTBOOT_DEBS`, or install it from a running system with `dpkg -i` or
+from a repository. Procursus has no Cydia package, and no rootless build of
+Cydia is known to this project.
+
+Not verified without a device: that each app works once started. In particular
+Sileo's helper checks who started it by path, and the paths it sees inside
+Nyxian are the container's; if it refuses, that check is what to look at first.
+
 ### What happens at boot
 
 1. The ROM's kernel installs the path layer and registers `nxlaunchd` (in the
@@ -81,8 +112,10 @@ ROM's kernel installs it on every boot (`rom-overlay/kernel/shimcache.m`).
    `/var/jb` that is new or changed. On the first boot after flashing that is
    the whole bootstrap (about 390 files); its log is
    `/var/jb/var/log/nxfixup.log`.
-4. Once, right after that: the bootstrap's own `prep_bootstrap.sh`, which
-   configures the base packages and then deletes itself.
+4. Right after that, `usr/libexec/nxfirstboot`: once, the bootstrap's own
+   `prep_bootstrap.sh` (it configures the base packages and deletes itself),
+   then `dpkg -i` for every package shipped with the ROM (Sileo and Zebra). A
+   package that fails to install is tried again at the next boot.
 
 Not verified without a device: that Nyxian starts a service whose entry is
 written at boot rather than mounted, that a slot program built as a dylib with
@@ -105,8 +138,11 @@ time and is not part of this repository.
 Settings are in `rom.conf` (identifier, version, security version, the Nyxian
 commit the kernel is built from).
 
-On GitHub: every push builds `rom.zip` on a macOS runner (Actions > Build ROM >
-artifact `rom`). Set these once under Settings > Secrets and variables > Actions:
+On GitHub: every push that changes more than documentation runs the tests and
+builds `rom.zip` on a macOS runner (Actions > Build ROM > artifact `rom`). macOS
+minutes count ten times in a private repository; a run that fails within
+seconds without any step usually means the month's included minutes are used
+up (Settings > Billing and plans). Set these once under Settings > Secrets and variables > Actions:
 
 - variable `ROM_IDENTIFIER` (optional): overrides the `NXRomIdentifier` in `rom.conf`
 - secret `ROM_SIGNING_KEY`: the contents of your private key (`rom.key.pem`)

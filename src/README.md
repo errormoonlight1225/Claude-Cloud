@@ -51,8 +51,8 @@ and `--daemons-dir`.
 
 ## Try it (jailbroken device, e.g. iPhone with a rootless bootstrap)
 
-1. Download the `nxlaunchd` artifact from the "Build launchd" CI run (it is
-   already ldid-signed), or build it yourself.
+1. Build both with `make -C src ios` (macOS with Xcode; signed with ldid if it
+   is installed).
 2. Copy both binaries into the rootless prefix and make them executable:
    ```sh
    install -m755 nxlaunchd  /var/jb/usr/libexec/nxlaunchd

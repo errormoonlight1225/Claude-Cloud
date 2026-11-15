@@ -1,12 +1,23 @@
 name: Build ROM
 
+# One macOS job per push: the host tests, then the ROM (which compiles every
+# iOS part). macOS minutes count ten times in a private repository, so changes
+# to documentation alone do not start it.
+
 on:
   push:
     branches: [main, 'claude/**']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: rom-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rom:
@@ -28,6 +39,14 @@ jobs:
         run: |
           brew install ldid
           command -v zstd || brew install zstd
+
+      - name: Tests
+        run: |
+          make -C src/rtpatch test
+          make -C src/fixup test
+          python3 -I scripts/test-relocate.py
+          scripts/test-relocate-real.sh
+          scripts/test-launchd.sh
 
       - name: Build
         env:
