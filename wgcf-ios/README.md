@@ -22,6 +22,8 @@
 
 - 导入 / 导出与命令行兼容的 `wgcf-account.toml`
 - 配置选项：端点（域名 / IPv4 / IPv6）、端口（2408 / 500 / 1701 / 4500）、PersistentKeepalive、MTU、DNS、AllowedIPs
+- 端点测速：向 WARP 的多个 IP 与端口发送 WireGuard 握手包，找出当前网络下能连通的端点并写入配置
+- 自定义端点
 - 在 Cloudflare 上注销当前设备
 - 凭据（私钥、访问令牌）保存在系统钥匙串中，不随 iCloud 同步
 
@@ -33,6 +35,9 @@
 2. 点「分享 / 在 WireGuard 中打开」，在分享面板里选择 WireGuard
 3. 在 WireGuard 应用中启用隧道
 4. 回到本应用的「检测」页，确认显示「WARP 已启用」
+
+隧道启用后上不了网，通常是默认端点在当前网络下不通。先在 WireGuard 中关闭隧道，再到「配置」页的
+「端点测速」里选一个有响应的端点，重新导入。如果测速结果为空，说明该网络屏蔽了 WARP 的 WireGuard 协议。
 
 ## 构建
 
