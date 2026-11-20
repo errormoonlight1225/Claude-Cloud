@@ -69,6 +69,24 @@ final class CertificateStore: ObservableObject {
         addLog("✅ 已获取证书：\(certificate.source)，\(certificate.p12Data.count) 字节。")
     }
 
+    /// Re-packs the certificate under a new password and adds the result to
+    /// the list. Returns whether it worked.
+    @discardableResult
+    func changePassword(of certificate: ExportedCertificate, to newPassword: String) -> Bool {
+        do {
+            let rewrapped = try P12Builder.rewrap(certificate, newPassword: newPassword)
+            certificates.insert(rewrapped, at: 0)
+            addLog("✅ 已用新密码重新打包证书（\(rewrapped.p12Data.count) 字节）。")
+            alert = AlertMessage(title: "已生成",
+                                 message: "新密码的证书已加到主页列表最上方，打开它即可导出。")
+            return true
+        } catch {
+            addLog("⛔️ 改密码失败：\(error.localizedDescription)")
+            alert = AlertMessage(title: "改密码失败", message: error.localizedDescription)
+            return false
+        }
+    }
+
     func remove(_ certificate: ExportedCertificate) {
         certificates.removeAll { $0 == certificate }
     }

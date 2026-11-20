@@ -115,6 +115,8 @@ struct CertificateDetailView: View {
     let certificate: ExportedCertificate
     @State private var shareFiles: [URL] = []
     @State private var showPassword = false
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
 
     var body: some View {
         let details = certificate.details
@@ -152,6 +154,36 @@ struct CertificateDetailView: View {
                     store.copyPassword(certificate)
                 } label: {
                     Label("复制密码", systemImage: "key")
+                }
+            }
+
+            Section {
+                SecureField("新密码", text: $newPassword)
+                    .textContentType(.newPassword)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                SecureField("再输入一次", text: $confirmPassword)
+                    .textContentType(.newPassword)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                Button {
+                    if store.changePassword(of: certificate, to: newPassword) {
+                        newPassword = ""
+                        confirmPassword = ""
+                    }
+                } label: {
+                    Label("生成新密码的 .p12", systemImage: "lock.rotation")
+                }
+                .disabled(newPassword.isEmpty || newPassword != confirmPassword || details == nil)
+            } header: {
+                Text("修改密码")
+            } footer: {
+                if details == nil {
+                    Text("原 .p12 无法打开，不能改密码。")
+                } else if !confirmPassword.isEmpty && newPassword != confirmPassword {
+                    Text("两次输入的密码不一致。").foregroundStyle(.red)
+                } else {
+                    Text("用新密码重新打包证书和私钥（3DES + SHA-1，兼容 iOS、OpenSSL 和常见签名工具）。新证书会出现在主页列表中，原证书不受影响。")
                 }
             }
 

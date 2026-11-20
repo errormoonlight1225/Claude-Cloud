@@ -30,6 +30,18 @@ sidestore://certificate?callback_template=<URL 编码后的模板>
 - 分享或存储到「文件」：`SideStore-<序列号>.p12` + `SideStore-<序列号>-password.txt`
 - 保存到本应用文件夹（「文件」App →「我的 iPhone」→「证书导出」）
 - 复制密码、复制 Base64
+- **修改密码**：用自定义密码重新打包 `.p12`（见下）
+
+### 修改密码
+
+iOS 能读 `.p12`，但没有写 `.p12` 的公开接口（`SecItemExport` 只在 macOS 上有），所以 `P12Builder.swift` 按 RFC 7292 自己打包：
+
+1. 用原密码通过 `SecPKCS12Import` 打开，取出证书和 RSA 私钥；
+2. 证书放进加密 safe，私钥做成 `pkcs8ShroudedKeyBag`，都用 pbeWithSHAAnd3-KeyTripleDES-CBC（2048 次迭代）加密；
+3. 加 HMAC-SHA1 MAC；
+4. 再用新密码 `SecPKCS12Import` 打开一次做校验，打不开就不导出。
+
+3DES + SHA-1 是 iOS、macOS、OpenSSL 3（不需要 `-legacy`）和常见签名工具都能直接读的格式。原证书不会被改动，新证书会作为另一项出现在列表里。
 
 ## 构建
 
