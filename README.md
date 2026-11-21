@@ -87,9 +87,23 @@ that runs dpkg and apt itself. Three things make that work here:
   inside Nyxian, are replaced by a tool that succeeds (the originals are kept
   as `*.procursus`, with dpkg diversions).
 
-Sileo 2.5.1 and Zebra 1.1.36 are downloaded from Procursus at build time
-(hash-checked, `FIRSTBOOT_DEBS` in `rom.conf`) and installed by dpkg on the
-first boot, so they can be updated and removed like any package. Any other
+Sileo 2.5.1 and Zebra 1.1.36 (from Procursus) and Irisin 5.1.8 (OwnGoal
+Studio, from its GitHub release, the file `apt.owngoal.dev` indexes) are
+downloaded at build time, hash-checked (`FIRSTBOOT_DEBS` in `rom.conf`), and
+installed by dpkg on the first boot, so they can be updated and removed like
+any package.
+
+Irisin is built differently from the other two, and it cannot install
+packages here yet. Its app runs as mobile and hands every install to a root
+daemon, `irisind`, over the Mach service `wiki.qaq.irisin.service`; launchd
+starts the daemon when that service is looked up. Inside Nyxian three things
+are missing for that: `nxlaunchd` does not provide Mach services yet (milestone
+2b); Irisin loads its daemon through launchd's own interface rather than
+`launchctl`, so its install script only warns; and the daemon admits a client
+by what the real kernel reports about it (its path, user and code-signing
+entitlements), which inside Nyxian describe Nyxian's process, not Irisin's.
+Irisin installs, appears on the home screen and browses repositories; use
+Sileo or Zebra to install packages until 2b is done. Any other
 package manager that exists as a rootless `.deb` (`iphoneos-arm64`, files under
 `/var/jb`) installs the same way: put the file in `rom-overlay/debs`, add its
 URL to `FIRSTBOOT_DEBS`, or install it from a running system with `dpkg -i` or
